@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>News Credibility Analyzer</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5; /* Light background */
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            width: 100%;
+            max-width: 1200px;
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50; /* Darker blue for headings */
+            font-family: "Georgia", serif;
+            font-size: 2.8em;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+            margin-bottom: 25px;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 15px;
+        }
+        h3 {
+            color: #34495e; /* Slightly lighter dark blue */
+            border-bottom: 1px solid #f0f0f0;
+            padding-bottom: 5px;
+            margin-top: 20px;
+            margin-bottom: 15px;
+        }
+        
+        .subtitle-highlight {
+    color: #00a46b; /* Яркий зеленый цвет (как у кнопки "Analyze News") */
+    /* Альтернативный вариант: яркий синий (как у ссылок) */
+    /* color: #2196F3; */
+    text-align: center; /* Выравнивание по центру, чтобы соответствовать H1 */
+    font-size: 1.9em;   /* Немного увеличим размер для акцента */
+    font-weight: bold;  /* Можно сделать его жирнее, если текущий H2 не жирный */
+    margin-bottom: 20px; /* Можно настроить отступ снизу */
+    padding-bottom: 10px; /* Отступ для подчеркивания, если оно есть */
+    /* Если вы хотите убрать или изменить нижнюю границу только для этого подзаголовка: */
+    /* border-bottom: none; */ /* Убрать границу */
+    /* border-bottom: 1px solid #4CAF50; */ /* Сделать границу в цвет текста */
+}
+        .section-box {
+            background-color: #fdfdfd;
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid #e9ecef;
+        }
+        textarea, input[type="text"] {
+            width: calc(100% - 20px);
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            background-color: #f8f9fa;
+            color: #495057;
+            font-size: 1em;
+            resize: vertical;
+        }
+        textarea::placeholder, input[type="text"]::placeholder {
+            color: #6c757d;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #495057;
+            font-weight: bold;
+        }
+        .button-group {
+            display: flex;
+            gap: 15px;
+            justify-content: flex-end;
+            margin-top: 15px;
+        }
+        button {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-weight: bold;
+            transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button.primary {
+            background-color: #4CAF50; /* Green */
+            color: white;
+        }
+        button.primary:hover {
+            background-color: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        button.secondary {
+            background-color: #607d8b; /* Blue-grey */
+            color: white;
+        }
+        button.secondary:hover {
+            background-color: #546e7a;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .grid-container {
+            display: grid;
+            grid-template-columns: 2fr 3fr;
+            gap: 25px;
+        }
+        .full-width {
+            grid-column: 1 / -1;
+        }
+        /* Styles for Markdown rendered content */
+        .analysis-output p, .analysis-output li {
+            color: #555;
+            line-height: 1.6;
+        }
+        .analysis-output strong {
+            color: #333;
+        }
+        .analysis-output h3, .analysis-output h4 {
+            color: #34495e;
+            border-bottom: 1px solid #f0f0f0;
+            padding-bottom: 5px;
+            margin-top: 15px;
+            margin-bottom: 10px;
+        }
+        .analysis-output ul {
+            list-style-type: disc;
+            padding-left: 20px;
+        }
+        .analysis-output em {
+            font-style: italic;
+        }
+
+        .similar-article {
+            margin-bottom: 15px;
+            padding: 10px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            background-color: #f8f8f8;
+        }
+        .similar-article h4 {
+            margin-top: 0;
+            margin-bottom: 8px;
+        }
+        .similar-article a {
+            color: #2196f3; /* Blue link */
+            text-decoration: none;
+        }
+        .similar-article a:hover {
+            text-decoration: underline;
+        }
+        .similar-article p {
+            margin-bottom: 5px;
+            font-size: 0.95em;
+            color: #666;
+        }
+        hr {
+            border: 0;
+            border-top: 1px dashed #ced4da;
+            margin: 20px 0;
+        }
+        #loading-spinner {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+            color: #2196f3;
+            font-size: 1.2em;
+        }
+        .error-message {
+            color: #dc3545; /* Red error */
+            background-color: #f8d7da;
+            border: 1px solid #dc3545;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        #sourceReliabilityPlot, #articleScorePlot {
+            min-height: 300px;
+        }
+        
+        details {
+            background-color: #ffffff;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        summary {
+            padding: 15px 20px;
+            cursor: pointer;
+            font-weight: bold;
+            color: #34495e;
+            font-size: 1.1em;
+            list-style: none; /* Hide default arrow */
+            position: relative;
+        }
+        summary::before {
+            content: '►'; /* Custom arrow */
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%) rotate(0deg);
+            transition: transform 0.2s ease;
+            color: #607d8b; /* Blue-grey arrow */
+        }
+        details[open] summary::before {
+            transform: translateY(-50%) rotate(90deg);
+        }
+        details > *:not(summary) {
+            padding: 0 20px 15px 20px;
+        }
+        .faq-item {
+            margin-bottom: 15px;
+        }
+        .faq-item h4 {
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+        .faq-item p {
+            color: #555;
+            margin-top: 0;
+        }
+    </style>
+</head>
+</style>
+</head>
+<body>
+    <div class="container">
+        <h1>📰 News & Source Credibility Index</h1>
+    <h2 class="subtitle-highlight">What's Outside Your Bubble? Find out with us.</h2>
+        <h3>Analyzing and calculating Credibility Index of News and Sources.</h3>
+
+        <div class="grid-container">
+            <div class="column-left">
+                <div class="section-box">
+                    <label for="articleInput">📝 Enter News Article Text or URL:</label>
+                    <textarea id="articleInput" rows="10" placeholder="Paste full article text or a direct link (URL) to a news article..."></textarea>
+
+                    <label for="sourceName">🌐 Source Name (Optional, auto-detected from URL):</label>
+                    <input type="text" id="sourceName" placeholder="e.g., Associated Press, BBC News. Leave blank if providing URL.">
+
+                    <div class="button-group">
+                        <button class="primary" id="analyzeButton">🚀 Analyze News</button>
+                        <button class="secondary" id="clearButton">🧹 Clear All</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="column-right">
+                <details open>
+                    <summary>📊 Article Credibility Analysis</summary>
+                    <div id="analysisOutput" class="analysis-output">
+                        <p>Awaiting analysis...</p>
+                    </div>
+                    <div id="articleScorePlot"></div>
+                </details>
+
+                <details open>
+                    <summary>🔗 Similar News with higher credibility</summary>
+                    <div id="similarArticlesOutput">
+                        <p>Similar articles will appear here after analysis.</p>
+                    </div>
+                </details>
+            </div>
+        </div>
+
+        <div class="full-width">
+            <details>
+                <summary>📈 Overall Source Credibility Index & Analysis History</summary>
+                <div class="section-box">
+                    <div class="button-group">
+                        <button class="secondary" id="refreshStatsButton">🔄 Refresh Stats & History</button>
+                    </div>
+                    <div id="sourceReliabilityPlot"></div>
+                    <div id="analysisHistory">
+                        <p>Loading analysis history...</p>
+                    </div>
+                </div>
+            </details>
+        </div>
+
+        <div class="full-width">
+            <details>
+                <summary>❓ Frequently Asked Questions (FAQ)</summary>
+                <div class="section-box">
+                    <div class="faq-item">
+                        <h4>Q: How does the analyzer determine credibility?</h4>
+                        <p>A: The analyzer uses an advanced AI model to evaluate several factors like integrity, factuality, sentiment, and bias within the article text. These scores are then combined into an **Overall Credibility Index**.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h4>Q: Why are there "High", "Medium", and "Low" credibility levels for sources?</h4>
+                        <p>A: These levels are dynamic and based on the historical analyses performed by this tool. Each time an article from a source is analyzed, its credibility level contributes to the source's **Overall Credibility Index**, giving you a cumulative view of its trustworthiness based on past performance.</p>
+                    </div>
+                    <div class="faq-item">
+                        <h4>Q: How does "Similar News" work?</h4>
+                        <p>A: After analyzing your article, the AI generates a search query based on its key topics and arguments. This query is then used to search a database of reputable news sources (via NewsAPI) for related articles, which are then ranked by relevance and their estimated source trustworthiness.</p>
+                    </div>
+                     <div class="faq-item">
+                        <h4>Q: What if the article URL does not work?</h4>
+                        <p>A: Sometimes, news websites prevent automated scraping, or the URL might be broken. If the tool fails to extract content from a URL, please try pasting the full article text directly into the input box instead.</p>
+                    </div>
+                </div>
+            </details>
+        </div>
+
+        <div class="full-width">
+            <details>
+                <summary>✉️ Feedback & Support</summary>
+                <div class="section-box">
+                    <p>We're continuously working to improve this tool. Your feedback is highly valuable!</p>
+                    <p>For any suggestions, bug reports, or questions, please don't hesitate to reach out to us at <a href="mailto:nothetal@gmail.com">nothetal@gmail.com</a>.</p>
+                    <p>Thank you for using the News Credibility Analyzer!</p>
+                </div>
+            </details>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const articleInput = document.getElementById('articleInput');
+            const sourceNameInput = document.getElementById('sourceName');
+            const analyzeButton = document.getElementById('analyzeButton');
+            const clearButton = document.getElementById('clearButton');
+            const refreshStatsButton = document.getElementById('refreshStatsButton');
+
+            const analysisOutput = document.getElementById('analysisOutput');
+            const articleScorePlotDiv = document.getElementById('articleScorePlot');
+            const similarArticlesOutput = document.getElementById('similarArticlesOutput');
+            const sourceReliabilityPlotDiv = document.getElementById('sourceReliabilityPlot');
+            const analysisHistoryDiv = document.getElementById('analysisHistory');
+
+            let lastAnalysisResult = null; // Store the last analysis result for similar news
+
+            // Function to fetch and display source reliability plot
+            async function updateSourceReliabilityPlot() {
+                try {
+                    const response = await fetch('/source_reliability_data');
+                    const data = await response.json();
+
+                    const sources = data.sources;
+                    const credibilityIndices = data.credibility_indices_for_plot; // Изменено здесь
+                    const highCounts = data.high_counts;
+                    const mediumCounts = data.medium_counts;
+                    const lowCounts = data.low_counts;
+                    const totalAnalyzedCounts = data.total_analyzed_counts;
+
+                    const colors = credibilityIndices.map(score => { // Используем credibilityIndices
+                        if (score >= 0.7) return '#28a745'; /* Green */
+                        if (score >= 0.4) return '#ffc107'; /* Orange */
+                        return '#dc3545'; /* Red */
+                    });
+
+                    const plotData = [{
+                        x: sources,
+                        y: credibilityIndices, // Используем credibilityIndices
+                        type: 'bar',
+                        marker: { color: colors },
+                        hovertemplate: '<b>%{x}</b><br>' +
+                                       'Credibility Index: %{y:.2f}<br>' + // Изменено здесь
+                                       'Articles Analyzed: %{customdata[0]}<br>' +
+                                       'High: %{customdata[1]}<br>' +
+                                       'Medium: %{customdata[2]}<br>' +
+                                       'Low: %{customdata[3]}' +
+                                       '<extra></extra>',
+                        customdata: totalAnalyzedCounts.map((t, i) => [t, highCounts[i], mediumCounts[i], lowCounts[i]])
+                    }];
+
+                    const layout = {
+                        title: { text: "Overall Source Credibility Index (Today)", font: { color: '#34495e' } }, // Изменено здесь
+                        xaxis: { title: { text: "News Sources", font: { color: '#495057' } }, tickangle: -45, automargin: true, tickfont: { size: 10, color: '#495057' } },
+                        yaxis: { title: { text: "Calculated Credibility Index (0-1)", font: { color: '#495057' } }, range: [0, 1], gridcolor: '#e9ecef', zerolinecolor: '#ced4da', tickfont: { color: '#495057' } }, // Изменено здесь
+                        plot_bgcolor: 'rgba(0,0,0,0)',
+                        paper_bgcolor: 'rgba(0,0,0,0)',
+                        font: { color: '#333' },
+                        height: 450,
+                        margin: { b: 150, t: 50, l: 50, r: 20 }
+                    };
+
+                    Plotly.newPlot(sourceReliabilityPlotDiv, plotData, layout, {responsive: true});
+                } catch (error) {
+                    console.error('Error fetching source reliability data:', error);
+                    sourceReliabilityPlotDiv.innerHTML = '<p style="color:red;">Failed to load source reliability data.</p>';
+                }
+            }
+
+            // Function to fetch and display analysis history
+            async function updateAnalysisHistory() {
+                try {
+                    const response = await fetch('/analysis_history_html');
+                    const data = await response.json();
+                    analysisHistoryDiv.innerHTML = data.history_html;
+                } catch (error) {
+                    console.error('Error fetching analysis history:', error);
+                    analysisHistoryDiv.innerHTML = '<p style="color:red;">Failed to load analysis history.</p>';
+                }
+            }
+
+            // Initial load of plots and history
+            updateSourceReliabilityPlot();
+            updateAnalysisHistory();
+
+            analyzeButton.addEventListener('click', async () => {
+                const inputText = articleInput.value.trim();
+                const sourceName = sourceNameInput.value.trim();
+
+                if (!inputText) {
+                    analysisOutput.innerHTML = '<p class="error-message">Please enter an article text or URL.</p>';
+                    articleScorePlotDiv.innerHTML = '';
+                    similarArticlesOutput.innerHTML = '';
+                    return;
+                }
+                
+                analysisOutput.innerHTML = '<p>Analyzing article, please wait... (This may take up to 30-60 seconds for AI analysis)</p>';
+                articleScorePlotDiv.innerHTML = '';
+                similarArticlesOutput.innerHTML = '<p>Fetching similar articles...</p>';
+                lastAnalysisResult = null; // Clear previous result
+
+                try {
+                    const response = await fetch('/analyze', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            input_text: inputText,
+                            source_name_manual: sourceName
+                        }),
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        analysisOutput.innerHTML = `<div class="error-message">Error: ${errorData.error_message || 'An unknown error occurred during analysis.'}</div>`;
+                        similarArticlesOutput.innerHTML = '<p>Analysis failed, cannot fetch similar articles.</p>';
+                        return;
+                    }
+
+                    const data = await response.json();
+                    // Use marked.js to convert markdown to HTML
+                    analysisOutput.innerHTML = marked.parse(data.output_md);
+                    lastAnalysisResult = data.analysis_result; // Save the analysis result
+
+                    // Render Article Score Plot
+                    const scores = data.scores_for_chart;
+                    const plotData = [{
+                        x: Object.keys(scores),
+                        y: Object.values(scores),
+                        type: 'bar',
+                        marker: {
+                            color: ['#28a745', '#ffc107', '#17a2b8', '#6610f2', '#007bff'] /* Green, Orange, Teal, Purple, Blue */
+                        }
+                    }];
+                    const layout = {
+                        title: { text: "Article Credibility Index Metrics", font: { color: '#34495e' } }, // Изменено здесь
+                        xaxis: { title: { text: "Metric", font: { color: '#495057' } }, tickfont: { color: '#495057' } },
+                        yaxis: { title: { text: "Score (%)", font: { color: '#495057' } }, range: [0, 100], gridcolor: '#e9ecef', zerolinecolor: '#ced4da', tickfont: { color: '#495057' } },
+                        plot_bgcolor: 'rgba(0,0,0,0)',
+                        paper_bgcolor: 'rgba(0,0,0,0)',
+                        font: { color: '#333' },
+                        height: 350,
+                        margin: { b: 50, t: 50, l: 50, r: 20 }
+                    };
+                    Plotly.newPlot(articleScorePlotDiv, plotData, layout, {responsive: true});
+
+                    // Fetch similar articles using the analysis result
+                    if (lastAnalysisResult) {
+                        const similarResponse = await fetch('/similar_articles', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ analysis_result: lastAnalysisResult }),
+                        });
+                        const similarData = await similarResponse.json();
+                        similarArticlesOutput.innerHTML = similarData.similar_html;
+                    } else {
+                        similarArticlesOutput.innerHTML = '<p>Could not fetch similar articles (analysis result was not complete or NewsAPI is disabled).</p>';
+                    }
+
+                    // Refresh global stats after a new analysis
+                    updateSourceReliabilityPlot();
+                    updateAnalysisHistory();
+
+                } catch (error) {
+                    console.error('Fetch error:', error);
+                    analysisOutput.innerHTML = `<div class="error-message">A network error occurred or server is unreachable: ${error.message}</div>`;
+                    similarArticlesOutput.innerHTML = '<p>Analysis failed due to a network error.</p>';
+                }
+            });
+
+            clearButton.addEventListener('click', () => {
+                articleInput.value = '';
+                sourceNameInput.value = '';
+                analysisOutput.innerHTML = '<p>Awaiting analysis...</p>';
+                articleScorePlotDiv.innerHTML = '';
+                similarArticlesOutput.innerHTML = '<p>Similar articles will appear here.</p>';
+                lastAnalysisResult = null;
+                updateSourceReliabilityPlot(); // Refresh to initial or current DB state
+                updateAnalysisHistory();
+            });
+
+            refreshStatsButton.addEventListener('click', () => {
+                updateSourceReliabilityPlot();
+                updateAnalysisHistory();
+            });
+        });
+    </script>
+</body>
+</html>
