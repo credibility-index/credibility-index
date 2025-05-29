@@ -60,7 +60,7 @@ Stay tuned for project updates, or reach out if you share our passion for trustw
 
 ## 📫 Contact & Links
 
-<!-- Add your social links or contact information here! -->
+nothetal@gmail.com
 <!-- Example: -->
 <!-- [LinkedIn](https://www.linkedin.com/in/yourprofile/) | [Twitter](https://twitter.com/yourprofile) | [Website](https://yourwebsite.com) -->
 
