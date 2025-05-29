@@ -14,6 +14,7 @@ import re
 import plotly.graph_objects as go
 from stop_words import get_stop_words # pip install stop-words
 from newspaper import Article # pip install newspaper3k
+import html # Для html.escape, если еще не импортирован глобально
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -563,50 +564,89 @@ def fetch_similar_news(analysis_result, days_range=3, max_articles=10): # Уве
     logger.info(f"Returning {len(top_articles)} top ranked similar articles.")
     return top_articles
 
+
+# Предполагается, что DB_NAME = 'news_analysis.db' определена глобально в вашем скрипте
+
 def render_similar_articles_html(articles):
-    """Generates HTML for displaying similar articles."""
+    """Generates HTML for displaying similar articles with credibility scores."""
     if not articles:
         return "<p>No similar articles found for the selected criteria. Try a different article or adjust the search range.</p>"
 
+    # Ваши predefined_trust_scores, они будут использоваться как fallback
     predefined_trust_scores = {
         "bbc.com": 0.9, "bbc.co.uk": 0.9, "reuters.com": 0.95, "apnews.com": 0.93,
         "nytimes.com": 0.88, "theguardian.com": 0.85, "wsj.com": 0.82,
         "cnn.com": 0.70, "foxnews.com": 0.40, "aljazeera.com": 0.80
     }
 
-    html_items = []
-    for art in articles:
-        title = art.get("title", "No Title")
-        article_url = art.get("url", "#")
-        source_api_name = art.get("source", {}).get("name", "Unknown Source")
+    conn = None # Инициализируем conn
+    try:
+        conn = sqlite3.connect(DB_NAME) # Используем глобальную переменную DB_NAME
+        c = conn.cursor()
 
-        domain = urlparse(article_url).netloc.replace('www.', '')
-        trust_score = predefined_trust_scores.get(domain)
-        trust_display = f" (Est. Trust: {trust_score*100:.0f}%)" if trust_score else ""
-        published_at = art.get('publishedAt', 'N/A')
-        
-        description = art.get('description', 'No description available.')
-        if description.startswith(title): # Avoid duplicating title in description
-            description = description[len(title):].strip()
-            if description.startswith("- "): description = description[2:].strip()
+        html_items = []
+        for art in articles:
+            title = html.escape(art.get("title", "No Title")) # Экранируем для безопасности
+            article_url = html.escape(art.get("url", "#")) # Экранируем URL
+            source_api_name = html.escape(art.get("source", {}).get("name", "Unknown Source"))
+            
+            published_at_raw = art.get('publishedAt', 'N/A')
+            published_at_display = html.escape(published_at_raw.split('T')[0] if 'T' in published_at_raw and published_at_raw != 'N/A' else published_at_raw)
+            
+            description_raw = art.get('description', 'No description available.')
+            if description_raw.startswith(art.get("title", "")): # Avoid duplicating title in description
+                description_raw = description_raw[len(art.get("title", "")):].strip()
+                if description_raw.startswith("- "): description_raw = description_raw[2:].strip()
+            description_display = html.escape(description_raw)
 
-        # Using f-strings and manual escaping for security when embedding into HTML
-        html_items.append(
-            f"""
-            <div class="similar-article">
-                <h4><a href="{article_url}" target="_blank" rel="noopener noreferrer">
-                    {title}
-                </a></h4>
-                <p><strong>Source:</strong> {source_api_name}{trust_display} | <strong>Published:</strong> {published_at.split('T')[0] if 'T' in published_at else published_at}</p>
-                <p>{description}</p>
-            </div>
-            <hr>
-            """
-        )
+
+            domain = urlparse(art.get("url", "#")).netloc.replace('www.', '') # Не экранируем domain, т.к. он для логики
+            
+            trust_display = "" # Инициализируем строку для отображения доверия
+
+            # 1. Пытаемся получить историческую достоверность из source_stats
+            c.execute("SELECT high, medium, low, total_analyzed FROM source_stats WHERE source = ?", (domain,))
+            row = c.fetchone()
+
+            if row:
+                high, medium, low, total_analyzed = row
+                if total_analyzed > 0:
+                    # Рассчитываем исторический средний балл достоверности источника
+                    score = (high * 1.0 + medium * 0.5 + low * 0.0) / total_analyzed
+                    trust_display = f" (Hist. Src. Credibility: {score*100:.0f}%)"
+            
+            # 2. Если не нашли в source_stats или там нет анализов, используем predefined_trust_scores
+            if not trust_display and domain in predefined_trust_scores:
+                predefined_score = predefined_trust_scores.get(domain)
+                trust_display = f" (Est. Src. Trust: {predefined_score*100:.0f}%)"
+            elif not trust_display: # Если все еще нет информации о доверии
+                trust_display = " (Src. Credibility: N/A)"
+            
+            trust_display = html.escape(trust_display) # Экранируем результат
+
+            html_items.append(
+                f"""
+                <div class="similar-article">
+                    <h4><a href="{article_url}" target="_blank" rel="noopener noreferrer">
+                        {title}
+                    </a></h4>
+                    <p><strong>Source:</strong> {source_api_name}{trust_display} | <strong>Published:</strong> {published_at_display}</p>
+                    <p>{description_display}</p>
+                </div>
+                <hr>
+                """
+            )
+    except sqlite3.Error as e:
+        print(f"Database error in render_similar_articles_html: {e}")
+        return "<p>Error retrieving similar articles data due to a database issue.</p>"
+    finally:
+        if conn:
+            conn.close()
+            
     return f"""
     <div class="similar-articles-container">
         <h3>🔗 Similar News Articles (Ranked by Relevance & Trust):</h3>
-        {"".join(html_items)}
+        {"".join(html_items) if html_items else "<p>No articles to display or an error occurred.</p>"}
     </div>
     """
 
