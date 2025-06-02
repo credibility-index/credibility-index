@@ -1,17 +1,16 @@
-from flask import Flask, render_template, request, jsonify
-import os
-import json
-import sqlite3
-import requests
-import anthropic
-from urllib.parse import urlparse
-from bs4 import BeautifulSoup
-from dotenv import load_dotenv
-# import html # Убрали импорт html, так как больше не будем экранировать
-from datetime import datetime, timedelta, UTC
-import logging
-import re
-import plotly.graph_objects as go
-from stop_words import get_stop_words # pip install stop-words
-from newspaper import Article # pip install newspaper3k
-import html 
+
+Flask==3.0.0
+requests==2.31.0
+anthropic==0.25.0
+python-dotenv==1.0.0
+beautifulsoup4==4.12.2
+newspaper3k==0.2.8
+stop-words==2023.2.2
+plotly==5.18.0
+flask-cors==4.0.0
+sqlite3==3.41.2
+loguru==0.7.2
+python-dateutil==2.8.2
+regex==2023.10.3
+simplejson==3.19.2
+python-dotenv==1.0.0
