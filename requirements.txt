@@ -1,0 +1,17 @@
+from flask import Flask, render_template, request, jsonify
+import os
+import json
+import sqlite3
+import requests
+import anthropic
+from urllib.parse import urlparse
+from bs4 import BeautifulSoup
+from dotenv import load_dotenv
+# import html # Убрали импорт html, так как больше не будем экранировать
+from datetime import datetime, timedelta, UTC
+import logging
+import re
+import plotly.graph_objects as go
+from stop_words import get_stop_words # pip install stop-words
+from newspaper import Article # pip install newspaper3k
+import html 
