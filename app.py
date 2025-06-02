@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_from_directory
 import os
 import json
 import sqlite3
@@ -15,27 +15,35 @@ from stop_words import get_stop_words
 from newspaper import Article
 import html
 
-# Setup logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# Настройка логирования
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('app.log'),
+        logging.StreamHandler()
+    ]
+)
 logger = logging.getLogger(__name__)
 
-# Load environment variables
+# Загрузка переменных окружения
 load_dotenv()
 ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
 NEWS_API_KEY = os.getenv('NEWS_API_KEY')
 NEWS_API_ENABLED = bool(NEWS_API_KEY)
 MODEL_NAME = "claude-3-opus-20240229"
 
+# Проверка наличия API ключей
 if not ANTHROPIC_API_KEY:
     raise ValueError("ANTHROPIC_API_KEY is missing! Please set it in your .env file.")
 if not NEWS_API_KEY:
     logger.warning("NEWS_API_KEY is missing! Similar news functionality will be disabled.")
     NEWS_API_ENABLED = False
 
-# Database Setup
+# Настройка базы данных
 DB_NAME = 'news_analysis.db'
 
-# Initial data for source reliability
+# Начальные данные для надежности источников
 INITIAL_SOURCE_COUNTS = {
     "bbc.com": {"high": 15, "medium": 5, "low": 1},
     "reuters.com": {"high": 20, "medium": 3, "low": 0},
@@ -46,7 +54,7 @@ INITIAL_SOURCE_COUNTS = {
     "apnews.com": {"high": 18, "medium": 2, "low": 0}
 }
 
-# Mapping of domains to media owners
+# Соответствие доменов и владельцев СМИ
 media_owners = {
     "bbc.com": "BBC",
     "bbc.co.uk": "BBC",
@@ -60,7 +68,7 @@ media_owners = {
     "aljazeera.com": "Al Jazeera Media Network"
 }
 
-# NewsAPI source IDs for filtering
+# ID источников NewsAPI для фильтрации
 TRUSTED_NEWS_SOURCES_IDS = [
     "bbc-news", "reuters", "associated-press", "the-new-york-times",
     "the-guardian-uk", "the-wall-street-journal", "cnn", "al-jazeera-english"
@@ -68,8 +76,16 @@ TRUSTED_NEWS_SOURCES_IDS = [
 
 stop_words_en = get_stop_words('en')
 
+# Инициализация Flask приложения
+app = Flask(__name__, static_folder='static', template_folder='templates')
+
+# Настройка статических файлов
+@app.route('/static/<path:filename>')
+def static_files(filename):
+    return send_from_directory(app.static_folder, filename)
+
 def check_database_integrity():
-    """Check database integrity and structure."""
+    """Проверяет целостность базы данных."""
     try:
         logger.info("Performing database integrity check...")
 
@@ -80,7 +96,7 @@ def check_database_integrity():
         conn = sqlite3.connect(DB_NAME)
         c = conn.cursor()
 
-        # Check tables exist
+        # Проверка существования таблиц
         c.execute("SELECT name FROM sqlite_master WHERE type='table'")
         tables = [table[0] for table in c.fetchall()]
 
@@ -90,7 +106,7 @@ def check_database_integrity():
                 logger.error(f"Critical table '{table}' is missing!")
                 return False
 
-        # Check news table structure
+        # Проверка структуры таблицы news
         c.execute("PRAGMA table_info(news)")
         news_columns = [column[1] for column in c.fetchall()]
         required_news_columns = [
@@ -104,7 +120,7 @@ def check_database_integrity():
                 logger.error(f"Critical column '{column}' is missing in 'news' table!")
                 return False
 
-        # Check source_stats table structure
+        # Проверка структуры таблицы source_stats
         c.execute("PRAGMA table_info(source_stats)")
         stats_columns = [column[1] for column in c.fetchall()]
         required_stats_columns = ['source', 'high', 'medium', 'low', 'total_analyzed']
@@ -114,7 +130,7 @@ def check_database_integrity():
                 logger.error(f"Critical column '{column}' is missing in 'source_stats' table!")
                 return False
 
-        # Check if source_stats has data
+        # Проверка наличия данных в таблице source_stats
         c.execute("SELECT COUNT(*) FROM source_stats")
         source_count = c.fetchone()[0]
         if source_count == 0:
@@ -135,12 +151,12 @@ def check_database_integrity():
             conn.close()
 
 def ensure_db_schema():
-    """Ensure database schema exists."""
+    """Обеспечивает наличие схемы базы данных."""
     try:
         conn = sqlite3.connect(DB_NAME)
         c = conn.cursor()
 
-        # Create news table
+        # Создание таблицы news
         c.execute('''CREATE TABLE IF NOT EXISTS news (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT,
@@ -157,7 +173,7 @@ def ensure_db_schema():
             short_summary TEXT
         )''')
 
-        # Create source_stats table
+        # Создание таблицы source_stats
         c.execute('''CREATE TABLE IF NOT EXISTS source_stats (
             source TEXT PRIMARY KEY,
             high INTEGER DEFAULT 0,
@@ -177,7 +193,7 @@ def ensure_db_schema():
             conn.close()
 
 def initialize_sources(initial_counts):
-    """Initialize source statistics with default values."""
+    """Инициализирует статистику источников начальными значениями."""
     try:
         conn = sqlite3.connect(DB_NAME)
         c = conn.cursor()
@@ -214,13 +230,13 @@ def initialize_sources(initial_counts):
             conn.close()
 
 class ClaudeNewsAnalyzer:
-    """Class for analyzing news articles using Claude API."""
+    """Класс для анализа новостных статей с использованием API Claude."""
     def __init__(self, api_key, model_name):
         self.client = anthropic.Anthropic(api_key=api_key)
         self.model_name = model_name
 
     def analyze_article_text(self, article_text_content, source_name_for_context):
-        """Analyze article text using Claude API."""
+        """Анализирует текст статьи с использованием API Claude."""
         max_chars_for_claude = 10000
         if len(article_text_content) > max_chars_for_claude:
             logger.warning(f"Article text truncated to {max_chars_for_claude} characters for Claude analysis.")
@@ -285,7 +301,7 @@ JSON Fields:
             raise
 
 def extract_text_from_url(url):
-    """Extract article content from URL using newspaper3k."""
+    """Извлекает текст статьи из URL с использованием newspaper3k."""
     try:
         clean_url = re.sub(r'/amp(/)?$', '', url)
         article = Article(clean_url)
@@ -307,7 +323,7 @@ def extract_text_from_url(url):
         return "", "", ""
 
 def calculate_credibility_level(integrity, fact_check_needed, sentiment, bias):
-    """Calculate qualitative credibility level based on AI scores."""
+    """Вычисляет уровень достоверности на основе оценок ИИ."""
     fact_check_score = 1.0 - fact_check_needed
     neutral_sentiment_proximity = 1.0 - abs(sentiment - 0.5) * 2
     bias_score_inverted = 1.0 - bias
@@ -321,7 +337,7 @@ def calculate_credibility_level(integrity, fact_check_needed, sentiment, bias):
     return 'Low'
 
 def save_analysis_to_db(url, title, source, content, analysis_result):
-    """Save analysis results to SQLite database."""
+    """Сохраняет результаты анализа в базу данных SQLite."""
     conn = None
     try:
         conn = sqlite3.connect(DB_NAME)
@@ -351,7 +367,7 @@ def save_analysis_to_db(url, title, source, content, analysis_result):
                 (db_url, title, source, content, integrity, fact_check_needed, sentiment, bias,
                  credibility_level, short_summary, index_of_credibility))
 
-        # Update source_stats table
+        # Обновление таблицы source_stats
         c.execute("SELECT high, medium, low, total_analyzed FROM source_stats WHERE source = ?", (source,))
         row = c.fetchone()
 
@@ -387,7 +403,7 @@ def save_analysis_to_db(url, title, source, content, analysis_result):
             conn.close()
 
 def process_article_analysis(input_text, source_name_manual):
-    """Process article analysis pipeline."""
+    """Обрабатывает анализ статьи."""
     article_url = None
     article_content = input_text
     article_title = "User-provided Text"
@@ -450,7 +466,7 @@ def process_article_analysis(input_text, source_name_manual):
 #### 📊 Analysis Scores:
 - **Integrity Score:** {ni*100:.1f}% - Measures the overall integrity and trustworthiness.
 - **Factuality Score:** {factuality_display_score*100:.1f}% - Indicates likelihood of needing fact-checking.
-- **Sentiment Score:** {ss:.2f} - Emotional tone (0.0 negative, 0.5 neutral, 1.0 positive).
+- **Sentiment Score:** {ss:.2f} - Overall emotional tone (0.0 negative, 0.5 neutral, 1.0 positive).
 - **Bias Score:** {bs*100:.1f}% - Degree of perceived bias (0.0 low, 1.0 high).
 - **Index of Credibility:** {index_of_credibility*100:.1f}% - Overall credibility index.
 
@@ -488,7 +504,7 @@ The media owner, {media_owners.get(source_name, "Unknown Owner")}, may influence
     return output_md, scores_for_chart, analysis_result
 
 def generate_query(analysis_result):
-    """Generate optimized NewsAPI query from analysis results."""
+    """Генерирует оптимизированный запрос для NewsAPI на основе результатов анализа."""
     topics = analysis_result.get('topics', [])
     key_arguments = analysis_result.get('key_arguments', [])
     mentioned_facts = analysis_result.get('mentioned_facts', [])
@@ -523,7 +539,7 @@ def generate_query(analysis_result):
     return query
 
 def make_newsapi_request(params):
-    """Helper function to make NewsAPI requests."""
+    """Вспомогательная функция для выполнения запросов к NewsAPI."""
     url = "https://newsapi.org/v2/everything"
     try:
         response = requests.get(url, params=params, timeout=15)
@@ -540,7 +556,7 @@ def make_newsapi_request(params):
         return []
 
 def fetch_similar_news(analysis_result, days_range=4, max_articles=10):
-    """Fetch similar news articles using NewsAPI."""
+    """Получает похожие новостные статьи с использованием NewsAPI."""
     if not NEWS_API_ENABLED:
         logger.warning("NEWS_API_KEY is not configured or enabled. Skipping similar news search.")
         return []
@@ -548,7 +564,7 @@ def fetch_similar_news(analysis_result, days_range=4, max_articles=10):
     initial_query = generate_query(analysis_result)
     url = "https://newsapi.org/v2/everything"
 
-    # Determine date range
+    # Определение диапазона дат
     original_published_date_str = analysis_result.get('published_date', 'N/A')
     end_date = datetime.now(UTC).date()
 
@@ -565,7 +581,7 @@ def fetch_similar_news(analysis_result, days_range=4, max_articles=10):
         start_date = end_date - timedelta(days=days_range)
         logger.info(f"No original article date found. Using default NewsAPI search range: {start_date} to {end_date}")
 
-    # Attempt 1: Specific Query with Trusted Sources
+    # Попытка 1: Специфический запрос с надежными источниками
     params_specific = {
         "q": initial_query,
         "apiKey": NEWS_API_KEY,
@@ -582,7 +598,7 @@ def fetch_similar_news(analysis_result, days_range=4, max_articles=10):
     articles_found = make_newsapi_request(params_specific)
     logger.info(f"[NewsAPI] Attempt 1 found {len(articles_found)} articles.")
 
-    # Attempt 2: Broader Query if Attempt 1 yields too few results
+    # Попытка 2: Более широкий запрос, если первая попытка дала мало результатов
     if len(articles_found) < (max_articles / 2) and initial_query != "current events OR news":
         logger.info("Few results from specific query, attempting broader search.")
         broader_query_terms = list(set(analysis_result.get('topics', [])[:3]))
@@ -608,7 +624,7 @@ def fetch_similar_news(analysis_result, days_range=4, max_articles=10):
         articles_found.extend(additional_articles)
         logger.info(f"[NewsAPI] Attempt 2 found {len(additional_articles)} new articles. Total: {len(articles_found)}")
 
-    # Deduplicate articles
+    # Удаление дубликатов статей
     unique_articles = {}
     for article in articles_found:
         if article.get('url'):
@@ -618,7 +634,7 @@ def fetch_similar_news(analysis_result, days_range=4, max_articles=10):
     if not articles_found:
         return []
 
-    # Rank articles by relevance and trust
+    # Ранжирование статей по релевантности и доверию
     ranked_articles = []
     predefined_trust_scores = {
         "bbc.com": 0.9, "bbc.co.uk": 0.9, "reuters.com": 0.95, "apnews.com": 0.93,
@@ -626,7 +642,7 @@ def fetch_similar_news(analysis_result, days_range=4, max_articles=10):
         "cnn.com": 0.70, "foxnews.com": 0.40, "aljazeera.com": 0.80
     }
 
-    # Combine terms from both queries for relevance check
+    # Объединение терминов из обоих запросов для проверки релевантности
     all_query_terms = []
     if 'initial_query' in locals():
         all_query_terms.extend([t.lower().replace('"', '') for t in initial_query.split(' AND ')])
@@ -638,22 +654,22 @@ def fetch_similar_news(analysis_result, days_range=4, max_articles=10):
         source_domain = urlparse(article.get("url", '')).netloc.replace('www.', '')
         trust_score = predefined_trust_scores.get(source_domain, 0.5)
 
-        # Calculate relevance score
+        # Вычисление оценки релевантности
         article_text = (article.get('title', '') + " " + article.get('description', '')).lower()
         relevance_score = sum(1 for term in all_query_terms if term in article_text)
 
-        # Combine scores
+        # Объединение оценок
         final_score = (relevance_score * 10) + (trust_score * 5)
         ranked_articles.append((article, final_score))
 
-    # Sort and return top articles
+    # Сортировка и возврат лучших статей
     ranked_articles.sort(key=lambda item: item[1], reverse=True)
     top_articles = [item[0] for item in ranked_articles[:max_articles]]
     logger.info(f"Returning {len(top_articles)} top ranked similar articles.")
     return top_articles
 
 def render_similar_articles_html(articles):
-    """Generate HTML for displaying similar articles."""
+    """Генерирует HTML для отображения похожих статей."""
     if not articles:
         return "<p>No similar articles found for the selected criteria.</p>"
 
@@ -686,7 +702,7 @@ def render_similar_articles_html(articles):
             domain = urlparse(art.get("url", "#")).netloc.replace('www.', '')
             trust_display = ""
 
-            # Get historical credibility from source_stats
+            # Получение исторической достоверности из source_stats
             c.execute("SELECT high, medium, low, total_analyzed FROM source_stats WHERE source = ?", (domain,))
             row = c.fetchone()
 
@@ -696,7 +712,7 @@ def render_similar_articles_html(articles):
                     score = (high * 1.0 + medium * 0.5 + low * 0.0) / total_analyzed
                     trust_display = f" (Hist. Src. Credibility: {score*100:.0f}%)"
 
-            # Fallback to predefined trust scores
+            # Использование предопределенных оценок доверия, если нет данных в базе
             if not trust_display and domain in predefined_trust_scores:
                 predefined_score = predefined_trust_scores.get(domain)
                 trust_display = f" (Est. Src. Trust: {predefined_score*100:.0f}%)"
@@ -733,7 +749,7 @@ def render_similar_articles_html(articles):
             conn.close()
 
 def get_source_reliability_data():
-    """Fetch source reliability data for Plotly chart."""
+    """Получает данные о надежности источников для графика Plotly."""
     try:
         conn = sqlite3.connect(DB_NAME)
         c = conn.cursor()
@@ -790,7 +806,7 @@ def get_source_reliability_data():
             conn.close()
 
 def get_analysis_history_html():
-    """Retrieve and format recent analysis history."""
+    """Получает и форматирует историю анализа из базы данных."""
     try:
         conn = sqlite3.connect(DB_NAME)
         c = conn.cursor()
@@ -835,15 +851,10 @@ def get_analysis_history_html():
         if 'conn' in locals() and conn:
             conn.close()
 
-# Initialize Flask app
-app = Flask(__name__)
-
-# Configure static folder
-app.static_folder = 'static'
-
+# Маршруты Flask
 @app.route('/')
 def index():
-    """Render main page."""
+    """Отображает главную страницу."""
     try:
         return render_template('index.html')
     except Exception as e:
@@ -852,7 +863,7 @@ def index():
 
 @app.route('/analyze', methods=['POST'])
 def analyze():
-    """Analyze article endpoint."""
+    """Обрабатывает запрос на анализ статьи."""
     try:
         data = request.json
         input_text = data.get('input_text')
@@ -866,7 +877,7 @@ def analyze():
         if analysis_result is None:
             return jsonify({'error_message': output_md}), 400
 
-        logger.info("Analysis result generated. Sending to client.")
+        logger.info(f"Analysis result generated. Sending to client.")
         return jsonify({
             'output_md': output_md,
             'scores_for_chart': scores_for_chart,
@@ -879,7 +890,7 @@ def analyze():
 
 @app.route('/similar_articles', methods=['POST'])
 def similar_articles_endpoint():
-    """Get similar articles endpoint."""
+    """Получает похожие статьи."""
     try:
         data = request.json
         analysis_result = data.get('analysis_result')
@@ -898,7 +909,7 @@ def similar_articles_endpoint():
 
 @app.route('/source_reliability_data')
 def source_reliability_data_endpoint():
-    """Get source reliability data endpoint."""
+    """Получает данные о надежности источников."""
     try:
         data = get_source_reliability_data()
 
@@ -935,7 +946,7 @@ def source_reliability_data_endpoint():
 
 @app.route('/analysis_history_html')
 def analysis_history_html_endpoint():
-    """Get analysis history HTML endpoint."""
+    """Получает HTML истории анализа."""
     try:
         history_html = get_analysis_history_html()
         return jsonify({'history_html': history_html})
@@ -945,7 +956,7 @@ def analysis_history_html_endpoint():
 
 @app.route('/check_db_integrity')
 def check_db_integrity_endpoint():
-    """Check database integrity endpoint."""
+    """Проверяет целостность базы данных."""
     try:
         result = check_database_integrity()
         if result:
@@ -970,12 +981,12 @@ def check_db_integrity_endpoint():
 
 @app.before_request
 def maintenance_mode():
-    """Maintenance mode middleware."""
+    """Режим обслуживания."""
     if os.getenv("MAINTENANCE") == "true":
         return render_template("maintenance.html"), 503
 
 def initialize_database():
-    """Initialize database schema and check integrity."""
+    """Инициализирует схему базы данных и проверяет целостность."""
     try:
         ensure_db_schema()
 
@@ -996,11 +1007,11 @@ def initialize_database():
 
 if __name__ == '__main__':
     try:
-        # Initialize database
+        # Инициализация базы данных
         initialize_database()
 
-        # Run Flask app
-        app.run(debug=True)
+        # Запуск Flask приложения
+        app.run(debug=True, host='0.0.0.0', port=5000)
     except Exception as e:
         logger.error(f"Failed to start application: {e}")
         exit(1)
