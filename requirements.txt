@@ -14,3 +14,4 @@ python-dateutil==2.8.2
 regex==2023.10.3
 simplejson==3.19.2
 python-dotenv==1.0.0
+gunicorn==21.2.0
