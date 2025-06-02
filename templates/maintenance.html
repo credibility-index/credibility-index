@@ -2,33 +2,157 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>We'll be back soon</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Maintenance | News Credibility Analyzer</title>
   <style>
+    :root {
+      --primary-color: #4CAF50;
+      --secondary-color: #607d8b;
+      --text-color: #e0e0e0;
+      --light-text: #b0bec5;
+      --background: #0e0e1a;
+      --card-bg: #1e1e2a;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
     body {
-      background-color: #0e0e1a;
-      color: #fff;
-      font-family: Arial, sans-serif;
+      background-color: var(--background);
+      color: var(--text-color);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       text-align: center;
-      padding-top: 10%;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
     }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 40px;
+      text-align: center;
+      width: 100%;
+    }
+
+    .logo-container {
+      margin-bottom: 30px;
+      animation: pulse 2s infinite;
+    }
+
+    .logo {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto;
+    }
+
     h1 {
-      font-size: 2.5em;
-      margin-bottom: 0.3em;
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
+      color: var(--primary-color);
+      font-weight: 700;
     }
-    img {
-      width: 48px;
-      height: 48px;
-      margin-bottom: 1em;
+
+    .subtitle {
+      font-size: 1.2rem;
+      color: var(--light-text);
+      margin-bottom: 2rem;
+      line-height: 1.6;
     }
-    p {
-      font-size: 1.2em;
-      color: #ccc;
+
+    .progress-container {
+      width: 100%;
+      max-width: 500px;
+      margin: 30px auto;
+    }
+
+    .progress-bar {
+      height: 8px;
+      background-color: var(--card-bg);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+
+    .progress {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+      width: 0%;
+      border-radius: 4px;
+      animation: progress 3s ease-in-out infinite;
+    }
+
+    .contact-info {
+      margin-top: 40px;
+      color: var(--light-text);
+      font-size: 1rem;
+    }
+
+    .contact-link {
+      color: var(--primary-color);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .contact-link:hover {
+      text-decoration: underline;
+    }
+
+    @keyframes progress {
+      0% { width: 0%; }
+      50% { width: 100%; }
+      100% { width: 0%; }
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        padding: 20px;
+      }
+
+      h1 {
+        font-size: 2rem;
+      }
+
+      .subtitle {
+        font-size: 1rem;
+      }
     }
   </style>
 </head>
 <body>
-  <img src="{{ url_for('static', filename='eye.png') }}" alt="Eye logo">
-  <h1>Maintenance in Progress</h1>
-  <p>👁️ We're making things better. Please check back soon!</p>
+  <div class="container">
+    <div class="logo-container">
+      <img src="{{ url_for('static', filename='eye.png') }}" alt="News Credibility Analyzer Logo" class="logo">
+    </div>
+
+    <h1>Maintenance in Progress</h1>
+    <p class="subtitle">
+      We're currently performing maintenance to improve your experience.<br>
+      The News Credibility Analyzer will be back shortly.
+    </p>
+
+    <div class="progress-container">
+      <div class="progress-bar">
+        <div class="progress"></div>
+      </div>
+      <p>Please check back in a few minutes</p>
+    </div>
+
+    <div class="contact-info">
+      For urgent matters, please contact us at <a href="mailto:nothetal@gmail.com" class="contact-link">nothetal@gmail.com</a>
+    </div>
+  </div>
 </body>
 </html>
