@@ -804,5 +804,10 @@ def analysis_history_html_endpoint():
         'history_html': history_html
     })
 
-if __name__ == '__main__':
+@app.before_request
+def maintenance_mode():
+    if os.getenv("MAINTENANCE") == "true":
+        return render_template("maintenance.html"), 503
+
+if __name__ == '__main__':     
     app.run(debug=True)
