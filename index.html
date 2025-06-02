@@ -7,135 +7,173 @@
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
+        :root {
+            --primary-color: #4CAF50;
+            --primary-hover: #45a049;
+            --secondary-color: #607d8b;
+            --secondary-hover: #546e7a;
+            --text-color: #333;
+            --light-text: #555;
+            --lighter-text: #666;
+            --background: #f0f2f5;
+            --card-bg: #ffffff;
+            --border-color: #e9ecef;
+            --input-bg: #f8f9fa;
+            --error-color: #dc3545;
+            --success-color: #28a745;
+            --warning-color: #ffc107;
+            --info-color: #17a2b8;
+            --link-color: #2196f3;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f0f2f5; /* Light background */
-            color: #333;
+            background-color: var(--background);
+            color: var(--text-color);
             margin: 0;
-            padding: 20px;
+            padding: 10px;
             display: flex;
             justify-content: center;
             min-height: 100vh;
         }
+
         .container {
-            background-color: #ffffff;
+            background-color: var(--card-bg);
             border-radius: 12px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-            padding: 30px;
+            padding: 20px;
             width: 100%;
             max-width: 1200px;
             display: flex;
             flex-direction: column;
-            gap: 25px;
+            gap: 20px;
         }
+
         h1 {
             text-align: center;
-            color: #2c3e50; /* Darker blue for headings */
+            color: #2c3e50;
             font-family: "Georgia", serif;
-            font-size: 2.8em;
+            font-size: 2.2em;
             font-weight: bold;
             text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
-            margin-bottom: 25px;
+            margin-bottom: 20px;
             border-bottom: 2px solid #e0e0e0;
             padding-bottom: 15px;
         }
-        h3 {
-            color: #34495e; /* Slightly lighter dark blue */
-            border-bottom: 1px solid #f0f0f0;
-            padding-bottom: 5px;
-            margin-top: 20px;
+
+        .subtitle-highlight {
+            color: var(--primary-color);
+            text-align: center;
+            font-size: 1.5em;
+            font-weight: bold;
             margin-bottom: 15px;
         }
-        
-        .subtitle-highlight {
-    color: #00a46b; /* Яркий зеленый цвет (как у кнопки "Analyze News") */
-    /* Альтернативный вариант: яркий синий (как у ссылок) */
-    /* color: #2196F3; */
-    text-align: center; /* Выравнивание по центру, чтобы соответствовать H1 */
-    font-size: 1.9em;   /* Немного увеличим размер для акцента */
-    font-weight: bold;  /* Можно сделать его жирнее, если текущий H2 не жирный */
-    margin-bottom: 20px; /* Можно настроить отступ снизу */
-    padding-bottom: 10px; /* Отступ для подчеркивания, если оно есть */
-    /* Если вы хотите убрать или изменить нижнюю границу только для этого подзаголовка: */
-    /* border-bottom: none; */ /* Убрать границу */
-    /* border-bottom: 1px solid #4CAF50; */ /* Сделать границу в цвет текста */
-}
+
+        h3 {
+            color: #34495e;
+            border-bottom: 1px solid #f0f0f0;
+            padding-bottom: 5px;
+            margin-top: 15px;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+
         .section-box {
             background-color: #fdfdfd;
             border-radius: 8px;
-            padding: 20px;
-            border: 1px solid #e9ecef;
+            padding: 15px;
+            border: 1px solid var(--border-color);
         }
+
         textarea, input[type="text"] {
-            width: calc(100% - 20px);
-            padding: 12px;
-            margin-bottom: 15px;
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
             border: 1px solid #ced4da;
             border-radius: 6px;
-            background-color: #f8f9fa;
+            background-color: var(--input-bg);
             color: #495057;
             font-size: 1em;
             resize: vertical;
         }
+
         textarea::placeholder, input[type="text"]::placeholder {
             color: #6c757d;
         }
+
         label {
             display: block;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
             color: #495057;
             font-weight: bold;
         }
+
         .button-group {
             display: flex;
-            gap: 15px;
+            gap: 10px;
             justify-content: flex-end;
-            margin-top: 15px;
+            margin-top: 10px;
+            flex-wrap: wrap;
         }
+
         button {
-            padding: 12px 25px;
+            padding: 10px 15px;
             border: none;
             border-radius: 8px;
             cursor: pointer;
-            font-size: 1.1em;
+            font-size: 1em;
             font-weight: bold;
-            transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
+            transition: all 0.3s ease;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            min-width: 120px;
+            text-align: center;
         }
+
         button.primary {
-            background-color: #4CAF50; /* Green */
+            background-color: var(--primary-color);
             color: white;
         }
+
         button.primary:hover {
-            background-color: #45a049;
+            background-color: var(--primary-hover);
             transform: translateY(-2px);
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
+
         button.secondary {
-            background-color: #607d8b; /* Blue-grey */
+            background-color: var(--secondary-color);
             color: white;
         }
+
         button.secondary:hover {
-            background-color: #546e7a;
+            background-color: var(--secondary-hover);
             transform: translateY(-2px);
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
+
         .grid-container {
             display: grid;
-            grid-template-columns: 2fr 3fr;
-            gap: 25px;
+            grid-template-columns: 1fr;
+            gap: 20px;
         }
+
         .full-width {
             grid-column: 1 / -1;
         }
-        /* Styles for Markdown rendered content */
+
         .analysis-output p, .analysis-output li {
-            color: #555;
+            color: var(--light-text);
             line-height: 1.6;
         }
+
         .analysis-output strong {
-            color: #333;
+            color: var(--text-color);
         }
+
         .analysis-output h3, .analysis-output h4 {
             color: #34495e;
             border-bottom: 1px solid #f0f0f0;
@@ -143,10 +181,12 @@
             margin-top: 15px;
             margin-bottom: 10px;
         }
+
         .analysis-output ul {
             list-style-type: disc;
             padding-left: 20px;
         }
+
         .analysis-output em {
             font-style: italic;
         }
@@ -158,103 +198,208 @@
             border-radius: 6px;
             background-color: #f8f8f8;
         }
+
         .similar-article h4 {
             margin-top: 0;
             margin-bottom: 8px;
+            font-size: 1.1em;
         }
+
         .similar-article a {
-            color: #2196f3; /* Blue link */
+            color: var(--link-color);
             text-decoration: none;
         }
+
         .similar-article a:hover {
             text-decoration: underline;
         }
+
         .similar-article p {
             margin-bottom: 5px;
-            font-size: 0.95em;
-            color: #666;
+            font-size: 0.9em;
+            color: var(--lighter-text);
         }
+
         hr {
             border: 0;
             border-top: 1px dashed #ced4da;
-            margin: 20px 0;
+            margin: 15px 0;
         }
-        #loading-spinner {
-            display: none;
-            text-align: center;
-            margin-top: 20px;
-            color: #2196f3;
-            font-size: 1.2em;
-        }
+
         .error-message {
-            color: #dc3545; /* Red error */
+            color: var(--error-color);
             background-color: #f8d7da;
-            border: 1px solid #dc3545;
-            padding: 15px;
+            border: 1px solid var(--error-color);
+            padding: 10px;
             border-radius: 8px;
-            margin-top: 20px;
+            margin: 10px 0;
         }
-        #sourceReliabilityPlot, #articleScorePlot {
-            min-height: 300px;
-        }
-        
+
         details {
-            background-color: #ffffff;
-            border: 1px solid #e9ecef;
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
             border-radius: 8px;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.05);
         }
+
         summary {
-            padding: 15px 20px;
+            padding: 12px 15px;
             cursor: pointer;
             font-weight: bold;
             color: #34495e;
             font-size: 1.1em;
-            list-style: none; /* Hide default arrow */
+            list-style: none;
             position: relative;
+            display: flex;
+            align-items: center;
         }
+
         summary::before {
-            content: '►'; /* Custom arrow */
-            position: absolute;
-            left: 10px;
-            top: 50%;
-            transform: translateY(-50%) rotate(0deg);
+            content: '►';
+            position: static;
+            margin-right: 10px;
+            transform: rotate(0deg);
             transition: transform 0.2s ease;
-            color: #607d8b; /* Blue-grey arrow */
+            color: var(--secondary-color);
+            font-size: 0.8em;
         }
+
         details[open] summary::before {
-            transform: translateY(-50%) rotate(90deg);
+            transform: rotate(90deg);
         }
+
         details > *:not(summary) {
-            padding: 0 20px 15px 20px;
+            padding: 0 15px 15px 15px;
         }
+
         .faq-item {
             margin-bottom: 15px;
         }
+
         .faq-item h4 {
             color: #2c3e50;
             margin-bottom: 5px;
+            font-size: 1.1em;
         }
+
         .faq-item p {
-            color: #555;
+            color: var(--light-text);
             margin-top: 0;
+            font-size: 0.95em;
+        }
+
+        /* Tablet styles */
+        @media (min-width: 768px) {
+            body {
+                padding: 15px;
+            }
+
+            .container {
+                padding: 25px;
+            }
+
+            h1 {
+                font-size: 2.5em;
+            }
+
+            .subtitle-highlight {
+                font-size: 1.7em;
+            }
+
+            .grid-container {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .button-group {
+                justify-content: flex-end;
+            }
+
+            button {
+                min-width: 130px;
+            }
+        }
+
+        /* Desktop styles */
+        @media (min-width: 1024px) {
+            body {
+                padding: 20px;
+            }
+
+            .container {
+                padding: 30px;
+                gap: 25px;
+            }
+
+            h1 {
+                font-size: 2.8em;
+            }
+
+            .subtitle-highlight {
+                font-size: 1.9em;
+            }
+
+            .grid-container {
+                grid-template-columns: 2fr 3fr;
+                gap: 25px;
+            }
+
+            textarea, input[type="text"] {
+                font-size: 1.1em;
+            }
+
+            button {
+                padding: 12px 25px;
+                font-size: 1.1em;
+                min-width: 150px;
+            }
+        }
+
+        /* Mobile specific adjustments */
+        @media (max-width: 480px) {
+            .container {
+                padding: 15px;
+            }
+
+            h1 {
+                font-size: 1.8em;
+            }
+
+            .subtitle-highlight {
+                font-size: 1.3em;
+            }
+
+            .button-group {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            button {
+                width: 100%;
+                margin-bottom: 8px;
+            }
+
+            textarea {
+                min-height: 150px;
+            }
+
+            #articleScorePlot, #sourceReliabilityPlot {
+                min-height: 250px;
+            }
         }
     </style>
-</head>
-</style>
 </head>
 <body>
     <div class="container">
         <h1>📰 News & Source Credibility Index</h1>
-    <h2 class="subtitle-highlight">What's Outside Your Information Bubble? Find out with us.</h2>
+        <h2 class="subtitle-highlight">What's Outside Your Bubble? Find out with us.</h2>
         <h3>Analyzing and calculating Credibility Index of News and Sources.</h3>
 
         <div class="grid-container">
             <div class="column-left">
                 <div class="section-box">
                     <label for="articleInput">📝 Enter News Article Text or URL:</label>
-                    <textarea id="articleInput" rows="10" placeholder="Paste full article text or a direct link (URL) to a news article..."></textarea>
+                    <textarea id="articleInput" rows="8" placeholder="Paste full article text or a direct link (URL) to a news article..."></textarea>
 
                     <label for="sourceName">🌐 Source Name (Optional, auto-detected from URL):</label>
                     <input type="text" id="sourceName" placeholder="e.g., Associated Press, BBC News. Leave blank if providing URL.">
@@ -305,17 +450,17 @@
                 <div class="section-box">
                     <div class="faq-item">
                         <h4>Q: How does the analyzer determine credibility?</h4>
-                        <p>A: The analyzer uses an advanced AI model to evaluate several factors like integrity, factuality, sentiment, and bias within the article text. These scores are then combined into an **Overall Credibility Index**.</p>
+                        <p>A: The analyzer uses an advanced AI model to evaluate several factors like integrity, factuality, sentiment, and bias within the article text. These scores are then combined into an <strong>Overall Credibility Index</strong>.</p>
                     </div>
                     <div class="faq-item">
                         <h4>Q: Why are there "High", "Medium", and "Low" credibility levels for sources?</h4>
-                        <p>A: These levels are dynamic and based on the historical analyses performed by this tool. Each time an article from a source is analyzed, its credibility level contributes to the source's **Overall Credibility Index**, giving you a cumulative view of its trustworthiness based on past performance.</p>
+                        <p>A: These levels are dynamic and based on the historical analyses performed by this tool. Each time an article from a source is analyzed, its credibility level contributes to the source's <strong>Overall Credibility Index</strong>, giving you a cumulative view of its trustworthiness based on past performance.</p>
                     </div>
                     <div class="faq-item">
                         <h4>Q: How does "Similar News" work?</h4>
                         <p>A: After analyzing your article, the AI generates a search query based on its key topics and arguments. This query is then used to search a database of reputable news sources (via NewsAPI) for related articles, which are then ranked by relevance and their estimated source trustworthiness.</p>
                     </div>
-                     <div class="faq-item">
+                    <div class="faq-item">
                         <h4>Q: What if the article URL does not work?</h4>
                         <p>A: Sometimes, news websites prevent automated scraping, or the URL might be broken. If the tool fails to extract content from a URL, please try pasting the full article text directly into the input box instead.</p>
                     </div>
@@ -349,34 +494,33 @@
             const sourceReliabilityPlotDiv = document.getElementById('sourceReliabilityPlot');
             const analysisHistoryDiv = document.getElementById('analysisHistory');
 
-            let lastAnalysisResult = null; // Store the last analysis result for similar news
+            let lastAnalysisResult = null;
 
-            // Function to fetch and display source reliability plot
             async function updateSourceReliabilityPlot() {
                 try {
                     const response = await fetch('/source_reliability_data');
                     const data = await response.json();
 
                     const sources = data.sources;
-                    const credibilityIndices = data.credibility_indices_for_plot; // Изменено здесь
+                    const credibilityIndices = data.credibility_indices_for_plot;
                     const highCounts = data.high_counts;
                     const mediumCounts = data.medium_counts;
                     const lowCounts = data.low_counts;
                     const totalAnalyzedCounts = data.total_analyzed_counts;
 
-                    const colors = credibilityIndices.map(score => { // Используем credibilityIndices
-                        if (score >= 0.7) return '#28a745'; /* Green */
-                        if (score >= 0.4) return '#ffc107'; /* Orange */
-                        return '#dc3545'; /* Red */
+                    const colors = credibilityIndices.map(score => {
+                        if (score >= 0.7) return '#28a745';
+                        if (score >= 0.4) return '#ffc107';
+                        return '#dc3545';
                     });
 
                     const plotData = [{
                         x: sources,
-                        y: credibilityIndices, // Используем credibilityIndices
+                        y: credibilityIndices,
                         type: 'bar',
                         marker: { color: colors },
                         hovertemplate: '<b>%{x}</b><br>' +
-                                       'Credibility Index: %{y:.2f}<br>' + // Изменено здесь
+                                       'Credibility Index: %{y:.2f}<br>' +
                                        'Articles Analyzed: %{customdata[0]}<br>' +
                                        'High: %{customdata[1]}<br>' +
                                        'Medium: %{customdata[2]}<br>' +
@@ -386,14 +530,25 @@
                     }];
 
                     const layout = {
-                        title: { text: "Overall Source Credibility Index (Today)", font: { color: '#34495e' } }, // Изменено здесь
-                        xaxis: { title: { text: "News Sources", font: { color: '#495057' } }, tickangle: -45, automargin: true, tickfont: { size: 10, color: '#495057' } },
-                        yaxis: { title: { text: "Calculated Credibility Index (0-1)", font: { color: '#495057' } }, range: [0, 1], gridcolor: '#e9ecef', zerolinecolor: '#ced4da', tickfont: { color: '#495057' } }, // Изменено здесь
+                        title: { text: "Overall Source Credibility Index (Today)", font: { color: '#34495e' } },
+                        xaxis: {
+                            title: { text: "News Sources", font: { color: '#495057' } },
+                            tickangle: -45,
+                            automargin: true,
+                            tickfont: { size: 10, color: '#495057' }
+                        },
+                        yaxis: {
+                            title: { text: "Calculated Credibility Index (0-1)", font: { color: '#495057' } },
+                            range: [0, 1],
+                            gridcolor: '#e9ecef',
+                            zerolinecolor: '#ced4da',
+                            tickfont: { color: '#495057' }
+                        },
                         plot_bgcolor: 'rgba(0,0,0,0)',
                         paper_bgcolor: 'rgba(0,0,0,0)',
                         font: { color: '#333' },
-                        height: 450,
-                        margin: { b: 150, t: 50, l: 50, r: 20 }
+                        height: window.innerWidth < 768 ? 350 : 450,
+                        margin: { b: window.innerWidth < 768 ? 100 : 150, t: 50, l: 50, r: 20 }
                     };
 
                     Plotly.newPlot(sourceReliabilityPlotDiv, plotData, layout, {responsive: true});
@@ -403,7 +558,6 @@
                 }
             }
 
-            // Function to fetch and display analysis history
             async function updateAnalysisHistory() {
                 try {
                     const response = await fetch('/analysis_history_html');
@@ -415,7 +569,6 @@
                 }
             }
 
-            // Initial load of plots and history
             updateSourceReliabilityPlot();
             updateAnalysisHistory();
 
@@ -429,11 +582,11 @@
                     similarArticlesOutput.innerHTML = '';
                     return;
                 }
-                
+
                 analysisOutput.innerHTML = '<p>Analyzing article, please wait... (This may take up to 30-60 seconds for AI analysis)</p>';
                 articleScorePlotDiv.innerHTML = '';
                 similarArticlesOutput.innerHTML = '<p>Fetching similar articles...</p>';
-                lastAnalysisResult = null; // Clear previous result
+                lastAnalysisResult = null;
 
                 try {
                     const response = await fetch('/analyze', {
@@ -455,33 +608,30 @@
                     }
 
                     const data = await response.json();
-                    // Use marked.js to convert markdown to HTML
                     analysisOutput.innerHTML = marked.parse(data.output_md);
-                    lastAnalysisResult = data.analysis_result; // Save the analysis result
+                    lastAnalysisResult = data.analysis_result;
 
-                    // Render Article Score Plot
                     const scores = data.scores_for_chart;
                     const plotData = [{
                         x: Object.keys(scores),
                         y: Object.values(scores),
                         type: 'bar',
                         marker: {
-                            color: ['#28a745', '#ffc107', '#17a2b8', '#6610f2', '#007bff'] /* Green, Orange, Teal, Purple, Blue */
+                            color: ['#28a745', '#ffc107', '#17a2b8', '#6610f2', '#007bff']
                         }
                     }];
                     const layout = {
-                        title: { text: "Article Credibility Index Metrics", font: { color: '#34495e' } }, // Изменено здесь
+                        title: { text: "Article Credibility Index Metrics", font: { color: '#34495e' } },
                         xaxis: { title: { text: "Metric", font: { color: '#495057' } }, tickfont: { color: '#495057' } },
                         yaxis: { title: { text: "Score (%)", font: { color: '#495057' } }, range: [0, 100], gridcolor: '#e9ecef', zerolinecolor: '#ced4da', tickfont: { color: '#495057' } },
                         plot_bgcolor: 'rgba(0,0,0,0)',
                         paper_bgcolor: 'rgba(0,0,0,0)',
                         font: { color: '#333' },
-                        height: 350,
+                        height: window.innerWidth < 768 ? 300 : 350,
                         margin: { b: 50, t: 50, l: 50, r: 20 }
                     };
                     Plotly.newPlot(articleScorePlotDiv, plotData, layout, {responsive: true});
 
-                    // Fetch similar articles using the analysis result
                     if (lastAnalysisResult) {
                         const similarResponse = await fetch('/similar_articles', {
                             method: 'POST',
@@ -494,7 +644,6 @@
                         similarArticlesOutput.innerHTML = '<p>Could not fetch similar articles (analysis result was not complete or NewsAPI is disabled).</p>';
                     }
 
-                    // Refresh global stats after a new analysis
                     updateSourceReliabilityPlot();
                     updateAnalysisHistory();
 
@@ -512,13 +661,28 @@
                 articleScorePlotDiv.innerHTML = '';
                 similarArticlesOutput.innerHTML = '<p>Similar articles will appear here.</p>';
                 lastAnalysisResult = null;
-                updateSourceReliabilityPlot(); // Refresh to initial or current DB state
+                updateSourceReliabilityPlot();
                 updateAnalysisHistory();
             });
 
             refreshStatsButton.addEventListener('click', () => {
                 updateSourceReliabilityPlot();
                 updateAnalysisHistory();
+            });
+
+            // Adjust plot sizes on window resize
+            window.addEventListener('resize', function() {
+                if (articleScorePlotDiv.children.length > 0) {
+                    Plotly.relayout(articleScorePlotDiv, {
+                        height: window.innerWidth < 768 ? 300 : 350
+                    });
+                }
+                if (sourceReliabilityPlotDiv.children.length > 0) {
+                    Plotly.relayout(sourceReliabilityPlotDiv, {
+                        height: window.innerWidth < 768 ? 350 : 450,
+                        margin: { b: window.innerWidth < 768 ? 100 : 150 }
+                    });
+                }
             });
         });
     </script>
