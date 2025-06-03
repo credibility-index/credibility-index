@@ -12,50 +12,57 @@ import logging
 from logging.handlers import RotatingFileHandler
 from werkzeug.middleware.proxy_fix import ProxyFix
 import re
+import plotly
 import plotly.graph_objects as go
 from stop_words import get_stop_words
 from newspaper import Article
 import html
 
-# Настройка приложения Flask
+# Initialize Flask app
 app = Flask(__name__, static_folder='static', template_folder='templates')
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
-# Настройка логирования
+# Configure logging
 def setup_logging():
-    """Настройка системы логирования."""
+    """Configure logging system with rotation and filtering."""
     file_handler = RotatingFileHandler('app.log', maxBytes=1024*1024, backupCount=5)
     file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+
     app.logger.addHandler(file_handler)
     app.logger.addHandler(console_handler)
     app.logger.setLevel(logging.INFO)
 
-    class RequestFilter(logging.Filter):
+    # Filter to ignore WordPress scanner 404 errors
+    class WordPressFilter(logging.Filter):
         def filter(self, record):
-            return not (hasattr(record, 'msg') and '404 Not Found' in record.msg)
+            wordpress_paths = [
+                'wp-admin', 'wp-includes', 'wp-content', 'xmlrpc.php',
+                'wp-login.php', 'wp-config.php', 'readme.html', 'license.txt'
+            ]
+            return not any(path in str(record.msg) for path in wordpress_paths)
 
-    logging.getLogger('werkzeug').addFilter(RequestFilter())
+    logging.getLogger('werkzeug').addFilter(WordPressFilter())
     logging.getLogger('werkzeug').setLevel(logging.WARNING)
 
-# Загрузка переменных окружения
+# Load environment variables
 load_dotenv()
 ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
 NEWS_API_KEY = os.getenv('NEWS_API_KEY')
 NEWS_API_ENABLED = bool(NEWS_API_KEY)
 MODEL_NAME = "claude-3-opus-20240229"
 
+# Check for API keys
 if not ANTHROPIC_API_KEY:
     raise ValueError("ANTHROPIC_API_KEY is missing! Please set it in your .env file.")
 if not NEWS_API_KEY:
     app.logger.warning("NEWS_API_KEY is missing! Similar news functionality will be disabled.")
-    NEWS_API_ENABLED = False
 
-# Настройка базы данных
+# Database configuration
 DB_NAME = 'news_analysis.db'
 
-# Начальные данные для надежности источников
+# Initial source reliability data
 INITIAL_SOURCE_COUNTS = {
     "bbc.com": {"high": 15, "medium": 5, "low": 1},
     "reuters.com": {"high": 20, "medium": 3, "low": 0},
@@ -66,7 +73,7 @@ INITIAL_SOURCE_COUNTS = {
     "apnews.com": {"high": 18, "medium": 2, "low": 0}
 }
 
-# Соответствие доменов и владельцев СМИ
+# Media owners mapping
 media_owners = {
     "bbc.com": "BBC",
     "reuters.com": "Thomson Reuters",
@@ -74,36 +81,37 @@ media_owners = {
     "cnn.com": "Warner Bros. Discovery",
     "nytimes.com": "The New York Times Company",
     "theguardian.com": "Guardian Media Group",
-    "apnews.com": "Associated Press",
-    "wsj.com": "News Corp",
-    "aljazeera.com": "Al Jazeera Media Network"
+    "apnews.com": "Associated Press"
 }
 
-# ID источников NewsAPI
+# Trusted NewsAPI sources
 TRUSTED_NEWS_SOURCES_IDS = [
     "bbc-news", "reuters", "associated-press", "the-new-york-times",
-    "the-guardian-uk", "the-wall-street-journal", "cnn", "al-jazeera-english"
+    "the-guardian-uk", "the-wall-street-journal", "cnn"
 ]
 
 stop_words_en = get_stop_words('en')
 
-# Настройка логирования
+# Setup logging
 setup_logging()
 
-# Middleware для блокировки WordPress-сканеров
+# Middleware to block WordPress scanners
 @app.before_request
 def block_wordpress_scanners():
+    """Block requests from WordPress scanners."""
     wordpress_paths = [
         'wp-admin', 'wp-includes', 'wp-content', 'xmlrpc.php',
-        'wp-login.php', 'wp-config.php', 'readme.html', 'license.txt'
+        'wp-login.php', 'wp-config.php', 'readme.html', 'license.txt',
+        'wp-json', 'wp-comments-post.php', 'wp-trackback.php'
     ]
     if any(path in request.path.lower() for path in wordpress_paths):
         app.logger.warning(f"Blocked WordPress scanner request from {request.remote_addr}")
         return abort(404)
 
-# Middleware для безопасности
+# Security headers middleware
 @app.after_request
 def add_security_headers(response):
+    """Add security headers to responses."""
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'SAMEORIGIN'
     response.headers['X-XSS-Protection'] = '1; mode=block'
@@ -111,14 +119,9 @@ def add_security_headers(response):
     response.headers['Content-Security-Policy'] = "default-src 'self'"
     return response
 
-# Обработчик 404 ошибок
-@app.errorhandler(404)
-def page_not_found(e):
-    return render_template('404.html'), 404
-
-# Функции базы данных
+# Database functions
 def ensure_db_schema():
-    """Создает схему базы данных."""
+    """Ensure database schema exists."""
     try:
         conn = sqlite3.connect(DB_NAME)
         c = conn.cursor()
@@ -154,7 +157,7 @@ def ensure_db_schema():
             conn.close()
 
 def initialize_sources(initial_counts):
-    """Инициализирует данные источников."""
+    """Initialize source statistics with default values."""
     try:
         conn = sqlite3.connect(DB_NAME)
         c = conn.cursor()
@@ -178,7 +181,7 @@ def initialize_sources(initial_counts):
             conn.close()
 
 def check_database_integrity():
-    """Проверяет целостность базы данных."""
+    """Check database integrity."""
     try:
         if not os.path.exists(DB_NAME):
             app.logger.error(f"Database file {DB_NAME} not found!")
@@ -187,7 +190,7 @@ def check_database_integrity():
         conn = sqlite3.connect(DB_NAME)
         c = conn.cursor()
 
-        # Проверка таблиц
+        # Check tables exist
         c.execute("SELECT name FROM sqlite_master WHERE type='table'")
         tables = [table[0] for table in c.fetchall()]
         required_tables = ['news', 'source_stats']
@@ -196,7 +199,7 @@ def check_database_integrity():
                 app.logger.error(f"Critical table '{table}' is missing!")
                 return False
 
-        # Проверка структуры таблиц
+        # Check table structures
         for table, columns in [('news', ['id', 'title', 'source', 'content', 'integrity',
                                       'fact_check', 'sentiment', 'bias', 'credibility_level',
                                       'index_of_credibility', 'url', 'analysis_date', 'short_summary']),
@@ -216,202 +219,299 @@ def check_database_integrity():
         if conn:
             conn.close()
 
-# Класс для анализа новостей
+# Article analysis class
 class ClaudeNewsAnalyzer:
     def __init__(self, api_key, model_name):
         self.client = anthropic.Anthropic(api_key=api_key)
         self.model_name = model_name
 
     def analyze_article_text(self, article_text_content, source_name_for_context):
-        """Анализирует текст статьи с использованием API Claude."""
+        """Analyze article text using Claude API."""
         max_chars_for_claude = 10000
         if len(article_text_content) > max_chars_for_claude:
             article_text_content = article_text_content[:max_chars_for_claude]
 
         media_owner_display = media_owners.get(source_name_for_context, "Unknown Owner")
 
-        prompt = f"""Вы - аналитический помощник, специализирующийся на анализе новостных статей.
-Проанализируйте предоставленную статью и верните результаты в формате JSON.
+        prompt = f"""You are a highly analytical and neutral AI assistant specializing in news article reliability and content analysis. Your task is to dissect the provided news article.
 
-Текст статьи:
+Article Text:
 \"\"\"
 {article_text_content}
 \"\"\"
 
-Источник: {source_name_for_context}
-Владелец СМИ: {media_owner_display}
+Source (for context, if known): {source_name_for_context}
+Media Owner: {media_owner_display}
 
-Верните результаты в формате JSON с обязательными полями:
-1. news_integrity (0.0-1.0) - целостность информации
-2. fact_check_needed_score (0.0-1.0) - необходимость проверки фактов
-3. sentiment_score (0.0-1.0) - эмоциональный тон
-4. bias_score (0.0-1.0) - степень предвзятости
-5. index_of_credibility (0.0-1.0) - общий индекс достоверности
-6. short_summary - краткое содержание статьи
-7. topics - основные темы статьи
-8. key_arguments - ключевые аргументы автора
-9. mentioned_facts - упомянутые факты
-10. potential_biases_identified - возможные предвзятости"""
+Please perform the following analyses and return the results ONLY in a single, valid JSON object format. Do not include any explanatory text before or after the JSON object.
+
+JSON Fields:
+- "news_integrity": (Float, 0.0-1.0) Assess the overall integrity and trustworthiness of the information presented. Higher means more trustworthy.
+- "fact_check_needed_score": (Float, 0.0-1.0) Likelihood that the article's claims require external fact-checking. 1.0 means high likelihood.
+- "sentiment_score": (Float, 0.0-1.0) Overall emotional tone (0.0 negative, 0.5 neutral, 1.0 positive).
+- "bias_score": (Float, 0.0-1.0) Degree of perceived bias (0.0 low bias, 1.0 high bias).
+- "topics": (List of strings) Identify 3-5 main topics or keywords that accurately represent the core subject matter.
+- "key_arguments": (List of strings) Extract the main arguments or claims made by the author.
+- "mentioned_facts": (List of strings) List any specific facts, data, or statistics mentioned.
+- "author_purpose": (String) Briefly determine the author's likely primary purpose.
+- "potential_biases_identified": (List of strings) Enumerate any specific signs of potential bias or subjectivity observed.
+- "short_summary": (String) A concise summary of the article's main content in 2-4 sentences.
+- "index_of_credibility": (Float, 0.0-1.0) Calculate an overall index of credibility based on the above factors.
+- "published_date": (String, YYYY-MM-DD or N/A) The publication date of the article.
+"""
 
         try:
             message = self.client.messages.create(
                 model=self.model_name,
                 max_tokens=2000,
+                temperature=0.2,
+                system="You are a JSON-generating expert. Always provide valid JSON.",
                 messages=[{"role": "user", "content": prompt}]
             )
-            return json.loads(message.content[0].text)
+
+            raw_json_text = message.content[0].text.strip()
+            # Extract JSON from code block if present
+            match = re.search(r'```json\s*(\{.*\})\s*```', raw_json_text, re.DOTALL)
+            if match:
+                json_str = match.group(1)
+            else:
+                json_str = raw_json_text
+
+            return json.loads(json_str)
+
+        except anthropic.APIError as e:
+            app.logger.error(f"Anthropic API Error: {e}")
+            raise
+        except json.JSONDecodeError as e:
+            app.logger.error(f"JSON Decode Error from Claude's response: {e}. Raw response was: {raw_json_text}")
+            raise ValueError(f"Failed to parse AI response: {e}. Raw: {raw_json_text[:500]}...")
         except Exception as e:
-            app.logger.error(f"Error during Claude analysis: {str(e)}")
+            app.logger.error(f"Unexpected error during Claude analysis: {e}")
             raise
 
 def extract_text_from_url(url):
-    """Извлекает текст из URL."""
+    """Extract article text from URL using newspaper3k."""
     try:
         clean_url = re.sub(r'/amp(/)?$', '', url)
         article = Article(clean_url)
         article.download()
         article.parse()
+
         text = article.text.strip()
         title = article.title.strip() if article.title else ""
         source = urlparse(clean_url).netloc.replace("www.", "")
+
+        if not text:
+            app.logger.warning(f"Newspaper3k extracted empty text from {clean_url}")
+            return "", "", ""
+
         return text, source, title
+
     except Exception as e:
-        app.logger.error(f"Error extracting article from URL {url}: {str(e)}")
+        app.logger.error(f"Error extracting article from URL {url}: {e}")
         return "", "", ""
 
-def calculate_credibility_level(analysis_result):
-    """Вычисляет уровень достоверности на основе анализа."""
-    integrity = analysis_result.get('news_integrity', 0.0)
-    fact_check = analysis_result.get('fact_check_needed_score', 1.0)
-    sentiment = analysis_result.get('sentiment_score', 0.5)
-    bias = analysis_result.get('bias_score', 1.0)
+def calculate_credibility_level(integrity, fact_check_needed, sentiment, bias):
+    """Calculate credibility level based on AI scores."""
+    fact_check_score = 1.0 - fact_check_needed
+    neutral_sentiment_proximity = 1.0 - abs(sentiment - 0.5) * 2
+    bias_score_inverted = 1.0 - bias
 
-    # Расчет индекса достоверности
-    index = (integrity * 0.45) + ((1.0 - fact_check) * 0.35) + ((1.0 - abs(sentiment - 0.5) * 2) * 0.10) + ((1.0 - bias) * 0.10)
+    avg = (integrity * 0.45) + (fact_check_score * 0.35) + (neutral_sentiment_proximity * 0.10) + (bias_score_inverted * 0.10)
 
-    if index >= 0.75:
-        return 'High', index
-    elif index >= 0.5:
-        return 'Medium', index
-    else:
-        return 'Low', index
+    if avg >= 0.75:
+        return 'High'
+    if avg >= 0.5:
+        return 'Medium'
+    return 'Low'
 
 def save_analysis_to_db(url, title, source, content, analysis_result):
-    """Сохраняет результаты анализа в базу данных."""
+    """Save analysis results to SQLite database."""
+    conn = None
     try:
         conn = sqlite3.connect(DB_NAME)
         c = conn.cursor()
 
-        # Расчет уровня достоверности
-        credibility_level, index_of_credibility = calculate_credibility_level(analysis_result)
+        integrity = analysis_result.get('news_integrity', 0.0)
+        fact_check_needed = analysis_result.get('fact_check_needed_score', 1.0)
+        sentiment = analysis_result.get('sentiment_score', 0.5)
+        bias = analysis_result.get('bias_score', 1.0)
+        short_summary = analysis_result.get('short_summary', 'Summary not available.')
+        index_of_credibility = analysis_result.get('index_of_credibility', 0.0)
+
+        credibility_level = calculate_credibility_level(integrity, fact_check_needed, sentiment, bias)
+        db_url = url if url else f"no_url_{datetime.now(UTC).timestamp()}"
 
         c.execute('''INSERT INTO news (url, title, source, content, integrity, fact_check, sentiment, bias,
-                     credibility_level, index_of_credibility, short_summary)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-                (url, title, source, content,
-                 analysis_result.get('news_integrity', 0.0),
-                 analysis_result.get('fact_check_needed_score', 1.0),
-                 analysis_result.get('sentiment_score', 0.5),
-                 analysis_result.get('bias_score', 1.0),
-                 credibility_level, index_of_credibility,
-                 analysis_result.get('short_summary', 'No summary')))
+                     credibility_level, short_summary, index_of_credibility)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     ON CONFLICT(url) DO UPDATE SET
+                     title=excluded.title, source=excluded.source, content=excluded.content,
+                     integrity=excluded.integrity, fact_check=excluded.fact_check,
+                     sentiment=excluded.sentiment, bias=excluded.bias,
+                     credibility_level=excluded.credibility_level,
+                     short_summary=excluded.short_summary,
+                     index_of_credibility=excluded.index_of_credibility,
+                     analysis_date=CURRENT_TIMESTAMP''',
+                (db_url, title, source, content, integrity, fact_check_needed, sentiment, bias,
+                 credibility_level, short_summary, index_of_credibility))
 
-        # Обновление статистики источников
-        c.execute("SELECT high, medium, low FROM source_stats WHERE source = ?", (source,))
+        # Update source_stats table
+        c.execute("SELECT high, medium, low, total_analyzed FROM source_stats WHERE source = ?", (source,))
         row = c.fetchone()
+
         if row:
-            high, medium, low = row
-            if credibility_level == 'High': high += 1
-            elif credibility_level == 'Medium': medium += 1
-            else: low += 1
-            c.execute('''UPDATE source_stats SET high=?, medium=?, low=? WHERE source=?''',
-                    (high, medium, low, source))
+            high, medium, low, total = row
+            if credibility_level == 'High':
+                high += 1
+            elif credibility_level == 'Medium':
+                medium += 1
+            else:
+                low += 1
+            total += 1
+            c.execute('''UPDATE source_stats SET high=?, medium=?, low=?, total_analyzed=? WHERE source=?''',
+                    (high, medium, low, total, source))
         else:
             high = 1 if credibility_level == 'High' else 0
             medium = 1 if credibility_level == 'Medium' else 0
             low = 1 if credibility_level == 'Low' else 0
             c.execute('''INSERT INTO source_stats (source, high, medium, low, total_analyzed)
-                        VALUES (?, ?, ?, ?, 1)''', (source, high, medium, low))
+                        VALUES (?, ?, ?, ?, ?)''', (source, high, medium, low, 1))
 
         conn.commit()
-        return credibility_level, index_of_credibility
-    except Exception as e:
-        app.logger.error(f"Error saving analysis to database: {str(e)}")
+        app.logger.info(f"Analysis for '{title}' ({source}) saved to database.")
+        return credibility_level
+
+    except sqlite3.Error as e:
+        app.logger.error(f"Database error in save_analysis_to_db: {e}")
+        if conn:
+            conn.rollback()
         raise
     finally:
         if conn:
             conn.close()
 
 def process_article_analysis(input_text, source_name_manual):
-    """Обрабатывает анализ статьи и возвращает индекс достоверности."""
+    """Process article analysis pipeline."""
+    article_url = None
+    article_content = input_text
+    article_title = "User-provided Text"
+    source_name = source_name_manual if source_name_manual else "Direct Input"
+
     if input_text.strip().startswith("http"):
         article_url = input_text.strip()
-        content, source, title = extract_text_from_url(article_url)
-        if not content:
-            return "Ошибка извлечения контента", None, None
-    else:
-        content = input_text
-        source = source_name_manual if source_name_manual else "Direct Input"
-        title = "User-provided Text"
+        app.logger.info(f"Input is a URL: {article_url}")
+        content_from_url, source_from_url, title_from_url = extract_text_from_url(article_url)
 
-    if len(content) < 100:
-        return "Слишком короткий текст", None, None
+        if content_from_url and len(content_from_url) >= 100:
+            article_content, source_name, article_title = content_from_url, source_from_url, title_from_url
+            app.logger.info(f"Extracted from URL. Source: {source_name}, Title: {article_title}")
+        else:
+            if not content_from_url:
+                return ("❌ Failed to extract content from the provided URL. Please check the link or provide text directly.", None, None)
+            else:
+                return ("❌ Extracted article content is too short for analysis (min 100 chars).", None, None)
+
+    if not article_content or len(article_content) < 100:
+        return ("❌ Article content is too short for analysis (min 100 chars).", None, None)
+
+    if not source_name:
+        source_name = "Unknown Source"
 
     analyzer = ClaudeNewsAnalyzer(ANTHROPIC_API_KEY, MODEL_NAME)
     try:
-        analysis_result = analyzer.analyze_article_text(content, source)
-        credibility_level, index_of_credibility = save_analysis_to_db(
-            input_text if input_text.startswith("http") else None,
-            title, source, content, analysis_result
-        )
-
-        # Формирование результатов
-        output_md = f"""### Анализ статьи: {title}
-Источник: {source}
-Уровень достоверности: {credibility_level} ({index_of_credibility:.2f})
-
-Основные показатели:
-- Целостность информации: {analysis_result.get('news_integrity', 0.0):.2f}
-- Необходимость проверки фактов: {1 - analysis_result.get('fact_check_needed_score', 1.0):.2f}
-- Эмоциональный тон: {analysis_result.get('sentiment_score', 0.5):.2f}
-- Предвзятость: {1 - analysis_result.get('bias_score', 1.0):.2f}
-- Индекс достоверности: {index_of_credibility:.2f}
-
-Краткое содержание:
-{analysis_result.get('short_summary', 'Нет краткого содержания')}
-
-Основные темы:
-{', '.join(analysis_result.get('topics', []))}"""
-
-        scores_for_chart = {
-            "Integrity": analysis_result.get('news_integrity', 0.0) * 100,
-            "Factuality": (1 - analysis_result.get('fact_check_needed_score', 1.0)) * 100,
-            "Sentiment": analysis_result.get('sentiment_score', 0.5) * 100,
-            "Bias": (1 - analysis_result.get('bias_score', 1.0)) * 100,
-            "Credibility": index_of_credibility * 100
-        }
-
-        return output_md, scores_for_chart, analysis_result
+        analysis_result = analyzer.analyze_article_text(article_content, source_name)
     except Exception as e:
-        return f"Ошибка анализа: {str(e)}", None, None
+        app.logger.error(f"Error during Claude analysis: {str(e)}")
+        return (f"❌ Error during analysis: {str(e)}", None, None)
+
+    try:
+        credibility_saved = save_analysis_to_db(article_url, article_title, source_name, article_content, analysis_result)
+        app.logger.info(f"Analysis saved to DB. Overall Credibility: {credibility_saved}")
+    except Exception as e:
+        app.logger.error(f"Error saving analysis to database: {str(e)}")
+        return (f"❌ Error saving analysis: {str(e)}", None, None)
+
+    ni = analysis_result.get('news_integrity', 0.0)
+    fcn = analysis_result.get('fact_check_needed_score', 1.0)
+    ss = analysis_result.get('sentiment_score', 0.5)
+    bs = analysis_result.get('bias_score', 1.0)
+    topics = analysis_result.get('topics', [])
+    key_arguments = analysis_result.get('key_arguments', [])
+    mentioned_facts = analysis_result.get('mentioned_facts', [])
+    author_purpose = analysis_result.get('author_purpose', 'N/A')
+    potential_biases_identified = analysis_result.get('potential_biases_identified', [])
+    short_summary = analysis_result.get('short_summary', 'N/A')
+    index_of_credibility = analysis_result.get('index_of_credibility', 0.0)
+
+    factuality_display_score = 1.0 - fcn
+
+    output_md = f"""### 📊 Credibility Analysis for: "{article_title}"
+**Source:** {source_name}
+**Media Owner:** {media_owners.get(source_name, "Unknown Owner")}
+**Overall Calculated Credibility:** **{credibility_saved}** ({index_of_credibility*100:.1f}%)
+
+---
+#### 📊 Analysis Scores:
+- **Integrity Score:** {ni*100:.1f}% - Measures the overall integrity and trustworthiness.
+- **Factuality Score:** {factuality_display_score*100:.1f}% - Indicates likelihood of needing fact-checking.
+- **Sentiment Score:** {ss:.2f} - Overall emotional tone (0.0 negative, 0.5 neutral, 1.0 positive).
+- **Bias Score:** {bs*100:.1f}% - Degree of perceived bias (0.0 low, 1.0 high).
+- **Index of Credibility:** {index_of_credibility*100:.1f}% - Overall credibility index.
+
+---
+#### 📝 Summary:
+{short_summary}
+
+#### 🔑 Key Arguments:
+{("- " + "\\n- ".join(key_arguments)) if key_arguments else "N/A"}
+
+#### 📈 Mentioned Facts/Data:
+{("- " + "\\n- ".join(mentioned_facts)) if mentioned_facts else "N/A"}
+
+#### 🎯 Author's Purpose:
+{author_purpose}
+
+#### 🚩 Potential Biases Identified:
+{("- " + "\\n- ".join(potential_biases_identified)) if potential_biases_identified else "N/A"}
+
+#### 🏷️ Main Topics Identified:
+{", ".join(topics) if topics else "N/A"}
+
+#### 📌 Media Owner Influence:
+The media owner, {media_owners.get(source_name, "Unknown Owner")}, may influence source credibility.
+"""
+
+    scores_for_chart = {
+        "Integrity": ni * 100,
+        "Factuality": factuality_display_score * 100,
+        "Neutral Sentiment": (1.0 - abs(ss - 0.5) * 2) * 100,
+        "Low Bias": (1.0 - bs) * 100,
+        "Overall Credibility Index": index_of_credibility * 100
+    }
+
+    return output_md, scores_for_chart, analysis_result
 
 def generate_query(analysis_result):
-    """Генерирует запрос для поиска похожих новостей."""
+    """Generate optimized NewsAPI query from analysis results."""
     topics = analysis_result.get('topics', [])
     key_arguments = analysis_result.get('key_arguments', [])
     mentioned_facts = analysis_result.get('mentioned_facts', [])
 
     all_terms = []
+
     for phrase_list in [topics, key_arguments]:
         for phrase in phrase_list:
-            if not phrase.strip(): continue
+            if not phrase.strip():
+                continue
             if ' ' in phrase.strip() and len(phrase.strip().split()) > 1:
                 all_terms.append(f'"{phrase.strip()}"')
             else:
                 all_terms.append(phrase.strip())
 
     for fact in mentioned_facts:
-        if not fact.strip(): continue
+        if not fact.strip():
+            continue
         words = [word for word in fact.lower().split() if word not in stop_words_en and len(word) > 2]
         all_terms.extend(words)
 
@@ -424,16 +524,36 @@ def generate_query(analysis_result):
     else:
         query = "current events OR news"
 
+    app.logger.info(f"Generated NewsAPI query: {query}")
     return query
 
+def make_newsapi_request(params):
+    """Helper function to make NewsAPI requests."""
+    url = "https://newsapi.org/v2/everything"
+    try:
+        response = requests.get(url, params=params, timeout=15)
+        response.raise_for_status()
+        data = response.json()
+        return data.get("articles", [])
+    except requests.exceptions.RequestException as e:
+        app.logger.error(f"NewsAPI Error: {e}")
+        if hasattr(e, 'response') and e.response is not None:
+            app.logger.error(f"NewsAPI Response content: {e.response.text}")
+        return []
+    except Exception as e:
+        app.logger.error(f"Unexpected error in NewsAPI request: {e}")
+        return []
+
 def fetch_similar_news(analysis_result, days_range=7, max_articles=3):
-    """Получает похожие новости с высоким индексом достоверности."""
+    """Fetch similar news articles using NewsAPI."""
     if not NEWS_API_ENABLED:
+        app.logger.warning("NEWS_API_KEY is not configured or enabled. Skipping similar news search.")
         return []
 
     initial_query = generate_query(analysis_result)
+    url = "https://newsapi.org/v2/everything"
 
-    # Определяем диапазон дат
+    # Determine date range
     original_published_date_str = analysis_result.get('published_date', 'N/A')
     end_date = datetime.now(UTC).date()
 
@@ -442,12 +562,15 @@ def fetch_similar_news(analysis_result, days_range=7, max_articles=3):
             parsed_date = datetime.strptime(original_published_date_str, '%Y-%m-%d').date()
             start_date = parsed_date - timedelta(days=days_range)
             end_date = parsed_date + timedelta(days=days_range)
+            app.logger.info(f"Using original article date ({parsed_date}) for NewsAPI search range: {start_date} to {end_date}")
         except ValueError:
+            app.logger.warning(f"Could not parse original article date '{original_published_date_str}'. Using default range.")
             start_date = end_date - timedelta(days=days_range)
     else:
         start_date = end_date - timedelta(days=days_range)
+        app.logger.info(f"No original article date found. Using default NewsAPI search range: {start_date} to {end_date}")
 
-    # Попытка 1: Специфический запрос с надежными источниками
+    # Attempt 1: Specific query with trusted sources
     params_specific = {
         "q": initial_query,
         "apiKey": NEWS_API_KEY,
@@ -461,16 +584,12 @@ def fetch_similar_news(analysis_result, days_range=7, max_articles=3):
     if TRUSTED_NEWS_SOURCES_IDS:
         params_specific["sources"] = ",".join(TRUSTED_NEWS_SOURCES_IDS)
 
-    articles_found = []
-    try:
-        response = requests.get("https://newsapi.org/v2/everything", params=params_specific, timeout=15)
-        response.raise_for_status()
-        articles_found = response.json().get("articles", [])
-    except Exception as e:
-        app.logger.error(f"Error fetching similar news: {str(e)}")
+    articles_found = make_newsapi_request(params_specific)
+    app.logger.info(f"[NewsAPI] Attempt 1 found {len(articles_found)} articles.")
 
-    # Попытка 2: Более широкий запрос, если первая попытка дала мало результатов
-    if len(articles_found) < max_articles and initial_query != "current events OR news":
+    # Attempt 2: Broader query if first attempt yields few results
+    if len(articles_found) < (max_articles / 2) and initial_query != "current events OR news":
+        app.logger.info("Few results from specific query, attempting broader search.")
         broader_query_terms = list(set(analysis_result.get('topics', [])[:3]))
         broader_query = " OR ".join([f'"{term}"' if ' ' in term else term for term in broader_query_terms if term and term not in stop_words_en])
 
@@ -490,21 +609,21 @@ def fetch_similar_news(analysis_result, days_range=7, max_articles=3):
         if TRUSTED_NEWS_SOURCES_IDS:
             params_broad["sources"] = ",".join(TRUSTED_NEWS_SOURCES_IDS)
 
-        try:
-            response = requests.get("https://newsapi.org/v2/everything", params=params_broad, timeout=15)
-            response.raise_for_status()
-            articles_found.extend(response.json().get("articles", []))
-        except Exception as e:
-            app.logger.error(f"Error fetching similar news: {str(e)}")
+        additional_articles = make_newsapi_request(params_broad)
+        articles_found.extend(additional_articles)
+        app.logger.info(f"[NewsAPI] Attempt 2 found {len(additional_articles)} new articles. Total: {len(articles_found)}")
 
-    # Удаление дубликатов
+    # Remove duplicate articles
     unique_articles = {}
     for article in articles_found:
         if article.get('url'):
             unique_articles[article['url']] = article
     articles_found = list(unique_articles.values())
 
-    # Ранжирование статей
+    if not articles_found:
+        return []
+
+    # Rank articles by relevance and trust
     ranked_articles = []
     predefined_trust_scores = {
         "bbc.com": 0.9, "bbc.co.uk": 0.9, "reuters.com": 0.95, "apnews.com": 0.93,
@@ -512,6 +631,7 @@ def fetch_similar_news(analysis_result, days_range=7, max_articles=3):
         "cnn.com": 0.70, "foxnews.com": 0.40, "aljazeera.com": 0.80
     }
 
+    # Combine terms from both queries for relevance checking
     all_query_terms = []
     if 'initial_query' in locals():
         all_query_terms.extend([t.lower().replace('"', '') for t in initial_query.split(' AND ')])
@@ -522,16 +642,23 @@ def fetch_similar_news(analysis_result, days_range=7, max_articles=3):
     for article in articles_found:
         source_domain = urlparse(article.get("url", '')).netloc.replace('www.', '')
         trust_score = predefined_trust_scores.get(source_domain, 0.5)
+
+        # Calculate relevance score
         article_text = (article.get('title', '') + " " + article.get('description', '')).lower()
         relevance_score = sum(1 for term in all_query_terms if term in article_text)
+
+        # Combine scores
         final_score = (relevance_score * 10) + (trust_score * 5)
         ranked_articles.append((article, final_score))
 
+    # Sort and return top articles
     ranked_articles.sort(key=lambda item: item[1], reverse=True)
-    return [item[0] for item in ranked_articles[:max_articles]]
+    top_articles = [item[0] for item in ranked_articles[:max_articles]]
+    app.logger.info(f"Returning {len(top_articles)} top ranked similar articles.")
+    return top_articles
 
 def render_similar_articles_html(articles):
-    """Генерирует HTML для отображения похожих статей."""
+    """Generate HTML for displaying similar articles."""
     if not articles:
         return "<p>No similar articles found for the selected criteria.</p>"
 
@@ -564,6 +691,7 @@ def render_similar_articles_html(articles):
             domain = urlparse(art.get("url", "#")).netloc.replace('www.', '')
             trust_display = ""
 
+            # Get historical credibility from source_stats
             c.execute("SELECT high, medium, low, total_analyzed FROM source_stats WHERE source = ?", (domain,))
             row = c.fetchone()
 
@@ -573,6 +701,7 @@ def render_similar_articles_html(articles):
                     score = (high * 1.0 + medium * 0.5 + low * 0.0) / total_analyzed
                     trust_display = f" (Hist. Src. Credibility: {score*100:.0f}%)"
 
+            # Use predefined trust scores if no data in DB
             if not trust_display and domain in predefined_trust_scores:
                 predefined_score = predefined_trust_scores.get(domain)
                 trust_display = f" (Est. Src. Trust: {predefined_score*100:.0f}%)"
@@ -598,15 +727,16 @@ def render_similar_articles_html(articles):
             {"".join(html_items)}
         </div>
         """
-    except Exception as e:
-        app.logger.error(f"Error rendering similar articles: {str(e)}")
-        return "<p>Error retrieving similar articles data.</p>"
+
+    except sqlite3.Error as e:
+        app.logger.error(f"Database error in render_similar_articles_html: {e}")
+        return "<p>Error retrieving similar articles data due to a database issue.</p>"
     finally:
         if conn:
             conn.close()
 
 def get_source_reliability_data():
-    """Получает данные о надежности источников для графиков."""
+    """Get source reliability data for Plotly charts."""
     try:
         conn = sqlite3.connect(DB_NAME)
         c = conn.cursor()
@@ -647,8 +777,9 @@ def get_source_reliability_data():
             'low_counts': low_counts,
             'total_analyzed_counts': total_analyzed_counts
         }
-    except Exception as e:
-        app.logger.error(f"Error getting source reliability data: {str(e)}")
+
+    except sqlite3.Error as e:
+        app.logger.error(f"Database error in get_source_reliability_data: {e}")
         return {
             'sources': [],
             'credibility_indices_for_plot': [],
@@ -662,7 +793,7 @@ def get_source_reliability_data():
             conn.close()
 
 def get_analysis_history_html():
-    """Получает историю анализа из базы данных."""
+    """Retrieve and format analysis history from database."""
     try:
         conn = sqlite3.connect(DB_NAME)
         c = conn.cursor()
@@ -699,47 +830,125 @@ def get_analysis_history_html():
             )
 
         return f"<h3>📜 Recent Analyses:</h3><ul>{''.join(html_items)}</ul>"
-    except Exception as e:
-        app.logger.error(f"Error getting analysis history: {str(e)}")
-        return "<p>Error retrieving analysis history.</p>"
+
+    except sqlite3.Error as e:
+        app.logger.error(f"Database error in get_analysis_history_html: {e}")
+        return "<p>Error retrieving analysis history due to a database issue.</p>"
     finally:
         if conn:
             conn.close()
 
-# Маршруты Flask
+def generate_credibility_chart(scores_for_chart):
+    """Generate Plotly chart for article credibility scores."""
+    try:
+        fig = go.Figure()
+
+        # Create radar chart for credibility scores
+        categories = ['Integrity', 'Factuality', 'Neutral Sentiment', 'Low Bias', 'Overall Credibility']
+        values = [
+            scores_for_chart.get('Integrity', 0),
+            scores_for_chart.get('Factuality', 0),
+            scores_for_chart.get('Neutral Sentiment', 0),
+            scores_for_chart.get('Low Bias', 0),
+            scores_for_chart.get('Overall Credibility Index', 0)
+        ]
+
+        fig.add_trace(go.Scatterpolar(
+            r=values,
+            theta=categories,
+            fill='toself',
+            name='Credibility Scores'
+        ))
+
+        fig.update_layout(
+            polar=dict(
+                radialaxis=dict(
+                    visible=True,
+                    range=[0, 100]
+                )),
+            showlegend=False,
+            title="Article Credibility Radar Chart"
+        )
+
+        return fig.to_html(full_html=False)
+
+    except Exception as e:
+        app.logger.error(f"Error generating credibility chart: {e}")
+        return "<p>Error generating credibility chart.</p>"
+
+def generate_source_chart(source_data):
+    """Generate Plotly chart for source reliability data."""
+    try:
+        fig = go.Figure()
+
+        # Create bar chart for source credibility
+        fig.add_trace(go.Bar(
+            x=source_data['sources'],
+            y=source_data['credibility_indices_for_plot'],
+            name='Source Credibility',
+            marker_color='rgb(55, 83, 109)'
+        ))
+
+        fig.update_layout(
+            title='Source Credibility Scores',
+            xaxis_title='News Sources',
+            yaxis_title='Credibility Score (0-1)',
+            yaxis=dict(range=[0, 1])
+        )
+
+        return fig.to_html(full_html=False)
+
+    except Exception as e:
+        app.logger.error(f"Error generating source chart: {e}")
+        return "<p>Error generating source chart.</p>"
+
+# Flask routes
 @app.route('/')
 def index():
-    """Главная страница приложения."""
+    """Main application page."""
     return render_template('index.html')
 
 @app.route('/analyze', methods=['POST'])
-def analyze_route():
-    """Обрабатывает запрос на анализ статьи."""
+def analyze():
+    """Process article analysis request."""
     try:
         data = request.json
-        output_md, scores_for_chart, analysis_result = process_article_analysis(
-            data.get('input_text'),
-            data.get('source_name_manual')
-        )
+        input_text = data.get('input_text')
+        source_name_manual = data.get('source_name_manual')
+
+        app.logger.info(f"Received input_text (first 50 chars): {input_text[:50]}...")
+        app.logger.info(f"Received source_name_manual: {source_name_manual}")
+
+        output_md, scores_for_chart, analysis_result = process_article_analysis(input_text, source_name_manual)
 
         if analysis_result is None:
             return jsonify({'error_message': output_md}), 400
 
-        # Получаем похожие новости
+        # Get similar news
         similar_news = fetch_similar_news(analysis_result)
 
+        # Generate charts
+        credibility_chart = generate_credibility_chart(scores_for_chart)
+        source_data = get_source_reliability_data()
+        source_chart = generate_source_chart(source_data)
+
+        app.logger.info("Analysis result generated. Sending to client.")
         return jsonify({
             'output_md': output_md,
             'scores_for_chart': scores_for_chart,
             'analysis_result': analysis_result,
-            'similar_news': render_similar_articles_html(similar_news)
+            'similar_news': render_similar_articles_html(similar_news),
+            'credibility_chart': credibility_chart,
+            'source_chart': source_chart
         })
+
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        app.logger.error(f"Error in analyze endpoint: {e}")
+        return jsonify({'error_message': f"An error occurred during analysis: {str(e)}"}), 500
 
 @app.route('/similar_articles', methods=['POST'])
-def similar_articles_endpoint():
-    """Получает похожие статьи."""
+def similar_articles():
+    """Get similar articles."""
     try:
         data = request.json
         analysis_result = data.get('analysis_result')
@@ -751,12 +960,14 @@ def similar_articles_endpoint():
         return jsonify({
             'similar_html': render_similar_articles_html(similar_articles_list)
         })
+
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        app.logger.error(f"Error in similar_articles endpoint: {e}")
+        return jsonify({'similar_html': f"<p>Error fetching similar articles: {str(e)}</p>"}), 500
 
 @app.route('/source_reliability_data')
-def source_reliability_data_endpoint():
-    """Получает данные о надежности источников для графиков."""
+def source_reliability_data():
+    """Get source reliability data for charts."""
     try:
         data = get_source_reliability_data()
 
@@ -779,7 +990,9 @@ def source_reliability_data_endpoint():
             'low_counts': data['low_counts'],
             'total_analyzed_counts': data['total_analyzed_counts']
         })
+
     except Exception as e:
+        app.logger.error(f"Error in source_reliability_data endpoint: {e}")
         return jsonify({
             'sources': [],
             'credibility_indices_for_plot': [],
@@ -787,44 +1000,72 @@ def source_reliability_data_endpoint():
             'medium_counts': [],
             'low_counts': [],
             'total_analyzed_counts': []
-        })
+        }), 500
 
-@app.route('/analysis_history_html')
-def analysis_history_html_endpoint():
-    """Получает историю анализа."""
+@app.route('/analysis_history')
+def analysis_history():
+    """Get analysis history."""
     try:
         history_html = get_analysis_history_html()
         return jsonify({'history_html': history_html})
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        app.logger.error(f"Error in analysis_history endpoint: {e}")
+        return jsonify({'history_html': f"<p>Error retrieving analysis history: {str(e)}</p>"}), 500
+
+@app.route('/faq')
+def faq():
+    """FAQ page."""
+    return render_template('faq.html')
+
+@app.route('/feedback', methods=['GET', 'POST'])
+def feedback():
+    """Feedback form."""
+    if request.method == 'POST':
+        # Process feedback submission
+        feedback_data = request.form
+        app.logger.info(f"Received feedback: {feedback_data}")
+        return jsonify({'status': 'success', 'message': 'Thank you for your feedback!'})
+
+    return render_template('feedback.html')
 
 @app.route('/check_db_integrity')
-def check_db_integrity_endpoint():
-    """Проверяет целостность базы данных."""
+def check_db_integrity():
+    """Check database integrity."""
     try:
         result = check_database_integrity()
         if result:
             return jsonify({
                 'status': 'success',
-                'message': 'Database integrity check passed'
+                'message': 'Database integrity check passed',
+                'details': 'All database tables and structures are valid'
             })
         else:
             return jsonify({
                 'status': 'error',
-                'message': 'Database integrity check failed'
+                'message': 'Database integrity check failed',
+                'details': 'Critical database issues detected'
             }), 500
     except Exception as e:
+        app.logger.error(f"Error in check_db_integrity endpoint: {e}")
         return jsonify({
             'status': 'error',
-            'message': f'Database check failed: {str(e)}'
+            'message': f'Database check failed: {str(e)}',
+            'details': 'Unexpected error during database check'
         }), 500
 
-# Инициализация базы данных
+# Initialize database
 def initialize_database():
-    """Инициализирует базу данных."""
+    """Initialize database schema and data."""
     ensure_db_schema()
-    check_database_integrity()
+    if not check_database_integrity():
+        initialize_sources(INITIAL_SOURCE_COUNTS)
 
 if __name__ == '__main__':
+    # Setup logging
+    setup_logging()
+
+    # Initialize database
     initialize_database()
+
+    # Run application
     app.run(host='0.0.0.0', port=5000)
