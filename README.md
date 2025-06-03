@@ -2,8 +2,7 @@
 
 ## 👋 Welcome!
 
-**Credibility Index** is led by a data scientist and researcher with deep expertise in cybersecurity, machine learning, and AI development, **together with an experienced journalist who has consulted for major companies and governments**.  
-Our mission is to empower individuals with the tools to critically evaluate the credibility of news articles and sources.
+  Our mission is to empower individuals with the tools to critically evaluate the credibility of news articles and sources.
 
 ---
 
