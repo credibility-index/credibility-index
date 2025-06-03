@@ -1,158 +1,166 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Maintenance | News Credibility Index</title>
-  <style>
-    :root {
-      --primary-color: #4CAF50;
-      --secondary-color: #607d8b;
-      --text-color: #e0e0e0;
-      --light-text: #b0bec5;
-      --background: #0e0e1a;
-      --card-bg: #1e1e2a;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maintenance | News Credibility Analyzer</title>
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --secondary-color: #2980b9;
+            --text-color: #333;
+            --light-text: #7f8c8d;
+            --background: #f8f9fa;
+            --card-bg: #ffffff;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
 
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-    body {
-      background-color: var(--background);
-      color: var(--text-color);
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      text-align: center;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      padding: 20px;
-    }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--background);
+            color: var(--text-color);
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
 
-    .container {
-      max-width: 800px;
-      margin: 0 auto;
-      padding: 40px;
-      text-align: center;
-      width: 100%;
-    }
+        .container {
+            max-width: 800px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 40px;
+            text-align: center;
+            background-color: var(--card-bg);
+            border-radius: 10px;
+            box-shadow: var(--shadow);
+        }
 
-    .logo-container {
-      margin-bottom: 30px;
-      animation: pulse 2s infinite;
-    }
+        .logo {
+            width: 100px;
+            height: 100px;
+            margin: 0 auto 30px;
+            animation: pulse 2s infinite;
+        }
 
-    .logo {
-      width: 80px;
-      height: 80px;
-      margin: 0 auto;
-    }
+        h1 {
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            font-size: 2.2rem;
+        }
 
-    h1 {
-      font-size: 2.5rem;
-      margin-bottom: 1rem;
-      color: var(--primary-color);
-      font-weight: 700;
-    }
+        .subtitle {
+            color: var(--light-text);
+            margin-bottom: 30px;
+            font-size: 1.1rem;
+        }
 
-    .subtitle {
-      font-size: 1.2rem;
-      color: var(--light-text);
-      margin-bottom: 2rem;
-      line-height: 1.6;
-    }
+        .progress-container {
+            margin: 30px auto;
+            max-width: 500px;
+        }
 
-    .progress-container {
-      width: 100%;
-      max-width: 500px;
-      margin: 30px auto;
-    }
+        .progress-bar {
+            height: 8px;
+            background-color: #ecf0f1;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
 
-    .progress-bar {
-      height: 8px;
-      background-color: var(--card-bg);
-      border-radius: 4px;
-      overflow: hidden;
-      margin-bottom: 10px;
-    }
+        .progress {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+            width: 0%;
+            border-radius: 4px;
+            animation: progress 3s ease-in-out infinite;
+        }
 
-    .progress {
-      height: 100%;
-      background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
-      width: 0%;
-      border-radius: 4px;
-      animation: progress 3s ease-in-out infinite;
-    }
+        .contact-info {
+            margin-top: 40px;
+            color: var(--light-text);
+        }
 
-    .contact-info {
-      margin-top: 40px;
-      color: var(--light-text);
-      font-size: 1rem;
-    }
+        .contact-link {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 500;
+        }
 
-    .contact-link {
-      color: var(--primary-color);
-      text-decoration: none;
-      font-weight: 500;
-    }
+        .contact-link:hover {
+            text-decoration: underline;
+        }
 
-    .contact-link:hover {
-      text-decoration: underline;
-    }
+        .social-links {
+            margin-top: 30px;
+        }
 
-    @keyframes progress {
-      0% { width: 0%; }
-      50% { width: 100%; }
-      100% { width: 0%; }
-    }
+        .social-link {
+            display: inline-block;
+            margin: 0 10px;
+            color: var(--primary-color);
+            font-size: 1.5rem;
+        }
 
-    @keyframes pulse {
-      0% { transform: scale(1); }
-      50% { transform: scale(1.05); }
-      100% { transform: scale(1); }
-    }
+        @keyframes progress {
+            0% { width: 0%; }
+            50% { width: 100%; }
+            100% { width: 0%; }
+        }
 
-    @media (max-width: 768px) {
-      .container {
-        padding: 20px;
-      }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
 
-      h1 {
-        font-size: 2rem;
-      }
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
 
-      .subtitle {
-        font-size: 1rem;
-      }
-    }
- </style>
+            h1 {
+                font-size: 1.8rem;
+            }
+        }
+    </style>
 </head>
 <body>
-  <div class="container">
-    <div class="logo-container">
-      <img src="{{ url_for('static', filename='eye.png') }}" alt="News Credibility Analyzer Logo" class="logo">
-    </div>
+    <div class="container">
+        <img src="/static/images/eye.png" alt="News Credibility Analyzer Logo" class="logo">
 
-    <h1>Maintenance in Progress</h1>
-    <p class="subtitle">
-      We're currently performing maintenance to improve your experience.<br>
-      The News Credibility Analyzer will be back shortly.
-    </p>
+        <h1>Maintenance in Progress</h1>
 
-    <div class="progress-container">
-      <div class="progress-bar">
-        <div class="progress"></div>
-      </div>
-      <p>Please check back in a few minutes</p>
-    </div>
+        <div class="subtitle">
+            <p>We're currently performing big maintenance to improve our service.</p>
+            <p>Come check soon!</p>
+        </div>
 
-    <div class="contact-info">
-      For urgent matters, please contact us at <a href="mailto:nothetal@gmail.com" class="contact-link">nothetal@gmail.com</a>
+        <div class="progress-container">
+            <div class="progress-bar">
+                <div class="progress"></div>
+            </div>
+            <p>Please check back soon</p>
+        </div>
+
+        <div class="contact-info">
+            <p>For urgent matters, please contact us at:</p>
+            <p><a href="mailto:support@yourdomain.com" class="contact-link">support@yourdomain.com</a></p>
+        </div>
+
+        <div class="social-links">
+            <a href="#" class="social-link">📱</a>
+            <a href="#" class="social-link">📧</a>
+            <a href="#" class="social-link">💬</a>
+        </div>
     </div>
-  </div>
 </body>
 </html>
