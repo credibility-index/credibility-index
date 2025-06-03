@@ -1,5 +1,5 @@
-
 Flask==3.0.0
+gunicorn==21.2.0
 requests==2.31.0
 anthropic==0.25.0
 python-dotenv==1.0.0
@@ -7,10 +7,8 @@ beautifulsoup4==4.12.2
 newspaper3k==0.2.8
 stop-words==2023.2.2
 plotly==5.18.0
-flask-cors==6.0.0
-loguru==0.7.3
+flask-cors==4.0.0
+loguru==0.7.2
 python-dateutil==2.8.2
 regex==2023.10.3
-simplejson==3.20.1
-python-dotenv==1.0.0
-gunicorn==21.2.0
+simplejson==3.19.2
