@@ -1,11 +1,10 @@
-[
-phases.setup
-]
-nixPkgs = ["python311", "python311Packages.pip", "python311Packages.virtualenv"]
+[variables]
+NIXPACKS_PYTHON_PACKAGE_MANAGER = "requirements"
 
-[
-phases.install
-]
+[phases.setup]
+nixPkgs = ["python311", "python311Packages.pip"]
+
+[phases.install]
 cmds = [
   "python -m venv /opt/venv",
   ". /opt/venv/bin/activate",
@@ -13,7 +12,5 @@ cmds = [
   "pip install -r requirements.txt"
 ]
 
-[
-start
-]
+[start]
 cmd = "gunicorn app:app --bind 0.0.0.0:$PORT --workers 4 --threads 2 --timeout 120"
