@@ -5,7 +5,7 @@ anthropic==0.25.0
 python-dotenv==1.0.0
 beautifulsoup4==4.12.2
 newspaper3k==0.2.8
-stop-words==2023.2.2
+stop-words==2018.7.23
 plotly==5.18.0
 flask-cors==4.0.0
 loguru==0.7.2
