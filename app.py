@@ -32,6 +32,12 @@ def setup_logging():
     app.logger.addHandler(console_handler)
     app.logger.setLevel(logging.INFO)
 
+# Обработчик ошибок
+@app.errorhandler(500)
+def internal_server_error(e):
+    app.logger.error(f"Server error: {str(e)}")
+    return render_template('500.html'), 500
+
 # Фильтр для WordPress-запросов
 class WordPressFilter(logging.Filter):
     def filter(self, record):
