@@ -2,7 +2,15 @@
 NIXPACKS_PYTHON_PACKAGE_MANAGER = "requirements"
 
 [phases.setup]
-nixPkgs = ["python311", "python311Packages.pip"]
+nixPkgs = [
+  "python311",
+  "python311Packages.pip",
+  "python311Packages.sqlite",
+  "python311Packages.lxml",
+  "python311Packages.libxml2",
+  "python311Packages.libxslt",
+  "python311Packages.openssl"
+]
 
 [phases.install]
 cmds = [
@@ -13,4 +21,5 @@ cmds = [
 ]
 
 [start]
-cmd = "gunicorn app:app --bind 0.0.0.0:$PORT --workers 4 --threads 2 --timeout 120"
+cmd = "gunicorn --bind 0.0.0.0:$PORT --workers 4 --threads 2 --timeout 120 main:app"
+
