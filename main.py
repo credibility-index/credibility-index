@@ -6,7 +6,6 @@ import requests
 import anthropic
 from urllib.parse import urlparse
 from bs4 import BeautifulSoup
-from dotenv import load_dotenv
 from datetime import datetime, timedelta, UTC
 import logging
 from logging.handlers import RotatingFileHandler
@@ -17,7 +16,7 @@ from stop_words import get_stop_words
 from newspaper import Article
 import html
 
-# Инициализация Flask с явным указанием папок
+# Инициализация Flask
 app = Flask(__name__, static_folder='static', template_folder='templates')
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
@@ -32,55 +31,44 @@ def setup_logging():
     app.logger.addHandler(console_handler)
     app.logger.setLevel(logging.INFO)
 
-# Обработчик ошибок
-@app.errorhandler(500)
-def internal_server_error(e):
-    app.logger.error(f"Server error: {str(e)}")
-    return render_template('500.html'), 500
+# Проверка обязательных переменных окружения
+def check_required_env_vars():
+    required_vars = [
+        'ANTHROPIC_API_KEY',
+        'SECRET_KEY',
+        'NEWS_API_KEY'
+    ]
 
-# Фильтр для WordPress-запросов
-class WordPressFilter(logging.Filter):
-    def filter(self, record):
-        wordpress_paths = [
-            r'wp-admin', r'wp-includes', r'wp-content', r'xmlrpc\.php',
-            r'wp-login\.php', r'wp-config\.php', r'readme\.html',
-            r'license\.txt', r'wp-json', r'wp-comments-post\.php'
-        ]
-        return not any(re.search(path, str(record.msg), re.IGNORECASE) for path in wordpress_paths)
+    missing_vars = [var for var in required_vars if not os.getenv(var)]
 
-# Режим технического обслуживания
-MAINTENANCE_MODE = os.getenv('MAINTENANCE_MODE', 'false').lower() == 'true'
-ALLOWED_IPS = os.getenv('ALLOWED_IPS', '').split(',')
+    if missing_vars:
+        error_msg = f"Missing required environment variables: {', '.join(missing_vars)}"
+        app.logger.error(error_msg)
+        raise ValueError(error_msg)
 
-@app.before_request
-def check_maintenance():
-    if MAINTENANCE_MODE and not (request.path.startswith('/static/') or request.path == '/maintenance'):
-        if request.remote_addr not in ALLOWED_IPS:
-            return render_template('maintenance.html'), 503
-
-@app.route('/maintenance')
-def maintenance():
-    try:
-        return render_template('maintenance.html'), 503
-    except Exception as e:
-        app.logger.error('Error in maintenance endpoint: ' + str(e))
-        return 'Service temporarily unavailable', 503
-
-# Настройка логирования с фильтром WordPress
-setup_logging()
-logging.getLogger('werkzeug').addFilter(WordPressFilter())
-logging.getLogger('werkzeug').setLevel(logging.WARNING)
-
-# Загрузка переменных окружения
-load_dotenv()
+# Получение переменных окружения
 ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
 NEWS_API_KEY = os.getenv('NEWS_API_KEY')
 NEWS_API_ENABLED = bool(NEWS_API_KEY)
 MODEL_NAME = 'claude-3-opus-20240229'
+SECRET_KEY = os.getenv('SECRET_KEY')
+
+# Установка секретного ключа
+app.secret_key = SECRET_KEY
+if not SECRET_KEY:
+    raise ValueError('SECRET_KEY is not set in Railway variables!')
+
+# Настройка безопасности
+app.config.update(
+    SESSION_COOKIE_SECURE=True,
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax',
+    PERMANENT_SESSION_LIFETIME=timedelta(days=1)
+)
 
 # Проверка API ключей
 if not ANTHROPIC_API_KEY:
-    raise ValueError('ANTHROPIC_API_KEY is missing! Please set it in your .env file.')
+    raise ValueError('ANTHROPIC_API_KEY is missing! Please set it in Railway variables.')
 if not NEWS_API_KEY:
     app.logger.warning('NEWS_API_KEY is missing! Similar news functionality will be disabled.')
 
@@ -208,6 +196,14 @@ def ensure_db_schema():
             low INTEGER DEFAULT 0,
             total_analyzed INTEGER DEFAULT 0
         )''')
+        c.execute('''CREATE TABLE IF NOT EXISTS feedback (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            email TEXT NOT NULL,
+            type TEXT NOT NULL,
+            message TEXT NOT NULL,
+            date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )''')
         conn.commit()
         app.logger.info('Database schema ensured successfully')
     except sqlite3.Error as e:
@@ -252,23 +248,11 @@ def check_database_integrity():
         # Проверяем существование таблиц
         c.execute('SELECT name FROM sqlite_master WHERE type="table"')
         tables = [table[0] for table in c.fetchall()]
-        required_tables = ['news', 'source_stats']
+        required_tables = ['news', 'source_stats', 'feedback']
         for table in required_tables:
             if table not in tables:
                 app.logger.error('Critical table ' + table + ' is missing!')
                 return False
-
-        # Проверяем структуру таблиц
-        for table, columns in [('news', ['id', 'title', 'source', 'content', 'integrity',
-                                      'fact_check', 'sentiment', 'bias', 'credibility_level',
-                                      'index_of_credibility', 'url', 'analysis_date', 'short_summary']),
-                             ('source_stats', ['source', 'high', 'medium', 'low', 'total_analyzed'])]:
-            c.execute('PRAGMA table_info(' + table + ')')
-            columns_in_table = [row[1] for row in c.fetchall()]
-            for column in columns:
-                if column not in columns_in_table:
-                    app.logger.error('Critical column ' + column + ' is missing in ' + table + ' table!')
-                    return False
 
         return True
     except Exception as e:
@@ -936,6 +920,7 @@ def analysis_history():
     except Exception as e:
         app.logger.error('Error in analysis_history endpoint: ' + str(e))
         return jsonify({'history_html': '<p>Error retrieving analysis history: ' + str(e) + '</p>'}), 500
+
 @app.route('/feedback', methods=['POST'])
 def handle_feedback():
     """
@@ -994,10 +979,12 @@ def handle_feedback():
             'status': 'error',
             'message': 'An unexpected error occurred. Please try again.'
         }), 500
-    @app.route('/feedback')
+
+@app.route('/feedback')
 def feedback_page():
     """Отображает страницу с формой обратной связи"""
     return render_template('feedback.html')
+
 # Инициализация базы данных
 def initialize_database():
     ensure_db_schema()
@@ -1005,6 +992,9 @@ def initialize_database():
     check_database_integrity()
 
 if __name__ == '__main__':
+    # Проверка обязательных переменных окружения
+    check_required_env_vars()
+
     # Настройка логирования
     setup_logging()
 
@@ -1012,4 +1002,5 @@ if __name__ == '__main__':
     initialize_database()
 
     # Запуск приложения
-    app.run(host='0.0.0.0', port=5000)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
