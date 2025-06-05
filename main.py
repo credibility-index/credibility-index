@@ -936,7 +936,68 @@ def analysis_history():
     except Exception as e:
         app.logger.error('Error in analysis_history endpoint: ' + str(e))
         return jsonify({'history_html': '<p>Error retrieving analysis history: ' + str(e) + '</p>'}), 500
+@app.route('/feedback', methods=['POST'])
+def handle_feedback():
+    """
+    Обработчик для формы обратной связи.
+    Принимает JSON с данными формы и сохраняет их в базу данных.
+    Возвращает сообщение об успешной отправке или ошибке.
+    """
+    try:
+        # Получаем данные из запроса
+        data = request.get_json()
 
+        # Проверяем, что все обязательные поля присутствуют
+        required_fields = ['name', 'email', 'type', 'message']
+        if not all(field in data for field in required_fields):
+            return jsonify({'message': 'All fields are required'}), 400
+
+        # Дополнительная валидация email
+        if not re.match(r"[^@]+@[^@]+\.[^@]+", data['email']):
+            return jsonify({'message': 'Invalid email address'}), 400
+
+        # Подключаемся к базе данных и сохраняем фидбек
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+
+        # Вставляем данные в таблицу feedback
+        c.execute('''
+            INSERT INTO feedback (name, email, type, message, date)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (
+            data['name'],
+            data['email'],
+            data['type'],
+            data['message'],
+            datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%S')
+        ))
+
+        conn.commit()
+        conn.close()
+
+        # Возвращаем успешный ответ
+        return jsonify({
+            'status': 'success',
+            'message': 'Thank you for your feedback! We appreciate it.'
+        })
+
+    except sqlite3.Error as e:
+        app.logger.error(f"Database error handling feedback: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Error saving your feedback. Please try again.'
+        }), 500
+
+    except Exception as e:
+        app.logger.error(f"Unexpected error handling feedback: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': 'An unexpected error occurred. Please try again.'
+        }), 500
+    @app.route('/feedback')
+def feedback_page():
+    """Отображает страницу с формой обратной связи"""
+    return render_template('feedback.html')
 # Инициализация базы данных
 def initialize_database():
     ensure_db_schema()
