@@ -12,3 +12,4 @@ loguru==0.7.2
 python-dateutil==2.8.2
 regex==2023.10.3
 simplejson==3.19.2
+lxml[html_clean]
