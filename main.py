@@ -19,6 +19,19 @@ import html
 # Инициализация Flask
 app = Flask(__name__, static_folder='static', template_folder='templates')
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+@app.after_request
+def add_security_headers(response):
+    # Определяем новую, более разрешающую политику CSP
+    csp = (
+        "default-src 'self'; "
+        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdn.plot.ly; "
+        "font-src 'self' https://cdn.jsdelivr.net; "
+        "img-src 'self' data:;"  # Разрешает изображения с вашего домена и встроенные (data:)
+    )
+    # Устанавливаем заголовок, который переопределит настройки Railway
+    response.headers['Content-Security-Policy'] = csp
+    return response
 
 # Настройка логирования
 def setup_logging():
