@@ -21,16 +21,23 @@ app = Flask(__name__, static_folder='static', template_folder='templates')
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 @app.after_request
 def add_security_headers(response):
-    # Определяем новую, более разрешающую политику CSP
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    
+    # Use the correct, more permissive CSP from your first definition
     csp = (
         "default-src 'self'; "
         "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
         "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdn.plot.ly; "
         "font-src 'self' https://cdn.jsdelivr.net; "
-        "img-src 'self' data:;"  # Разрешает изображения с вашего домена и встроенные (data:)
+        "img-src 'self' data:;"
     )
-    # Устанавливаем заголовок, который переопределит настройки Railway
     response.headers['Content-Security-Policy'] = csp
+    
+    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    response.headers['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
     return response
 
 # Настройка логирования
