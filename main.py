@@ -562,7 +562,7 @@ def make_newsapi_request(params):
         app.logger.error('Unexpected error in NewsAPI request: ' + str(e))
         return []
 
-def fetch_similar_news(analysis_result, days_range=7, max_articles=3):
+def fetch_same_topic_news(analysis_result, days_range=7, max_articles=3):
     if not NEWS_API_ENABLED:
         app.logger.warning('NEWS_API_KEY is not configured or enabled. Skipping similar news search.')
         return []
@@ -670,9 +670,9 @@ def fetch_similar_news(analysis_result, days_range=7, max_articles=3):
     app.logger.info('Returning ' + str(len(top_articles)) + ' top ranked similar articles.')
     return top_articles
 
-def render_similar_articles_html(articles):
+def render_same_topic_articles_html(articles):
     if not articles:
-        return '<p>No similar articles found for the selected criteria.</p>'
+        return '<p>No same topic articles found for the selected criteria.</p>'
 
     predefined_trust_scores = {
         'bbc.com': 0.9, 'bbc.co.uk': 0.9, 'reuters.com': 0.95, 'apnews.com': 0.93,
@@ -731,13 +731,13 @@ def render_similar_articles_html(articles):
 
         return (
             '<div class="similar-articles-container">' +
-            '<h3>🔗 Similar News Articles (Ranked by Relevance & Trust):</h3>' +
+            '<h3>🔗 Same Topic News Articles (Ranked by Relevance & Trust):</h3>' +
             ''.join(html_items) +
             '</div>'
         )
     except sqlite3.Error as e:
         app.logger.error('Database error in render_similar_articles_html: ' + str(e))
-        return '<p>Error retrieving similar articles data due to a database issue.</p>'
+        return '<p>Error retrieving same topic articles data due to a database issue.</p>'
     finally:
         if conn:
             conn.close()
@@ -860,35 +860,35 @@ def analyze():
             return jsonify({'error_message': output_md}), 400
 
         # Получаем похожие новости
-        similar_news = fetch_similar_news(analysis_result)
+        same_topic_news = fetch_same_topic_news(analysis_result)
 
         app.logger.info('Analysis result generated. Sending to client.')
         return jsonify({
             'output_md': output_md,
             'scores_for_chart': scores_for_chart,
             'analysis_result': analysis_result,
-            'similar_news': render_similar_articles_html(similar_news)
+            'same_topic_news': render_same_topic_articles_html(same_topic_news)
         })
     except Exception as e:
         app.logger.error('Error in analyze endpoint: ' + str(e))
         return jsonify({'error_message': 'An error occurred during analysis: ' + str(e)}), 500
 
-@app.route('/similar_articles', methods=['POST'])
-def similar_articles():
+@app.route('/same_topic_articles', methods=['POST'])
+def same_topic_articles():
     try:
         data = request.json
         analysis_result = data.get('analysis_result')
 
         if not analysis_result:
-            return jsonify({'similar_html': '<p>No analysis result provided to fetch similar articles.</p>'})
+            return jsonify({'same_topic_html': '<p>No analysis result provided to fetch same topic articles.</p>'})
 
-        similar_articles_list = fetch_similar_news(analysis_result)
+        similar_articles_list = fetch_same_topic_news(analysis_result)
         return jsonify({
-            'similar_html': render_similar_articles_html(similar_articles_list)
+            'same_topic_html': render_same_topic_articles_html(same_topic_articles_list)
         })
     except Exception as e:
-        app.logger.error('Error in similar_articles endpoint: ' + str(e))
-        return jsonify({'similar_html': '<p>Error fetching similar articles: ' + str(e) + '</p>'}), 500
+        app.logger.error('Error in same_topic_articles endpoint: ' + str(e))
+        return jsonify({'same_topic_html': '<p>Error fetching same topic articles: ' + str(e) + '</p>'}), 500
 
 @app.route('/source_reliability_data')
 def source_reliability_data():
