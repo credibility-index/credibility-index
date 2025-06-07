@@ -13,12 +13,10 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 import anthropic
 from newspaper import Article
 from stop_words import get_stop_words
-from flasgger import Swagger
 
 # Инициализация Flask приложения
 app = Flask(__name__, static_folder='static', template_folder='templates')
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
-swagger = Swagger(app)
 
 # Настройка логгирования
 def setup_logging():
@@ -667,27 +665,7 @@ def index():
 
 @app.route('/analyze', methods=['POST'])
 def analyze():
-    """
-    API endpoint to analyze an article (URL or text) and return analysis results.
-    ---
-    tags:
-      - analysis
-    parameters:
-      - name: input_text
-        in: body
-        type: string
-        required: true
-        description: The article text or URL to analyze
-      - name: source_name_manual
-        in: body
-        type: string
-        description: Optional source name
-    responses:
-      200:
-        description: Analysis results
-      400:
-        description: Bad request
-    """
+    """API endpoint to analyze an article (URL or text) and return analysis results."""
     if not request.is_json:
         return jsonify({'error_message': 'Content-Type must be application/json'}), 415
 
@@ -714,23 +692,7 @@ def analyze():
 
 @app.route('/same_topic_articles', methods=['POST'])
 def same_topic_articles_endpoint():
-    """
-    API endpoint to fetch and render HTML for same topic articles.
-    ---
-    tags:
-      - analysis
-    parameters:
-      - name: analysis_result
-        in: body
-        type: object
-        required: true
-        description: Analysis result from previous analysis
-    responses:
-      200:
-        description: HTML of similar articles
-      400:
-        description: Bad request
-    """
+    """API endpoint to fetch and render HTML for same topic articles."""
     data = request.get_json()
     analysis_result = data.get('analysis_result')
 
@@ -744,15 +706,7 @@ def same_topic_articles_endpoint():
 
 @app.route('/source_reliability_data')
 def source_reliability_data_endpoint():
-    """
-    API endpoint to provide data for the source reliability chart.
-    ---
-    tags:
-      - data
-    responses:
-      200:
-        description: Source reliability data
-    """
+    """API endpoint to provide data for the source reliability chart."""
     data = get_source_reliability_data()
     labeled_sources = []
 
@@ -777,48 +731,13 @@ def source_reliability_data_endpoint():
 
 @app.route('/analysis_history')
 def analysis_history_endpoint():
-    """
-    API endpoint to fetch and render HTML for the recent analysis history.
-    ---
-    tags:
-      - data
-    responses:
-      200:
-        description: Analysis history HTML
-    """
+    """API endpoint to fetch and render HTML for the recent analysis history."""
     history_html = get_analysis_history_html()
     return jsonify({'history_html': history_html})
 
 @app.route('/feedback', methods=['POST'])
 def handle_feedback():
-    """
-    API endpoint for handling feedback form submissions.
-    ---
-    tags:
-      - feedback
-    parameters:
-      - name: name
-        in: body
-        type: string
-        required: true
-      - name: email
-        in: body
-        type: string
-        required: true
-      - name: type
-        in: body
-        type: string
-        required: true
-      - name: message
-        in: body
-        type: string
-        required: true
-    responses:
-      200:
-        description: Feedback received
-      400:
-        description: Bad request
-    """
+    """API endpoint for handling feedback form submissions."""
     data = request.get_json()
     required_fields = ['name', 'email', 'type', 'message']
 
@@ -858,6 +777,111 @@ def feedback_page():
     """Renders the feedback form HTML page."""
     return render_template('feedback.html')
 
+def process_article_analysis(input_text, source_name_manual):
+    """Orchestrates the full article analysis process."""
+    article_url = None
+    article_content = input_text
+    article_title = 'User-provided Text'
+    source_name = source_name_manual if source_name_manual else 'Direct Input'
+
+    if input_text.strip().startswith('http'):
+        article_url = input_text.strip()
+        content_from_url, source_from_url, title_from_url = extract_text_from_url(article_url)
+
+        if content_from_url and len(content_from_url) >= 100:
+            article_content, source_name, article_title = content_from_url, source_from_url, title_from_url
+        else:
+            if not content_from_url:
+                return ('❌ Failed to extract content from the provided URL. Please check the link or provide text directly.', None, None)
+            else:
+                return ('❌ Extracted article content is too short for analysis (min 100 chars).', None, None)
+
+    if len(article_content) < 100:
+        return ('❌ Article content is too short for analysis (min 100 chars).', None, None)
+
+    if not source_name:
+        source_name = 'Unknown Source'
+
+    analyzer = ClaudeNewsAnalyzer(ANTHROPIC_API_KEY, MODEL_NAME)
+    try:
+        analysis_result = analyzer.analyze_article_text(article_content, source_name)
+    except Exception as e:
+        return (f'❌ Error during AI analysis: {str(e)}', None, None)
+
+    try:
+        credibility_saved = save_analysis_to_db(article_url, article_title, source_name, article_content, analysis_result)
+    except Exception as e:
+        return (f'❌ Error saving analysis to database: {str(e)}', None, None)
+
+    output_md = format_analysis_results(article_title, source_name, analysis_result, credibility_saved)
+    scores_for_chart = prepare_chart_data(analysis_result)
+
+    return output_md, scores_for_chart, analysis_result
+
+def format_analysis_results(article_title, source_name, analysis_result, credibility_saved):
+    """Formats analysis results for display."""
+    ni = analysis_result.get('news_integrity', 0.0)
+    fcn = analysis_result.get('fact_check_needed_score', 1.0)
+    ss = analysis_result.get('sentiment_score', 0.5)
+    bs = analysis_result.get('bias_score', 1.0)
+    topics = analysis_result.get('topics', [])
+    key_arguments = analysis_result.get('key_arguments', [])
+    mentioned_facts = analysis_result.get('mentioned_facts', [])
+    author_purpose = analysis_result.get('author_purpose', 'N/A')
+    potential_biases_identified = analysis_result.get('potential_biases_identified', [])
+    short_summary = analysis_result.get('short_summary', 'N/A')
+    index_of_credibility = analysis_result.get('index_of_credibility', 0.0)
+
+    factuality_display_score = 1.0 - fcn
+
+    output_md = (
+        f'### 📊 Credibility Analysis for: "{article_title}"\n'
+        f'**Source:** {source_name}\n'
+        f'**Media Owner:** {media_owners.get(source_name, "Unknown Owner")}\n'
+        f'**Overall Calculated Credibility:** **{credibility_saved}** ({index_of_credibility*100:.1f}%)'
+        '\n\n---\n'
+        '#### 📊 Analysis Scores:\n'
+        f'- **Integrity Score:** {ni*100:.1f}% - Measures the overall integrity and trustworthiness.\n'
+        f'- **Factuality Score:** {factuality_display_score*100:.1f}% - Indicates likelihood of needing fact-checking.\n'
+        f'- **Sentiment Score:** {ss:.2f} - Overall emotional tone (0.0 negative, 0.5 neutral, 1.0 positive).\n'
+        f'- **Bias Score:** {bs*100:.1f}% - Degree of perceived bias (0.0 low, 1.0 high).\n'
+        f'- **Index of Credibility:** {index_of_credibility*100:.1f}% - Overall credibility index.'
+        '\n\n---\n'
+        '#### 📝 Summary:\n'
+        f'{short_summary}\n\n'
+        '#### 🔑 Key Arguments:\n'
+        f'{("- " + "\\n- ".join(key_arguments) if key_arguments else "N/A")}\n\n'
+        '#### 📈 Mentioned Facts/Data:\n'
+        f'{("- " + "\\n- ".join(mentioned_facts) if mentioned_facts else "N/A")}\n\n'
+        '#### 🎯 Author\'s Purpose:\n'
+        f'{author_purpose}\n\n'
+        '#### 🚩 Potential Biases Identified:\n'
+        f'{("- " + "\\n- ".join(potential_biases_identified) if potential_biases_identified else "N/A")}\n\n'
+        '#### 🏷️ Main Topics Identified:\n'
+        f'{", ".join(topics) if topics else "N/A"}\n\n'
+        '#### 📌 Media Owner Influence:\n'
+        f'The media owner, {media_owners.get(source_name, "Unknown Owner")}, may influence source credibility.'
+    )
+    return output_md
+
+def prepare_chart_data(analysis_result):
+    """Prepares data for credibility chart."""
+    ni = analysis_result.get('news_integrity', 0.0)
+    fcn = analysis_result.get('fact_check_needed_score', 1.0)
+    ss = analysis_result.get('sentiment_score', 0.5)
+    bs = analysis_result.get('bias_score', 1.0)
+    index_of_credibility = analysis_result.get('index_of_credibility', 0.0)
+
+    factuality_display_score = 1.0 - fcn
+
+    return {
+        'Integrity': ni * 100,
+        'Factuality': factuality_display_score * 100,
+        'Neutral Sentiment': (1.0 - abs(ss - 0.5) * 2) * 100,
+        'Low Bias': (1.0 - bs) * 100,
+        'Overall Credibility Index': index_of_credibility * 100
+    }
+
 # Инициализация приложения
 def initialize_application():
     """Performs all necessary setup when the application starts."""
@@ -870,6 +894,14 @@ def initialize_application():
     app.logger.info("Flask application initialized and ready to serve.")
 
 if __name__ == '__main__':
+    # Инициализация переменных окружения
+    ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
+    NEWS_API_KEY = os.getenv('NEWS_API_KEY')
+    NEWS_API_ENABLED = bool(NEWS_API_KEY)
+    MODEL_NAME = 'claude-3-opus-20240229'
+    SECRET_KEY = os.getenv('SECRET_KEY')
+    DB_NAME = 'news_analysis.db'
+
     initialize_application()
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=os.environ.get('FLASK_DEBUG', 'false').lower() == 'true')
