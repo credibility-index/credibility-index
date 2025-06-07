@@ -834,31 +834,46 @@ def format_analysis_results(article_title, source_name, analysis_result, credibi
 
     factuality_display_score = 1.0 - fcn
 
+    # Исправляем f-строки с обратными слэшами
+    key_arguments_str = "N/A"
+    if key_arguments:
+        key_arguments_str = "- " + "\n- ".join(key_arguments)
+
+    mentioned_facts_str = "N/A"
+    if mentioned_facts:
+        mentioned_facts_str = "- " + "\n- ".join(mentioned_facts)
+
+    potential_biases_str = "N/A"
+    if potential_biases_identified:
+        potential_biases_str = "- " + "\n- ".join(potential_biases_identified)
+
+    topics_str = ", ".join(topics) if topics else "N/A"
+
     output_md = (
         f'### 📊 Credibility Analysis for: "{article_title}"\n'
         f'**Source:** {source_name}\n'
         f'**Media Owner:** {media_owners.get(source_name, "Unknown Owner")}\n'
-        f'**Overall Calculated Credibility:** **{credibility_saved}** ({index_of_credibility*100:.1f}%)'
-        '\n\n---\n'
+        f'**Overall Calculated Credibility:** **{credibility_saved}** ({index_of_credibility*100:.1f}%)\n'
+        '\n---\n'
         '#### 📊 Analysis Scores:\n'
         f'- **Integrity Score:** {ni*100:.1f}% - Measures the overall integrity and trustworthiness.\n'
         f'- **Factuality Score:** {factuality_display_score*100:.1f}% - Indicates likelihood of needing fact-checking.\n'
         f'- **Sentiment Score:** {ss:.2f} - Overall emotional tone (0.0 negative, 0.5 neutral, 1.0 positive).\n'
         f'- **Bias Score:** {bs*100:.1f}% - Degree of perceived bias (0.0 low, 1.0 high).\n'
-        f'- **Index of Credibility:** {index_of_credibility*100:.1f}% - Overall credibility index.'
-        '\n\n---\n'
+        f'- **Index of Credibility:** {index_of_credibility*100:.1f}% - Overall credibility index.\n'
+        '\n---\n'
         '#### 📝 Summary:\n'
         f'{short_summary}\n\n'
         '#### 🔑 Key Arguments:\n'
-        f'{("- " + "\\n- ".join(key_arguments) if key_arguments else "N/A")}\n\n'
+        f'{key_arguments_str}\n\n'
         '#### 📈 Mentioned Facts/Data:\n'
-        f'{("- " + "\\n- ".join(mentioned_facts) if mentioned_facts else "N/A")}\n\n'
+        f'{mentioned_facts_str}\n\n'
         '#### 🎯 Author\'s Purpose:\n'
         f'{author_purpose}\n\n'
         '#### 🚩 Potential Biases Identified:\n'
-        f'{("- " + "\\n- ".join(potential_biases_identified) if potential_biases_identified else "N/A")}\n\n'
+        f'{potential_biases_str}\n\n'
         '#### 🏷️ Main Topics Identified:\n'
-        f'{", ".join(topics) if topics else "N/A"}\n\n'
+        f'{topics_str}\n\n'
         '#### 📌 Media Owner Influence:\n'
         f'The media owner, {media_owners.get(source_name, "Unknown Owner")}, may influence source credibility.'
     )
