@@ -5,7 +5,7 @@ import re
 import json
 import requests
 import html
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from urllib.parse import urlparse
 from logging.handlers import RotatingFileHandler
 from flask import Flask, request, jsonify, render_template, abort
@@ -42,12 +42,6 @@ def check_env_vars():
             error_msg = f"Missing required environment variable: {var}"
             app.logger.critical(error_msg)
             raise ValueError(error_msg)
-
-# Настройка часового пояса UTC
-class UTC(datetime.tzinfo):
-    def utcoffset(self, dt): return timedelta(0)
-    def tzname(self, dt): return "UTC"
-    def dst(self, dt): return timedelta(0)
 
 # Конфигурация приложения
 def configure_app():
