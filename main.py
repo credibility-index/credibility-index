@@ -5,7 +5,7 @@ import re
 import json
 import requests
 import html
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
 from logging.handlers import RotatingFileHandler
 from flask import Flask, request, jsonify, render_template, abort
@@ -17,7 +17,10 @@ from stop_words import get_stop_words
 # Инициализация Flask приложения
 app = Flask(__name__, static_folder='static', template_folder='templates')
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
+# Используем встроенную временную зону UTC
 UTC = timezone.utc
+
 # Настройка логгирования
 def setup_logging():
     formatter = logging.Formatter(
