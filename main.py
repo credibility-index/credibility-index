@@ -819,7 +819,8 @@ def process_article_analysis(input_text, source_name_manual):
     return output_md, scores_for_chart, analysis_result
 
 def format_analysis_results(article_title, source_name, analysis_result, credibility_saved):
-    """Formats analysis results for display."""
+    """Formats analysis results for display without using backslashes in f-strings."""
+    # Извлекаем данные из analysis_result
     ni = analysis_result.get('news_integrity', 0.0)
     fcn = analysis_result.get('fact_check_needed_score', 1.0)
     ss = analysis_result.get('sentiment_score', 0.5)
@@ -828,56 +829,66 @@ def format_analysis_results(article_title, source_name, analysis_result, credibi
     key_arguments = analysis_result.get('key_arguments', [])
     mentioned_facts = analysis_result.get('mentioned_facts', [])
     author_purpose = analysis_result.get('author_purpose', 'N/A')
-    potential_biases_identified = analysis_result.get('potential_biases_identified', [])
+    potential_biases = analysis_result.get('potential_biases_identified', [])
     short_summary = analysis_result.get('short_summary', 'N/A')
     index_of_credibility = analysis_result.get('index_of_credibility', 0.0)
 
+    # Вычисляем дополнительные показатели
     factuality_display_score = 1.0 - fcn
 
-    # Исправляем f-строки с обратными слэшами
-    key_arguments_str = "N/A"
-    if key_arguments:
-        key_arguments_str = "- " + "\n- ".join(key_arguments)
+    # Форматируем списки в строки
+    def format_list(items):
+        if not items:
+            return "N/A"
+        return "- " + "\n- ".join(items)
 
-    mentioned_facts_str = "N/A"
-    if mentioned_facts:
-        mentioned_facts_str = "- " + "\n- ".join(mentioned_facts)
+    # Создаем список строк для результата
+    result = []
 
-    potential_biases_str = "N/A"
-    if potential_biases_identified:
-        potential_biases_str = "- " + "\n- ".join(potential_biases_identified)
+    # Заголовок
+    result.append(f"### Credibility Analysis for: \"{article_title}\"")
+    result.append(f"**Source:** {source_name}")
+    result.append(f"**Media Owner:** {media_owners.get(source_name, 'Unknown Owner')}")
+    result.append(f"**Overall Calculated Credibility:** **{credibility_saved}** ({index_of_credibility*100:.1f}%)")
 
-    topics_str = ", ".join(topics) if topics else "N/A"
+    # Разделитель
+    result.append("\n---\n")
 
-    output_md = (
-        f'### 📊 Credibility Analysis for: "{article_title}"\n'
-        f'**Source:** {source_name}\n'
-        f'**Media Owner:** {media_owners.get(source_name, "Unknown Owner")}\n'
-        f'**Overall Calculated Credibility:** **{credibility_saved}** ({index_of_credibility*100:.1f}%)\n'
-        '\n---\n'
-        '#### 📊 Analysis Scores:\n'
-        f'- **Integrity Score:** {ni*100:.1f}% - Measures the overall integrity and trustworthiness.\n'
-        f'- **Factuality Score:** {factuality_display_score*100:.1f}% - Indicates likelihood of needing fact-checking.\n'
-        f'- **Sentiment Score:** {ss:.2f} - Overall emotional tone (0.0 negative, 0.5 neutral, 1.0 positive).\n'
-        f'- **Bias Score:** {bs*100:.1f}% - Degree of perceived bias (0.0 low, 1.0 high).\n'
-        f'- **Index of Credibility:** {index_of_credibility*100:.1f}% - Overall credibility index.\n'
-        '\n---\n'
-        '#### 📝 Summary:\n'
-        f'{short_summary}\n\n'
-        '#### 🔑 Key Arguments:\n'
-        f'{key_arguments_str}\n\n'
-        '#### 📈 Mentioned Facts/Data:\n'
-        f'{mentioned_facts_str}\n\n'
-        '#### 🎯 Author\'s Purpose:\n'
-        f'{author_purpose}\n\n'
-        '#### 🚩 Potential Biases Identified:\n'
-        f'{potential_biases_str}\n\n'
-        '#### 🏷️ Main Topics Identified:\n'
-        f'{topics_str}\n\n'
-        '#### 📌 Media Owner Influence:\n'
-        f'The media owner, {media_owners.get(source_name, "Unknown Owner")}, may influence source credibility.'
-    )
-    return output_md
+    # Оценки анализа
+    result.append("#### Analysis Scores:")
+    result.append(f"- **Integrity Score:** {ni*100:.1f}% - Measures the overall integrity and trustworthiness.")
+    result.append(f"- **Factuality Score:** {factuality_display_score*100:.1f}% - Indicates likelihood of needing fact-checking.")
+    result.append(f"- **Sentiment Score:** {ss:.2f} - Overall emotional tone (0.0 negative, 0.5 neutral, 1.0 positive).")
+    result.append(f"- **Bias Score:** {bs*100:.1f}% - Degree of perceived bias (0.0 low, 1.0 high).")
+    result.append(f"- **Index of Credibility:** {index_of_credibility*100:.1f}% - Overall credibility index.")
+
+    # Разделитель
+    result.append("\n---\n")
+
+    # Основной контент
+    result.append("#### Summary:")
+    result.append(short_summary)
+
+    result.append("\n#### Key Arguments:")
+    result.append(format_list(key_arguments))
+
+    result.append("\n#### Mentioned Facts/Data:")
+    result.append(format_list(mentioned_facts))
+
+    result.append("\n#### Author's Purpose:")
+    result.append(author_purpose)
+
+    result.append("\n#### Potential Biases Identified:")
+    result.append(format_list(potential_biases))
+
+    result.append("\n#### Main Topics Identified:")
+    result.append(", ".join(topics) if topics else "N/A")
+
+    result.append("\n#### Media Owner Influence:")
+    result.append(f"The media owner, {media_owners.get(source_name, 'Unknown Owner')}, may influence source credibility.")
+
+    # Объединяем все части в одну строку
+    return "\n".join(result)
 
 def prepare_chart_data(analysis_result):
     """Prepares data for credibility chart."""
