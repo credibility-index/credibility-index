@@ -17,7 +17,7 @@ from stop_words import get_stop_words
 # Инициализация Flask приложения
 app = Flask(__name__, static_folder='static', template_folder='templates')
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
-
+UTC = timezone.utc
 # Настройка логгирования
 def setup_logging():
     formatter = logging.Formatter(
