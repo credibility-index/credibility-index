@@ -4,11 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>News Credibility Index</title>
+
+    <!-- Подключаем только необходимые библиотеки -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <script src="https://cdn.plot.ly/plotly-3.0.1.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.plot.ly/plotly-3.0.1.min.css">
+
     <style>
+        /* Все стили перенесены в этот блок, без использования @import */
         :root {
             --primary-color: #4e73df;
             --secondary-color: #2e59d9;
@@ -81,7 +84,31 @@
             margin-bottom: 20px;
             border-left: 4px solid var(--primary-color);
         }
-        
+
+        .credibility-indicator {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-weight: bold;
+            margin-left: 10px;
+            font-size: 0.8em;
+        }
+
+        .high-credibility {
+            background-color: rgba(28, 200, 138, 0.2);
+            color: var(--success-color);
+        }
+
+        .medium-credibility {
+            background-color: rgba(246, 194, 62, 0.2);
+            color: var(--warning-color);
+        }
+
+        .low-credibility {
+            background-color: rgba(231, 74, 59, 0.2);
+            color: var(--danger-color);
+        }
+
         .loading {
             display: none;
             text-align: center;
@@ -92,6 +119,52 @@
             width: 3rem;
             height: 3rem;
             margin: 0 auto 15px;
+        }
+
+        .credibility-score {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .score-high {
+            color: var(--success-color);
+        }
+
+        .score-medium {
+            color: var(--warning-color);
+        }
+
+        .score-low {
+            color: var(--danger-color);
+        }
+
+        .article-metadata {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .source-info {
+            display: flex;
+            align-items: center;
+        }
+
+        .article-actions {
+            white-space: nowrap;
+        }
+
+        .btn-analyze {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .btn-analyze:hover {
+            background-color: var(--secondary-color);
+            border-color: var(--secondary-color);
         }
 
         .credibility-radar {
@@ -118,7 +191,81 @@
             margin-bottom: 5px;
         }
 
-        /* Responsive styles */
+        .same-topic-article-title {
+            color: var(--primary-color);
+            font-size: 1.1rem;
+            margin-bottom: 5px;
+        }
+
+        .same-topic-article-title a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        .same-topic-article-title a:hover {
+            text-decoration: underline;
+        }
+
+        .same-topic-article-meta {
+            font-size: 0.85rem;
+            color: #6c757d;
+            margin-bottom: 8px;
+        }
+
+        .same-topic-article-content {
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        .history-item {
+            padding: 15px;
+            margin-bottom: 15px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 0.1rem 0.4rem rgba(46, 65, 235, 0.05);
+            border-left: 3px solid var(--primary-color);
+        }
+
+        .history-item-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .history-item-meta {
+            font-size: 0.85rem;
+            color: #6c757d;
+            margin-bottom: 8px;
+        }
+
+        .history-item-content {
+            font-size: 0.95rem;
+        }
+
+        .credibility-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 15px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            margin-right: 5px;
+        }
+
+        .badge-high {
+            background-color: rgba(28, 200, 138, 0.2);
+            color: var(--success-color);
+        }
+
+        .badge-medium {
+            background-color: rgba(246, 194, 62, 0.2);
+            color: var(--warning-color);
+        }
+
+        .badge-low {
+            background-color: rgba(231, 74, 59, 0.2);
+            color: var(--danger-color);
+        }
+
+        /* Адаптивные стили */
         @media (max-width: 768px) {
             .container {
                 padding: 15px;
@@ -126,6 +273,24 @@
 
             .card, .form-container, .analysis-container, .chart-container {
                 padding: 15px;
+            }
+
+            .similar-article {
+                padding: 10px;
+            }
+
+            .article-metadata {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .article-actions {
+                margin-top: 10px;
+                width: 100%;
+            }
+
+            .btn-analyze {
+                width: 100%;
             }
         }
     </style>
@@ -146,13 +311,15 @@
                     <form id="analysisForm">
                         <div class="mb-3">
                             <label for="articleInput" class="form-label">Article URL or Text</label>
-                            <textarea class="form-control" id="articleInput" rows="6" placeholder="Paste article text or URL here..."></textarea>
+                            <textarea class="form-control" id="articleInput" rows="6"
+                                      placeholder="Paste article text or URL here..."></textarea>
                         </div>
                         <div class="mb-4">
                             <label for="sourceName" class="form-label">Source Name (optional)</label>
-                            <input type="text" class="form-control" id="sourceName" placeholder="e.g., bbc.com, reuters.com">
+                            <input type="text" class="form-control" id="sourceName"
+                                   placeholder="e.g., bbc.com, reuters.com">
                         </div>
-                        <button type="submit" class="btn btn-primary btn-lg">
+                        <button type="submit" class="btn btn-analyze btn-lg">
                             <i class="bi bi-search me-2"></i> Analyze Article
                         </button>
                     </form>
@@ -178,7 +345,7 @@
                         <div id="sourceChart"></div>
                     </div>
 
-                    <div class="same-topic-articles-container">
+                    <div class="similar-articles-container">
                         <h3 class="mb-4">Same Topic Articles</h3>
                         <div id="similarArticles"></div>
                     </div>
@@ -200,58 +367,43 @@
         </div>
     </div>
 
+    <!-- Подключаем скрипты в конце body -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-3.0.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
     <script>
-        // Declare the elements object, but leave it empty.
-        let elements = {};
+        // Кэшируем элементы DOM
+        const elements = {
+            analysisForm: document.getElementById('analysisForm'),
+            articleInput: document.getElementById('articleInput'),
+            sourceName: document.getElementById('sourceName'),
+            loadingIndicator: document.getElementById('loadingIndicator'),
+            analysisResults: document.getElementById('analysisResults'),
+            analysisOutput: document.getElementById('analysisOutput'),
+            credibilityChart: document.getElementById('credibilityChart'),
+            sourceChart: document.getElementById('sourceChart'),
+            similarArticles: document.getElementById('similarArticles'),
+            analysisHistory: document.getElementById('analysisHistory'),
+            container: document.querySelector('.container')
+        };
 
-        // Initialize when the page content is loaded
+        // Инициализация при загрузке страницы
         document.addEventListener('DOMContentLoaded', function() {
-            // Populate the elements object HERE, once the DOM is ready.
-            elements = {
-                analysisForm: document.getElementById('analysisForm'),
-                articleInput: document.getElementById('articleInput'),
-                sourceName: document.getElementById('sourceName'),
-                loadingIndicator: document.getElementById('loadingIndicator'),
-                analysisResults: document.getElementById('analysisResults'),
-                analysisOutput: document.getElementById('analysisOutput'),
-                credibilityChart: document.getElementById('credibilityChart'),
-                sourceChart: document.getElementById('sourceChart'),
-                similarArticles: document.getElementById('similarArticles'),
-                analysisHistory: document.getElementById('analysisHistory'),
-                container: document.querySelector('.container')
-            };
-
             if (elements.analysisForm) {
-                elements.analysisForm.addEventListener('submit', handleFormSubmit);
+                elements.analysisForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    analyzeArticle();
+                });
             }
 
-            // Load analysis history
+            // Загружаем историю анализа
             loadAnalysisHistory();
-
-            // Add a handler for a refresh button if it exists
-            document.addEventListener('click', function(e) {
-                if (e.target && e.target.id === 'refreshHistory') {
-                    loadAnalysisHistory();
-                }
-            });
         });
 
-        // Debounce function to prevent rapid form submissions
-        function debounce(func, timeout = 300) {
-            let timer;
-            return (...args) => {
-                clearTimeout(timer);
-                timer = setTimeout(() => { func.apply(this, args); }, timeout);
-            };
-        }
-
-        const handleFormSubmit = debounce(function(e) {
-            e.preventDefault();
-            analyzeArticle();
-        });
-
-        // Function to analyze the article
-        async function analyzeArticle() {
+        // Функция для анализа статьи
+        function analyzeArticle() {
             if (!elements.articleInput || !elements.loadingIndicator || !elements.analysisResults) {
                 console.error('Required elements not found');
                 return;
@@ -265,73 +417,75 @@
                 return;
             }
 
-            // Show loading indicator
+            // Показываем индикатор загрузки
             elements.loadingIndicator.style.display = 'block';
             elements.analysisResults.style.display = 'none';
 
-            try {
-                const response = await fetch('/analyze', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        input_text: inputText,
-                        source_name_manual: sourceName
-                    })
-                });
-
-                const data = await handleResponse(response);
-
-                // Hide loading and show results
+            fetch('/analyze', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    input_text: inputText,
+                    source_name_manual: sourceName
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw err; });
+                }
+                return response.json();
+            })
+            .then(data => {
                 elements.loadingIndicator.style.display = 'none';
                 elements.analysisResults.style.display = 'block';
 
                 if (data.error_message) {
-                    elements.analysisOutput.innerHTML = `<div class="alert alert-danger">${data.error_message}</div>`;
+                    elements.analysisOutput.innerHTML =
+                        `<div class="alert alert-danger">${data.error_message}</div>`;
                     return;
                 }
 
-                // Render the results
-                if (elements.analysisOutput && data.output_md) {
+                // Отображаем результаты анализа
+                if (typeof marked !== 'undefined') {
                     elements.analysisOutput.innerHTML = marked.parse(data.output_md);
+                } else {
+                    elements.analysisOutput.textContent = data.output_md;
                 }
+
+                // Визуализируем графики
                 if (data.scores_for_chart) {
                     renderCredibilityChart(data.scores_for_chart);
                 }
                 loadSourceChart();
-                if (elements.similarArticles && data.similar_news) {
-                    elements.similarArticles.innerHTML = data.similar_news;
+
+                // Отображаем похожие статьи
+                if (data.same_topic_news) {
+                    elements.similarArticles.innerHTML = data.same_topic_news;
                 }
+
+                // Загружаем обновленную историю анализа
                 loadAnalysisHistory();
-
-            } catch (error) {
-                handleError(error);
-            }
-        }
-
-        function handleResponse(response) {
-            if (!response.ok) {
-                return response.json().then(err => { throw err; });
-            }
-            return response.json();
-        }
-
-        function handleError(error) {
-            if (elements.loadingIndicator) {
+            })
+            .catch(error => {
                 elements.loadingIndicator.style.display = 'none';
-            }
-            let errorMessage = 'An error occurred during analysis';
-            if (error.error_message) {
-                errorMessage = error.error_message;
-            } else if (error.message) {
-                errorMessage += `: ${error.message}`;
-            }
-            showAlert(errorMessage, 'danger');
-            console.error('Error:', error);
+                let errorMessage = 'An error occurred during analysis';
+                if (error.message) {
+                    errorMessage += `: ${error.message}`;
+                }
+                if (error.error_message) {
+                    errorMessage = error.error_message;
+                }
+                showAlert(errorMessage, 'danger');
+                console.error('Error:', error);
+            });
         }
 
-        // Function to show alerts
+        // Функция для отображения уведомлений
         function showAlert(message, type) {
             if (!elements.container) return;
+
             const alertContainer = document.createElement('div');
             alertContainer.className = `alert alert-${type} alert-dismissible fade show`;
             alertContainer.role = 'alert';
@@ -339,25 +493,35 @@
                 ${message}
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             `;
+
             elements.container.prepend(alertContainer);
-            setTimeout(() => {
-                const alert = new bootstrap.Alert(alertContainer);
-                alert.close();
-            }, 5000);
+
+            // Проверяем существование bootstrap перед использованием
+            if (typeof bootstrap !== 'undefined' && bootstrap.Alert) {
+                setTimeout(() => {
+                    const alert = bootstrap.Alert.getOrCreateInstance(alertContainer);
+                    alert.close();
+                }, 5000);
+            } else {
+                setTimeout(() => {
+                    alertContainer.style.display = 'none';
+                }, 5000);
+            }
         }
 
-        // Function to render the credibility chart
+        // Функция для визуализации графика достоверности
         function renderCredibilityChart(scores) {
-            if (!elements.credibilityChart) return;
+            if (!elements.credibilityChart || !scores) return;
+
             try {
                 const chartData = [{
                     type: 'scatterpolar',
                     r: [
-                        scores.Integrity,
-                        scores.Factuality,
-                        scores['Neutral Sentiment'],
-                        scores['Low Bias'],
-                        scores['Overall Credibility Index']
+                        scores.Integrity || 0,
+                        scores.Factuality || 0,
+                        scores['Neutral Sentiment'] || 0,
+                        scores['Low Bias'] || 0,
+                        scores['Overall Credibility Index'] || 0
                     ],
                     theta: [
                         'Integrity',
@@ -367,29 +531,66 @@
                         'Overall Credibility'
                     ],
                     fill: 'toself',
-                    name: 'Credibility Scores'
+                    name: 'Credibility Scores',
+                    marker: {
+                        color: 'rgb(78, 115, 223)',
+                        line: {
+                            color: 'rgb(46, 65, 235)',
+                            width: 2
+                        }
+                    }
                 }];
+
                 const layout = {
                     polar: {
-                        radialaxis: { visible: true, range: [0, 100] }
+                        radialaxis: {
+                            visible: true,
+                            range: [0, 100],
+                            tickfont: {
+                                size: 12
+                            }
+                        },
+                        angularaxis: {
+                            direction: 'clockwise',
+                            rotation: 90
+                        }
+                    },
+                    title: {
+                        text: 'Article Credibility Radar Chart',
+                        font: {
+                            size: 18
+                        }
                     },
                     showlegend: false,
-                    margin: { l: 50, r: 50, t: 50, b: 50 },
+                    margin: {
+                        l: 50,
+                        r: 50,
+                        t: 80,
+                        b: 50
+                    },
                     paper_bgcolor: 'rgba(0,0,0,0)',
                     plot_bgcolor: 'rgba(0,0,0,0)'
                 };
+
                 Plotly.newPlot('credibilityChart', chartData, layout, {responsive: true});
             } catch (error) {
                 console.error('Error rendering credibility chart:', error);
-                elements.credibilityChart.innerHTML = '<div class="alert alert-danger">Error loading chart</div>';
+                elements.credibilityChart.innerHTML =
+                    '<div class="alert alert-danger">Error loading chart</div>';
             }
         }
 
-        // Function to load the source reliability chart
+        // Функция для загрузки графика надежности источников
         function loadSourceChart() {
             if (!elements.sourceChart) return;
+
             fetch('/source_reliability_data')
-                .then(handleResponse)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
                 .then(data => {
                     if (data.sources && data.sources.length > 0) {
                         const colors = data.credibility_indices_for_plot.map(score => {
@@ -397,46 +598,111 @@
                             if (score >= 0.4) return 'rgb(246, 194, 62)';
                             return 'rgb(231, 74, 59)';
                         });
+
                         const chartData = [{
                             x: data.sources,
                             y: data.credibility_indices_for_plot,
                             type: 'bar',
-                            marker: { color: colors },
-                            hovertemplate: '<b>%{x}</b><br>Credibility: %{y:.2f}<br>Articles: %{customdata[0]}<br>High: %{customdata[1]} | Med: %{customdata[2]} | Low: %{customdata[3]}<extra></extra>',
-                            customdata: data.total_analyzed_counts.map((t, i) => [t, data.high_counts[i], data.medium_counts[i], data.low_counts[i]])
+                            marker: {
+                                color: colors
+                            },
+                            hovertemplate: '<b>%{x}</b><br>' +
+                                          'Credibility: %{y:.2f}<br>' +
+                                          'Articles: %{customdata[0]}<br>' +
+                                          'High: %{customdata[1]}<br>' +
+                                          'Medium: %{customdata[2]}<br>' +
+                                          'Low: %{customdata[3]}<extra></extra>',
+                            customdata: data.total_analyzed_counts.map((t, i) => [
+                                t,
+                                data.high_counts[i],
+                                data.medium_counts[i],
+                                data.low_counts[i]
+                            ])
                         }];
+
                         const layout = {
-                            xaxis: { tickangle: -45, automargin: true },
-                            yaxis: { range: [0, 1], title: 'Credibility Score (0-1)' },
-                            margin: { b: 150 },
+                            title: {
+                                text: 'Source Credibility Scores',
+                                font: {
+                                    size: 18
+                                }
+                            },
+                            xaxis: {
+                                title: {
+                                    text: 'News Sources',
+                                    font: {
+                                        size: 14
+                                    }
+                                },
+                                tickangle: -45,
+                                tickfont: {
+                                    size: 10
+                                }
+                            },
+                            yaxis: {
+                                title: {
+                                    text: 'Credibility Score (0-1)',
+                                    font: {
+                                        size: 14
+                                    }
+                                },
+                                range: [0, 1]
+                            },
+                            margin: {
+                                l: 50,
+                                r: 50,
+                                t: 80,
+                                b: 120
+                            },
                             paper_bgcolor: 'rgba(0,0,0,0)',
                             plot_bgcolor: 'rgba(0,0,0,0)'
                         };
+
                         Plotly.newPlot('sourceChart', chartData, layout, {responsive: true});
                     } else {
-                        elements.sourceChart.innerHTML = '<div class="alert alert-info">No source credibility data available yet</div>';
+                        elements.sourceChart.innerHTML =
+                            '<div class="alert alert-info">No source credibility data available yet</div>';
                     }
                 })
                 .catch(error => {
                     console.error('Error loading source chart:', error);
-                    elements.sourceChart.innerHTML = `<div class="alert alert-danger">Error loading source chart: ${error.message}</div>`;
+                    elements.sourceChart.innerHTML =
+                        `<div class="alert alert-danger">Error loading source chart: ${error.message}</div>`;
                 });
         }
 
-        // Function to load analysis history
+        // Функция для загрузки истории анализа
         function loadAnalysisHistory() {
             if (!elements.analysisHistory) return;
+
             fetch('/analysis_history')
-                .then(handleResponse)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
                 .then(data => {
-                    elements.analysisHistory.innerHTML = data.history_html || '<div class="alert alert-info">No analysis history available</div>';
+                    if (data.history_html) {
+                        elements.analysisHistory.innerHTML = data.history_html;
+                    } else {
+                        elements.analysisHistory.innerHTML =
+                            '<div class="alert alert-info">No analysis history available</div>';
+                    }
                 })
                 .catch(error => {
                     console.error('Error loading analysis history:', error);
-                    elements.analysisHistory.innerHTML = `<div class="alert alert-danger">Error loading history: ${error.message}</div>`;
+                    elements.analysisHistory.innerHTML =
+                        `<div class="alert alert-danger">Error loading history: ${error.message}</div>`;
                 });
         }
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Кнопка обратной связи -->
+    <div class="position-fixed bottom-0 end-0 m-3">
+        <a href="/feedback" class="btn btn-primary rounded-pill shadow">
+            <i class="bi bi-chat-left-text"></i> Feedback
+        </a>
+    </div>
 </body>
 </html>
