@@ -318,39 +318,47 @@ class ClaudeNewsAnalyzer:
         self.client = anthropic.Anthropic(api_key=api_key)
         self.model_name = model_name
 
+# Обновленный класс для работы с API Anthropic
+class ClaudeNewsAnalyzer:
+    """Класс для взаимодействия с API Anthropic Claude"""
+    def __init__(self, api_key, model_name):
+        # Удаляем параметр proxies, так как он не поддерживается в текущей версии
+        self.client = anthropic.Anthropic(api_key=api_key)
+        self.model_name = model_name
+
     def analyze_article_text(self, article_text_content, source_name_for_context):
         """Анализ текста статьи с помощью Claude API"""
-        max_chars_for_claude = 10000
-        if len(article_text_content) > max_chars_for_claude:
-            article_text_content = article_text_content[:max_chars_for_claude]
-            app.logger.warning(f"Article content truncated to {max_chars_for_claude} characters for Claude API.")
-
-        media_owner_display = media_owners.get(source_name_for_context, 'Unknown Owner')
-
-        prompt = (
-            'You are a highly analytical and neutral AI assistant specializing in news article reliability and content analysis. '
-            'Your task is to dissect the provided news article.\n\n'
-            f'Article Text:\n"""\n{article_text_content}\n"""\n\n'
-            f'Source (for context, if known): {source_name_for_context}\n'
-            f'Media Owner: {media_owner_display}\n\n'
-            'Please perform the following analyses and return the results ONLY in a single, valid JSON object format. '
-            'Do not include any explanatory text before or after the JSON object.\n\n'
-            'JSON Fields:\n'
-            '- "news_integrity": (Float, 0.0-1.0) Assess the overall integrity and trustworthiness of the information presented.\n'
-            '- "fact_check_needed_score": (Float, 0.0-1.0) Likelihood that the article\'s claims require external fact-checking.\n'
-            '- "sentiment_score": (Float, 0.0-1.0) Overall emotional tone (0.0 negative, 0.5 neutral, 1.0 positive).\n'
-            '- "bias_score": (Float, 0.0-1.0) Degree of perceived bias (0.0 low bias, 1.0 high bias).\n'
-            '- "topics": (List of strings) Identify 3-5 main topics or keywords.\n'
-            '- "key_arguments": (List of strings) Extract the main arguments or claims.\n'
-            '- "mentioned_facts": (List of strings) List any specific facts or statistics mentioned.\n'
-            '- "author_purpose": (String) Briefly determine the author\'s likely primary purpose.\n'
-            '- "potential_biases_identified": (List of strings) Enumerate any specific signs of potential bias.\n'
-            '- "short_summary": (String) A concise summary of the article\'s main content.\n'
-            '- "index_of_credibility": (Float, 0.0-1.0) Overall credibility index.\n'
-            '- "published_date": (String, YYYY-MM-DD or N/A) The publication date.'
-        )
-
         try:
+            max_chars_for_claude = 10000
+            if len(article_text_content) > max_chars_for_claude:
+                article_text_content = article_text_content[:max_chars_for_claude]
+                app.logger.warning(f"Article content truncated to {max_chars_for_claude} characters for Claude API.")
+
+            media_owner_display = media_owners.get(source_name_for_context, 'Unknown Owner')
+
+            prompt = (
+                'You are a highly analytical and neutral AI assistant specializing in news article reliability and content analysis. '
+                'Your task is to dissect the provided news article.\n\n'
+                f'Article Text:\n"""\n{article_text_content}\n"""\n\n'
+                f'Source (for context, if known): {source_name_for_context}\n'
+                f'Media Owner: {media_owner_display}\n\n'
+                'Please perform the following analyses and return the results ONLY in a single, valid JSON object format. '
+                'Do not include any explanatory text before or after the JSON object.\n\n'
+                'JSON Fields:\n'
+                '- "news_integrity": (Float, 0.0-1.0) Assess the overall integrity and trustworthiness of the information presented.\n'
+                '- "fact_check_needed_score": (Float, 0.0-1.0) Likelihood that the article\'s claims require external fact-checking.\n'
+                '- "sentiment_score": (Float, 0.0-1.0) Overall emotional tone (0.0 negative, 0.5 neutral, 1.0 positive).\n'
+                '- "bias_score": (Float, 0.0-1.0) Degree of perceived bias (0.0 low bias, 1.0 high bias).\n'
+                '- "topics": (List of strings) Identify 3-5 main topics or keywords.\n'
+                '- "key_arguments": (List of strings) Extract the main arguments or claims.\n'
+                '- "mentioned_facts": (List of strings) List any specific facts or statistics mentioned.\n'
+                '- "author_purpose": (String) Briefly determine the author\'s likely primary purpose.\n'
+                '- "potential_biases_identified": (List of strings) Enumerate any specific signs of potential bias.\n'
+                '- "short_summary": (String) A concise summary of the article\'s main content.\n'
+                '- "index_of_credibility": (Float, 0.0-1.0) Overall credibility index.\n'
+                '- "published_date": (String, YYYY-MM-DD or N/A) The publication date.'
+            )
+
             message = self.client.messages.create(
                 model=self.model_name,
                 max_tokens=2000,
@@ -369,9 +377,16 @@ class ClaudeNewsAnalyzer:
 
             return json.loads(json_str)
 
+        except anthropic.APIError as e:
+            app.logger.error(f'Anthropic API Error: {str(e)}')
+            raise ValueError(f'Anthropic API Error: {str(e)}')
+        except json.JSONDecodeError as e:
+            app.logger.error(f'Error parsing JSON response: {str(e)}')
+            app.logger.error(f'Raw response: {raw_json_text}')
+            raise ValueError(f'Error parsing analysis results: {str(e)}')
         except Exception as e:
-            app.logger.error(f'Error in Claude analysis: {e}')
-            raise ValueError(f'Error communicating with AI: {e}')
+            app.logger.error(f'Unexpected error in Claude analysis: {str(e)}', exc_info=True)
+            raise ValueError(f'Error communicating with AI: {str(e)}')
 
 def extract_text_from_url(url):
     """Извлечение текста из URL"""
