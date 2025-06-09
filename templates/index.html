@@ -42,11 +42,20 @@
             font-size: 1.5rem;
             display: flex;
             align-items: center;
+            flex-direction: column;
         }
 
         .navbar-brand i {
-            margin-right: 10px;
+            margin-right: 0;
             font-size: 1.8rem;
+            margin-bottom: -10px;
+        }
+
+        .brand-subtitle {
+            font-size: 0.8rem;
+            font-weight: 400;
+            color: var(--dark-color);
+            margin-top: -5px;
         }
 
         .nav-link {
@@ -82,12 +91,22 @@
             padding: 20px 0;
         }
 
-        .page-header {
-            background-color: white;
-            border-radius: 10px;
-            padding: 30px 20px;
+        .page-title {
+            text-align: center;
             margin-bottom: 30px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .main-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            color: var(--dark-color);
+            font-weight: 400;
         }
 
         /* Стили для формы анализа */
@@ -183,6 +202,14 @@
             .main-container {
                 padding: 10px 0;
             }
+
+            .main-title {
+                font-size: 2rem;
+            }
+
+            .subtitle {
+                font-size: 1rem;
+            }
         }
     </style>
 </head>
@@ -191,7 +218,9 @@
     <nav class="navbar navbar-expand-lg navbar-light">
         <div class="container">
             <a class="navbar-brand" href="/">
-                <i class="bi bi-newspaper"></i> News Credibility Index
+                <i class="bi bi-newspaper"></i>
+                <span class="main-title">News Credibility Index</span>
+                <span class="brand-subtitle">Setting the Standard for Media Trust</span>
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -215,9 +244,9 @@
     <!-- Основной контейнер -->
     <div class="container main-container">
         <!-- Заголовок страницы -->
-        <div class="page-header text-center">
-            <h1 class="display-4 mb-3">News Credibility Index</h1>
-            <p class="lead">Analyze news articles for credibility and bias</p>
+        <div class="page-title">
+            <h1 class="main-title">News Credibility Index</h1>
+            <p class="subtitle">Analyze news articles for credibility and bias</p>
         </div>
 
         <!-- Форма для анализа статьи -->
@@ -228,13 +257,11 @@
                     <form id="analysisForm">
                         <div class="mb-3">
                             <label for="articleInput" class="form-label">Article URL or Text</label>
-                            <textarea class="form-control" id="articleInput" rows="6"
-                                      placeholder="Paste article text or URL here..."></textarea>
+                            <textarea class="form-control" id="articleInput" rows="6" placeholder="Paste article text or URL here..."></textarea>
                         </div>
                         <div class="mb-4">
                             <label for="sourceName" class="form-label">Source Name (optional)</label>
-                            <input type="text" class="form-control" id="sourceName"
-                                   placeholder="e.g., bbc.com, reuters.com">
+                            <input type="text" class="form-control" id="sourceName" placeholder="e.g., bbc.com, reuters.com">
                         </div>
                         <button type="submit" class="btn btn-analyze btn-lg">
                             <i class="bi bi-search me-2"></i> Analyze Article
