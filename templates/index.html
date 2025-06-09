@@ -9,8 +9,9 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 
+    <!-- Встраиваем стили Plotly напрямую -->
     <style>
-        /* Все стили перенесены в этот блок */
+        /* Основные стили приложения */
         :root {
             --primary-color: #4e73df;
             --secondary-color: #2e59d9;
@@ -34,6 +35,7 @@
             margin: 0 auto;
         }
 
+        /* Стили для карточек */
         .card {
             border-radius: 10px;
             box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
@@ -41,6 +43,7 @@
             margin-bottom: 20px;
         }
 
+        /* Стили для формы анализа */
         .form-container {
             background-color: white;
             padding: 25px;
@@ -49,6 +52,7 @@
             margin-bottom: 30px;
         }
 
+        /* Стили для контейнера анализа */
         .analysis-container {
             background-color: white;
             border-radius: 10px;
@@ -57,6 +61,7 @@
             margin-top: 20px;
         }
 
+        /* Стили для контейнера графиков */
         .chart-container {
             background-color: white;
             border-radius: 10px;
@@ -65,6 +70,7 @@
             margin: 30px 0;
         }
 
+        /* Стили для похожих статей */
         .similar-article {
             background-color: white;
             border-radius: 8px;
@@ -74,6 +80,7 @@
             border-left: 4px solid var(--primary-color);
         }
 
+        /* Стили для кнопки анализа */
         .btn-analyze {
             background-color: var(--primary-color);
             border-color: var(--primary-color);
@@ -84,6 +91,7 @@
             border-color: var(--secondary-color);
         }
 
+        /* Стили для индикатора загрузки */
         .loading {
             display: none;
             text-align: center;
@@ -102,11 +110,6 @@
             height: 100%;
             margin: 0;
             padding: 0;
-        }
-
-        .js-plotly-plot .plotly, .js-plotly-plot .plotly-graph-div {
-            width: 100%;
-            height: 100%;
         }
 
         /* Адаптивные стили */
@@ -132,16 +135,19 @@
 
         <div class="row">
             <div class="col-lg-8 mx-auto">
+                <!-- Форма для анализа статьи -->
                 <div class="form-container">
                     <h3 class="mb-4">Analyze Article</h3>
                     <form id="analysisForm">
                         <div class="mb-3">
                             <label for="articleInput" class="form-label">Article URL or Text</label>
-                            <textarea class="form-control" id="articleInput" rows="6" placeholder="Paste article text or URL here..."></textarea>
+                            <textarea class="form-control" id="articleInput" rows="6"
+                                      placeholder="Paste article text or URL here..."></textarea>
                         </div>
                         <div class="mb-4">
                             <label for="sourceName" class="form-label">Source Name (optional)</label>
-                            <input type="text" class="form-control" id="sourceName" placeholder="e.g., bbc.com, reuters.com">
+                            <input type="text" class="form-control" id="sourceName"
+                                   placeholder="e.g., bbc.com, reuters.com">
                         </div>
                         <button type="submit" class="btn btn-analyze btn-lg">
                             <i class="bi bi-search me-2"></i> Analyze Article
@@ -149,6 +155,7 @@
                     </form>
                 </div>
 
+                <!-- Индикатор загрузки -->
                 <div class="loading text-center" id="loadingIndicator">
                     <div class="spinner-border text-primary spinner" role="status">
                         <span class="visually-hidden">Loading...</span>
@@ -156,19 +163,23 @@
                     <p class="text-muted">Analyzing article... This may take a moment</p>
                 </div>
 
+                <!-- Контейнер для результатов анализа -->
                 <div id="analysisResults" class="analysis-container" style="display: none;">
                     <div id="analysisOutput" class="article-content"></div>
 
+                    <!-- Контейнер для графика достоверности -->
                     <div class="chart-container">
                         <h3 class="mb-4">Credibility Scores</h3>
                         <div id="credibilityChart" class="credibility-radar"></div>
                     </div>
 
+                    <!-- Контейнер для графика надежности источников -->
                     <div class="chart-container">
                         <h3 class="mb-4">Source Reliability</h3>
                         <div id="sourceChart"></div>
                     </div>
 
+                    <!-- Контейнер для похожих статей -->
                     <div class="similar-articles-container">
                         <h3 class="mb-4">Same Topic Articles</h3>
                         <div id="similarArticles"></div>
@@ -179,11 +190,11 @@
     </div>
 
     <!-- Подключаем скрипты в конце body -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.plot.ly/plotly-3.0.1.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
+    <!-- Основной скрипт приложения -->
     <script>
         // Кэшируем элементы DOM
         const elements = {
