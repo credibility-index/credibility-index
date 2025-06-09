@@ -782,6 +782,10 @@ def handle_feedback():
 def feedback_page():
     """Отображение страницы формы обратной связи"""
     return render_template('feedback.html')
+@app.route('/faq')
+def faq():
+    """Страница FAQ"""
+    return render_template('faq.html')
 
 def process_article_analysis(input_text, source_name_manual):
     """Организация полного процесса анализа статьи"""
