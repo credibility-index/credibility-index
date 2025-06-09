@@ -9,7 +9,7 @@ import smtplib
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
 from logging.handlers import RotatingFileHandler
-from flask import Flask, request, jsonify, render_template, abort
+from flask import Flask, request, jsonify, render_template, abort, make_response
 from werkzeug.middleware.proxy_fix import ProxyFix
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -90,7 +90,7 @@ def check_env_vars():
         'NEWS_API_KEY',
         'NEWS_ENDPOINT',
         'SEARCH_ENDPOINT',
-        'MAINTENANCE'  # Если используется
+        'MAINTENANCE'
     ]
 
     missing_vars = []
@@ -102,7 +102,6 @@ def check_env_vars():
         error_msg = f"Missing required environment variables: {', '.join(missing_vars)}"
         app.logger.critical(error_msg)
         raise ValueError(error_msg)
-
 
 # Конфигурация приложения
 def configure_app():
@@ -264,11 +263,15 @@ def block_wordpress_scanners():
 
 @app.after_request
 def add_security_headers(response):
-    """Добавление заголовков безопасности"""
+    """Добавление заголовков безопасности и CORS"""
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'SAMEORIGIN'
     response.headers['X-XSS-Protection'] = '1; mode=block'
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
+    response.headers['Access-Control-Max-Age'] = '86400'
 
     csp = (
         "default-src 'self'; "
@@ -282,16 +285,31 @@ def add_security_headers(response):
     response.headers['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
     return response
 
+# Обработчик OPTIONS запросов для /analyze
+@app.route('/analyze', methods=['OPTIONS'])
+def handle_options():
+    """Обработчик OPTIONS запросов для CORS"""
+    response = make_response()
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
+    response.headers['Access-Control-Max-Age'] = '86400'
+    return response
+
 # Обработчики ошибок
 @app.errorhandler(404)
 def page_not_found(e):
     """Обработчик ошибки 404"""
-    return render_template('404.html'), 404
+    response = make_response(render_template('404.html'), 404)
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    return response
 
 @app.errorhandler(500)
 def internal_server_error(e):
     """Обработчик ошибки 500"""
-    return render_template('500.html'), 500
+    response = make_response(render_template('500.html'), 500)
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    return response
 
 # Класс для работы с API Anthropic
 class ClaudeNewsAnalyzer:
@@ -407,7 +425,7 @@ def save_analysis_to_db(url, title, source, content, analysis_result):
 
         c.execute('''INSERT INTO news (url, title, source, content, integrity, fact_check, sentiment, bias,
                              credibility_level, short_summary, index_of_credibility)
-                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                              ON CONFLICT(url) DO UPDATE SET
                              title=excluded.title, source=excluded.source, content=excluded.content,
                              integrity=excluded.integrity, fact_check=excluded.fact_check,
@@ -720,48 +738,98 @@ def index():
 
 @app.route('/analyze', methods=['POST'])
 def analyze():
-    """API endpoint для анализа статьи (URL или текст) и возврата результатов анализа"""
+    """API endpoint для анализа статьи с улучшенной обработкой CORS"""
+    # Обработка OPTIONS запросов
+    if request.method == 'OPTIONS':
+        response = make_response()
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
+        response.headers['Access-Control-Max-Age'] = '86400'
+        return response
+
+    # Проверка Content-Type
     if not request.is_json:
-        return jsonify({'error_message': 'Content-Type must be application/json'}), 415
+        response = jsonify({'error': 'Invalid content type', 'message': 'Content-Type must be application/json'})
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response, 415
 
-    data = request.get_json()
-    input_text = data.get('input_text')
-    source_name_manual = data.get('source_name_manual')
+    # Основная логика обработки запроса
+    try:
+        data = request.get_json()
+        input_text = data.get('input_text')
+        source_name_manual = data.get('source_name_manual')
 
-    if not input_text:
-        return jsonify({'error_message': 'No input text or URL provided.'}), 400
+        if not input_text:
+            response = jsonify({'error': 'Missing input', 'message': 'No input text or URL provided'})
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response, 400
 
-    output_md, scores_for_chart, analysis_result = process_article_analysis(input_text, source_name_manual)
+        output_md, scores_for_chart, analysis_result = process_article_analysis(input_text, source_name_manual)
 
-    if analysis_result is None:
-        return jsonify({'error_message': output_md}), 400
+        if analysis_result is None:
+            response = jsonify({'error': 'Analysis failed', 'message': output_md})
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response, 400
 
-    same_topic_news = fetch_same_topic_articles(analysis_result)
-    same_topic_html = render_same_topic_articles_html(same_topic_news)
+        same_topic_news = fetch_same_topic_articles(analysis_result)
+        same_topic_html = render_same_topic_articles_html(same_topic_news)
 
-    return jsonify({
-        'output_md': output_md,
-        'scores_for_chart': scores_for_chart,
-        'same_topic_news': same_topic_html
-    })
+        response = jsonify({
+            'status': 'success',
+            'output_md': output_md,
+            'scores_for_chart': scores_for_chart,
+            'same_topic_news': same_topic_html
+        })
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+
+    except Exception as e:
+        app.logger.error(f"Error in analyze endpoint: {str(e)}", exc_info=True)
+        response = jsonify({
+            'error': 'Server error',
+            'message': f'An error occurred during analysis: {str(e)}'
+        })
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response, 500
 
 @app.route('/same_topic_articles', methods=['POST'])
 def same_topic_articles_endpoint():
     """API endpoint для получения и отображения HTML для похожих статей по теме"""
+    if request.method == 'OPTIONS':
+        response = make_response()
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
+        response.headers['Access-Control-Max-Age'] = '86400'
+        return response
+
     data = request.get_json()
     analysis_result = data.get('analysis_result')
 
     if not analysis_result:
-        return jsonify({'same_topic_html': '<p>No analysis result provided.</p>'}), 400
+        response = jsonify({'same_topic_html': '<p>No analysis result provided.</p>'})
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response, 400
 
     similar_articles_list = fetch_same_topic_articles(analysis_result)
-    return jsonify({
+    response = jsonify({
         'same_topic_html': render_same_topic_articles_html(similar_articles_list)
     })
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    return response
 
 @app.route('/source_reliability_data')
 def source_reliability_data_endpoint():
     """API endpoint для предоставления данных о надежности источников"""
+    if request.method == 'OPTIONS':
+        response = make_response()
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
+        response.headers['Access-Control-Max-Age'] = '86400'
+        return response
+
     data = get_source_reliability_data()
     labeled_sources = []
 
@@ -775,7 +843,7 @@ def source_reliability_data_endpoint():
                 f"{html.escape(source)}<br>Credibility: {int(score*100)}%<br>Articles: {total}"
             )
 
-    return jsonify({
+    response = jsonify({
         'sources': labeled_sources,
         'credibility_indices_for_plot': data['credibility_indices_for_plot'],
         'high_counts': data['high_counts'],
@@ -783,16 +851,36 @@ def source_reliability_data_endpoint():
         'low_counts': data['low_counts'],
         'total_analyzed_counts': data['total_analyzed_counts']
     })
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    return response
 
 @app.route('/analysis_history')
 def analysis_history_endpoint():
     """API endpoint для получения и отображения HTML для истории анализов"""
+    if request.method == 'OPTIONS':
+        response = make_response()
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
+        response.headers['Access-Control-Max-Age'] = '86400'
+        return response
+
     history_html = get_analysis_history_html()
-    return jsonify({'history_html': history_html})
+    response = jsonify({'history_html': history_html})
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    return response
 
 @app.route('/feedback', methods=['GET', 'POST'])
 def feedback():
     """Обработчик формы обратной связи"""
+    if request.method == 'OPTIONS':
+        response = make_response()
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
+        response.headers['Access-Control-Max-Age'] = '86400'
+        return response
+
     if request.method == 'POST':
         data = request.get_json()
         name = data.get('name')
@@ -802,17 +890,21 @@ def feedback():
 
         # Проверка обязательных полей
         if not all([name, email, feedback_type, message]):
-            return jsonify({
+            response = jsonify({
                 'status': 'error',
                 'message': 'All fields are required'
-            }), 400
+            })
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response, 400
 
         # Проверка формата email
         if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
-            return jsonify({
+            response = jsonify({
                 'status': 'error',
                 'message': 'Invalid email address'
-            }), 400
+            })
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response, 400
 
         # Сохраняем в базу данных
         try:
@@ -831,10 +923,12 @@ def feedback():
                 conn.commit()
         except Exception as e:
             app.logger.error(f'Error saving feedback to database: {e}')
-            return jsonify({
+            response = jsonify({
                 'status': 'error',
                 'message': 'Error saving feedback to database'
-            }), 500
+            })
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response, 500
 
         # Формируем и отправляем email
         email_subject = f"New Feedback: {feedback_type}"
@@ -847,25 +941,33 @@ def feedback():
         Message: {message}
         """
 
-        recipient = app.config['MAIL_DEFAULT_SENDER']  # Отправляем на тот же адрес, что и отправитель
+        recipient = app.config['MAIL_DEFAULT_SENDER']
 
         if send_email(email_subject, email_body, recipient):
-            return jsonify({
+            response = jsonify({
                 'status': 'success',
                 'message': 'Thank you for your feedback! We appreciate it.'
             })
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
         else:
-            return jsonify({
+            response = jsonify({
                 'status': 'error',
                 'message': 'Error sending feedback email'
-            }), 500
+            })
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response, 500
 
-    return render_template('feedback.html')
+    response = make_response(render_template('feedback.html'))
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    return response
 
 @app.route('/faq')
 def faq():
     """Страница FAQ"""
-    return render_template('faq.html')
+    response = make_response(render_template('faq.html'))
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    return response
 
 def process_article_analysis(input_text, source_name_manual):
     """Организация полного процесса анализа статьи"""
