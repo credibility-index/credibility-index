@@ -23,13 +23,16 @@ UTC = timezone.utc
 
 # Настройка логгирования
 def setup_logging():
+    """Настройка системы логгирования"""
     formatter = logging.Formatter(
         '%(asctime)s - %(name)s - %(levelname)s - %(message)s - %(pathname)s:%(lineno)d'
     )
 
+    # Логирование в файл с ротацией
     file_handler = RotatingFileHandler('app.log', maxBytes=1024*1024, backupCount=5)
     file_handler.setFormatter(formatter)
 
+    # Логирование в консоль
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(formatter)
 
@@ -39,6 +42,7 @@ def setup_logging():
 
 # Проверка обязательных переменных окружения
 def check_env_vars():
+    """Проверка наличия обязательных переменных окружения"""
     REQUIRED_ENV_VARS = ['ANTHROPIC_API_KEY', 'SECRET_KEY']
     for var in REQUIRED_ENV_VARS:
         if not os.getenv(var):
@@ -48,6 +52,7 @@ def check_env_vars():
 
 # Конфигурация приложения
 def configure_app():
+    """Настройка конфигурации Flask приложения"""
     app.config.update(
         SESSION_COOKIE_SECURE=True,
         SESSION_COOKIE_HTTPONLY=True,
@@ -57,14 +62,17 @@ def configure_app():
 
 # Инициализация базы данных
 def get_db_connection():
+    """Создание подключения к базе данных"""
     conn = sqlite3.connect(DB_NAME)
     conn.row_factory = sqlite3.Row
     return conn
 
 def ensure_db_schema():
-    """Ensures the database tables exist with the correct schema."""
+    """Обеспечение наличия необходимых таблиц в базе данных"""
     with get_db_connection() as conn:
         c = conn.cursor()
+
+        # Таблица для хранения анализов статей
         c.execute('''CREATE TABLE IF NOT EXISTS news (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT,
@@ -81,6 +89,7 @@ def ensure_db_schema():
             short_summary TEXT
         )''')
 
+        # Таблица для статистики по источникам
         c.execute('''CREATE TABLE IF NOT EXISTS source_stats (
             source TEXT PRIMARY KEY,
             high INTEGER DEFAULT 0,
@@ -89,6 +98,7 @@ def ensure_db_schema():
             total_analyzed INTEGER DEFAULT 0
         )''')
 
+        # Таблица для обратной связи
         c.execute('''CREATE TABLE IF NOT EXISTS feedback (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
@@ -97,11 +107,12 @@ def ensure_db_schema():
             message TEXT NOT NULL,
             date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )''')
+
         conn.commit()
         app.logger.info('Database schema ensured successfully.')
 
 def initialize_sources(initial_counts):
-    """Initializes source_stats table with predefined counts if sources are new."""
+    """Инициализация начальных данных для таблицы source_stats"""
     with get_db_connection() as conn:
         c = conn.cursor()
         for source, counts in initial_counts.items():
@@ -118,7 +129,7 @@ def initialize_sources(initial_counts):
         app.logger.info('Initial source initialization completed successfully.')
 
 def check_database_integrity():
-    """Performs a basic integrity check on the database."""
+    """Проверка целостности базы данных"""
     try:
         if not os.path.exists(DB_NAME):
             app.logger.critical(f'Database file {DB_NAME} not found! Please check setup.')
@@ -139,35 +150,6 @@ def check_database_integrity():
     except Exception as e:
         app.logger.critical(f'Error during database integrity check: {e}', exc_info=True)
         return False
-
-# WordPress scanner protection paths
-WORDPRESS_PATHS = [
-    re.compile(r'wp-admin', re.IGNORECASE),
-    re.compile(r'wp-includes', re.IGNORECASE),
-    re.compile(r'wp-content', re.IGNORECASE),
-    re.compile(r'xmlrpc\.php', re.IGNORECASE),
-    re.compile(r'wp-login\.php', re.IGNORECASE),
-    re.compile(r'wp-config\.php', re.IGNORECASE),
-    re.compile(r'readme\.html', re.IGNORECASE),
-    re.compile(r'license\.txt', re.IGNORECASE),
-    re.compile(r'wp-json', re.IGNORECASE),
-    re.compile(r'wp-comments-post\.php', re.IGNORECASE),
-    re.compile(r'wp-trackback\.php', re.IGNORECASE),
-    re.compile(r'wp-signup\.php', re.IGNORECASE),
-    re.compile(r'wp-activate\.php', re.IGNORECASE),
-    re.compile(r'wp-blog-header\.php', re.IGNORECASE),
-    re.compile(r'wp-cron\.php', re.IGNORECASE),
-    re.compile(r'wp-links-opml\.php', re.IGNORECASE),
-    re.compile(r'wp-mail\.php', re.IGNORECASE),
-    re.compile(r'wp-settings\.php', re.IGNORECASE),
-    re.compile(r'wp-config-sample\.php', re.IGNORECASE),
-    re.compile(r'wp-load\.php', re.IGNORECASE),
-    re.compile(r'wp-.*\.php', re.IGNORECASE),
-    re.compile(r'.*wp-admin.*', re.IGNORECASE),
-    re.compile(r'.*wp-content.*', re.IGNORECASE),
-    re.compile(r'.*wp-includes.*', re.IGNORECASE),
-    re.compile(r'.*wp-json.*', re.IGNORECASE)
-]
 
 # Данные для инициализации
 INITIAL_SOURCE_COUNTS = {
@@ -205,9 +187,22 @@ TRUSTED_NEWS_SOURCES_IDS = [
 
 stop_words_en = get_stop_words('en')
 
-# Middleware для безопасности
+# Защита от WordPress сканеров
+WORDPRESS_PATHS = [
+    re.compile(r'wp-admin', re.IGNORECASE),
+    re.compile(r'wp-includes', re.IGNORECASE),
+    re.compile(r'wp-content', re.IGNORECASE),
+    re.compile(r'xmlrpc\.php', re.IGNORECASE),
+    re.compile(r'wp-login\.php', re.IGNORECASE),
+    re.compile(r'wp-config\.php', re.IGNORECASE),
+    re.compile(r'readme\.html', re.IGNORECASE),
+    re.compile(r'license\.txt', re.IGNORECASE),
+    re.compile(r'wp-json', re.IGNORECASE),
+]
+
 @app.before_request
 def block_wordpress_scanners():
+    """Блокировка запросов к WordPress путям"""
     path = request.path.lower()
     for pattern in WORDPRESS_PATHS:
         if pattern.search(path):
@@ -220,6 +215,7 @@ def block_wordpress_scanners():
 
 @app.after_request
 def add_security_headers(response):
+    """Добавление заголовков безопасности"""
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'SAMEORIGIN'
     response.headers['X-XSS-Protection'] = '1; mode=block'
@@ -227,7 +223,7 @@ def add_security_headers(response):
 
     csp = (
         "default-src 'self'; "
-        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdn.plot.ly; "
         "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdn.plot.ly; "
         "font-src 'self' https://cdn.jsdelivr.net; "
         "img-src 'self' data:;"
@@ -240,19 +236,23 @@ def add_security_headers(response):
 # Обработчики ошибок
 @app.errorhandler(404)
 def page_not_found(e):
+    """Обработчик ошибки 404"""
     return render_template('404.html'), 404
 
 @app.errorhandler(500)
 def internal_server_error(e):
+    """Обработчик ошибки 500"""
     return render_template('500.html'), 500
 
 # Класс для работы с API Anthropic
 class ClaudeNewsAnalyzer:
+    """Класс для взаимодействия с API Anthropic Claude"""
     def __init__(self, api_key, model_name):
         self.client = anthropic.Anthropic(api_key=api_key)
         self.model_name = model_name
 
     def analyze_article_text(self, article_text_content, source_name_for_context):
+        """Анализ текста статьи с помощью Claude API"""
         max_chars_for_claude = 10000
         if len(article_text_content) > max_chars_for_claude:
             article_text_content = article_text_content[:max_chars_for_claude]
@@ -269,18 +269,18 @@ class ClaudeNewsAnalyzer:
             'Please perform the following analyses and return the results ONLY in a single, valid JSON object format. '
             'Do not include any explanatory text before or after the JSON object.\n\n'
             'JSON Fields:\n'
-            '- "news_integrity": (Float, 0.0-1.0) Assess the overall integrity and trustworthiness of the information presented. Higher means more trustworthy.\n'
-            '- "fact_check_needed_score": (Float, 0.0-1.0) Likelihood that the article\'s claims require external fact-checking. 1.0 means high likelihood.\n'
+            '- "news_integrity": (Float, 0.0-1.0) Assess the overall integrity and trustworthiness of the information presented.\n'
+            '- "fact_check_needed_score": (Float, 0.0-1.0) Likelihood that the article\'s claims require external fact-checking.\n'
             '- "sentiment_score": (Float, 0.0-1.0) Overall emotional tone (0.0 negative, 0.5 neutral, 1.0 positive).\n'
             '- "bias_score": (Float, 0.0-1.0) Degree of perceived bias (0.0 low bias, 1.0 high bias).\n'
-            '- "topics": (List of strings) Identify 3-5 main topics or keywords that accurately represent the core subject matter.\n'
-            '- "key_arguments": (List of strings) Extract the main arguments or claims made by the author.\n'
-            '- "mentioned_facts": (List of strings) List any specific facts, data, or statistics mentioned.\n'
+            '- "topics": (List of strings) Identify 3-5 main topics or keywords.\n'
+            '- "key_arguments": (List of strings) Extract the main arguments or claims.\n'
+            '- "mentioned_facts": (List of strings) List any specific facts or statistics mentioned.\n'
             '- "author_purpose": (String) Briefly determine the author\'s likely primary purpose.\n'
-            '- "potential_biases_identified": (List of strings) Enumerate any specific signs of potential bias or subjectivity observed.\n'
-            '- "short_summary": (String) A concise summary of the article\'s main content in 2-4 sentences.\n'
-            '- "index_of_credibility": (Float, 0.0-1.0) Calculate an overall index of credibility based on the above factors.\n'
-            '- "published_date": (String, YYYY-MM-DD or N/A) The publication date of the article. Respond "N/A" if cannot be determined.'
+            '- "potential_biases_identified": (List of strings) Enumerate any specific signs of potential bias.\n'
+            '- "short_summary": (String) A concise summary of the article\'s main content.\n'
+            '- "index_of_credibility": (Float, 0.0-1.0) Overall credibility index.\n'
+            '- "published_date": (String, YYYY-MM-DD or N/A) The publication date.'
         )
 
         try:
@@ -307,6 +307,7 @@ class ClaudeNewsAnalyzer:
             raise ValueError(f'Error communicating with AI: {e}')
 
 def extract_text_from_url(url):
+    """Извлечение текста из URL"""
     try:
         clean_url = re.sub(r'/amp(/)?$', '', url)
 
@@ -327,6 +328,7 @@ def extract_text_from_url(url):
         return "", "", ""
 
 def calculate_credibility_level(integrity, fact_check_needed, sentiment, bias):
+    """Расчет уровня достоверности"""
     fact_check_score = 1.0 - fact_check_needed
     neutral_sentiment_proximity = 1.0 - abs(sentiment - 0.5) * 2
     bias_score_inverted = 1.0 - bias
@@ -340,6 +342,7 @@ def calculate_credibility_level(integrity, fact_check_needed, sentiment, bias):
     return 'Low'
 
 def save_analysis_to_db(url, title, source, content, analysis_result):
+    """Сохранение анализа в базу данных"""
     with get_db_connection() as conn:
         c = conn.cursor()
 
@@ -389,6 +392,7 @@ def save_analysis_to_db(url, title, source, content, analysis_result):
         return credibility_level
 
 def generate_query(analysis_result):
+    """Генерация запроса для поиска похожих статей"""
     topics = analysis_result.get('topics', [])
     key_arguments = analysis_result.get('key_arguments', [])
     mentioned_facts = analysis_result.get('mentioned_facts', [])
@@ -420,6 +424,7 @@ def generate_query(analysis_result):
     return query
 
 def make_newsapi_request(params):
+    """Выполнение запроса к NewsAPI"""
     url = 'https://newsapi.org/v2/everything'
     try:
         response = requests.get(url, params=params, timeout=15)
@@ -431,6 +436,7 @@ def make_newsapi_request(params):
         return []
 
 def fetch_same_topic_articles(analysis_result, days_range=7, max_articles=3):
+    """Поиск похожих статей по теме"""
     if not NEWS_API_ENABLED:
         app.logger.warning('NEWS_API_KEY is not configured or enabled. Skipping similar news search.')
         return []
@@ -516,6 +522,7 @@ def fetch_same_topic_articles(analysis_result, days_range=7, max_articles=3):
     return [item[0] for item in ranked_articles[:max_articles]]
 
 def render_same_topic_articles_html(articles):
+    """Формирование HTML для похожих статей"""
     if not articles:
         return '<p>No same topic articles found for the selected criteria.</p>'
 
@@ -564,7 +571,7 @@ def render_same_topic_articles_html(articles):
 
             return (
                 '<div class="similar-articles-container">'
-                '<h3>🔗 Same Topic News Articles (Ranked by Relevance & Trust):</h3>'
+                '<h3>Same Topic News Articles (Ranked by Relevance & Trust):</h3>'
                 ''.join(html_items) +
                 '</div>'
             )
@@ -573,6 +580,7 @@ def render_same_topic_articles_html(articles):
         return '<p>Error retrieving same topic articles due to a database issue.</p>'
 
 def get_source_reliability_data():
+    """Получение данных о надежности источников"""
     try:
         with get_db_connection() as conn:
             c = conn.cursor()
@@ -618,6 +626,7 @@ def get_source_reliability_data():
         }
 
 def get_analysis_history_html():
+    """Получение истории анализов"""
     try:
         with get_db_connection() as conn:
             c = conn.cursor()
@@ -649,7 +658,7 @@ def get_analysis_history_html():
                     f'</li>'
                 )
 
-            return '<h3>📜 Recent Analyses:</h3><ul>' + ''.join(html_items) + '</ul>'
+            return '<h3>Recent Analyses:</h3><ul>' + ''.join(html_items) + '</ul>'
     except Exception as e:
         app.logger.error(f'Error getting analysis history: {e}')
         return '<p>Error retrieving analysis history due to a database issue.</p>'
@@ -657,12 +666,12 @@ def get_analysis_history_html():
 # Эндпоинты API
 @app.route('/')
 def index():
-    """Renders the main application page."""
+    """Отображение главной страницы приложения"""
     return render_template('index.html')
 
 @app.route('/analyze', methods=['POST'])
 def analyze():
-    """API endpoint to analyze an article (URL or text) and return analysis results."""
+    """API endpoint для анализа статьи (URL или текст) и возврата результатов анализа"""
     if not request.is_json:
         return jsonify({'error_message': 'Content-Type must be application/json'}), 415
 
@@ -689,7 +698,7 @@ def analyze():
 
 @app.route('/same_topic_articles', methods=['POST'])
 def same_topic_articles_endpoint():
-    """API endpoint to fetch and render HTML for same topic articles."""
+    """API endpoint для получения и отображения HTML для похожих статей по теме"""
     data = request.get_json()
     analysis_result = data.get('analysis_result')
 
@@ -703,7 +712,7 @@ def same_topic_articles_endpoint():
 
 @app.route('/source_reliability_data')
 def source_reliability_data_endpoint():
-    """API endpoint to provide data for the source reliability chart."""
+    """API endpoint для предоставления данных о надежности источников"""
     data = get_source_reliability_data()
     labeled_sources = []
 
@@ -728,13 +737,13 @@ def source_reliability_data_endpoint():
 
 @app.route('/analysis_history')
 def analysis_history_endpoint():
-    """API endpoint to fetch and render HTML for the recent analysis history."""
+    """API endpoint для получения и отображения HTML для истории анализов"""
     history_html = get_analysis_history_html()
     return jsonify({'history_html': history_html})
 
 @app.route('/feedback', methods=['POST'])
 def handle_feedback():
-    """API endpoint for handling feedback form submissions."""
+    """API endpoint для обработки форм обратной связи"""
     data = request.get_json()
     required_fields = ['name', 'email', 'type', 'message']
 
@@ -771,11 +780,11 @@ def handle_feedback():
 
 @app.route('/feedback')
 def feedback_page():
-    """Renders the feedback form HTML page."""
+    """Отображение страницы формы обратной связи"""
     return render_template('feedback.html')
 
 def process_article_analysis(input_text, source_name_manual):
-    """Orchestrates the full article analysis process."""
+    """Организация полного процесса анализа статьи"""
     article_url = None
     article_content = input_text
     article_title = 'User-provided Text'
@@ -816,12 +825,11 @@ def process_article_analysis(input_text, source_name_manual):
     return output_md, scores_for_chart, analysis_result
 
 def format_analysis_results(article_title, source_name, analysis_result, credibility_saved):
-    """Formats analysis results for display without using backslashes in f-strings."""
-    # Извлекаем данные из analysis_result
-    ni = analysis_result.get('news_integrity', 0.0)
-    fcn = analysis_result.get('fact_check_needed_score', 1.0)
-    ss = analysis_result.get('sentiment_score', 0.5)
-    bs = analysis_result.get('bias_score', 1.0)
+    """Форматирование результатов анализа для отображения"""
+    integrity = analysis_result.get('news_integrity', 0.0)
+    fact_check = analysis_result.get('fact_check_needed_score', 1.0)
+    sentiment = analysis_result.get('sentiment_score', 0.5)
+    bias = analysis_result.get('bias_score', 1.0)
     topics = analysis_result.get('topics', [])
     key_arguments = analysis_result.get('key_arguments', [])
     mentioned_facts = analysis_result.get('mentioned_facts', [])
@@ -830,84 +838,65 @@ def format_analysis_results(article_title, source_name, analysis_result, credibi
     short_summary = analysis_result.get('short_summary', 'N/A')
     index_of_credibility = analysis_result.get('index_of_credibility', 0.0)
 
-    # Вычисляем дополнительные показатели
-    factuality_display_score = 1.0 - fcn
+    factuality_display_score = 1.0 - fact_check
 
-    # Форматируем списки в строки
     def format_list(items):
         if not items:
             return "N/A"
         return "- " + "\n- ".join(items)
 
-    # Создаем список строк для результата
-    result = []
+    result = [
+        f"### Credibility Analysis for: \"{article_title}\"",
+        f"**Source:** {source_name}",
+        f"**Media Owner:** {media_owners.get(source_name, 'Unknown Owner')}",
+        f"**Overall Calculated Credibility:** **{credibility_saved}** ({index_of_credibility*100:.1f}%)",
+        "\n---",
+        "#### Analysis Scores:",
+        f"- **Integrity Score:** {integrity*100:.1f}% - Measures the overall integrity and trustworthiness.",
+        f"- **Factuality Score:** {factuality_display_score*100:.1f}% - Indicates likelihood of needing fact-checking.",
+        f"- **Sentiment Score:** {sentiment:.2f} - Overall emotional tone (0.0 negative, 0.5 neutral, 1.0 positive).",
+        f"- **Bias Score:** {bias*100:.1f}% - Degree of perceived bias (0.0 low, 1.0 high).",
+        f"- **Index of Credibility:** {index_of_credibility*100:.1f}% - Overall credibility index.",
+        "\n---",
+        "#### Summary:",
+        short_summary,
+        "\n#### Key Arguments:",
+        format_list(key_arguments),
+        "\n#### Mentioned Facts/Data:",
+        format_list(mentioned_facts),
+        "\n#### Author's Purpose:",
+        author_purpose,
+        "\n#### Potential Biases Identified:",
+        format_list(potential_biases),
+        "\n#### Main Topics Identified:",
+        ", ".join(topics) if topics else "N/A",
+        "\n#### Media Owner Influence:",
+        f"The media owner, {media_owners.get(source_name, 'Unknown Owner')}, may influence source credibility."
+    ]
 
-    # Заголовок
-    result.append(f"### Credibility Analysis for: \"{article_title}\"")
-    result.append(f"**Source:** {source_name}")
-    result.append(f"**Media Owner:** {media_owners.get(source_name, 'Unknown Owner')}")
-    result.append(f"**Overall Calculated Credibility:** **{credibility_saved}** ({index_of_credibility*100:.1f}%)")
-
-    # Разделитель
-    result.append("\n---\n")
-
-    # Оценки анализа
-    result.append("#### Analysis Scores:")
-    result.append(f"- **Integrity Score:** {ni*100:.1f}% - Measures the overall integrity and trustworthiness.")
-    result.append(f"- **Factuality Score:** {factuality_display_score*100:.1f}% - Indicates likelihood of needing fact-checking.")
-    result.append(f"- **Sentiment Score:** {ss:.2f} - Overall emotional tone (0.0 negative, 0.5 neutral, 1.0 positive).")
-    result.append(f"- **Bias Score:** {bs*100:.1f}% - Degree of perceived bias (0.0 low, 1.0 high).")
-    result.append(f"- **Index of Credibility:** {index_of_credibility*100:.1f}% - Overall credibility index.")
-
-    # Разделитель
-    result.append("\n---\n")
-
-    # Основной контент
-    result.append("#### Summary:")
-    result.append(short_summary)
-
-    result.append("\n#### Key Arguments:")
-    result.append(format_list(key_arguments))
-
-    result.append("\n#### Mentioned Facts/Data:")
-    result.append(format_list(mentioned_facts))
-
-    result.append("\n#### Author's Purpose:")
-    result.append(author_purpose)
-
-    result.append("\n#### Potential Biases Identified:")
-    result.append(format_list(potential_biases))
-
-    result.append("\n#### Main Topics Identified:")
-    result.append(", ".join(topics) if topics else "N/A")
-
-    result.append("\n#### Media Owner Influence:")
-    result.append(f"The media owner, {media_owners.get(source_name, 'Unknown Owner')}, may influence source credibility.")
-
-    # Объединяем все части в одну строку
     return "\n".join(result)
 
 def prepare_chart_data(analysis_result):
-    """Prepares data for credibility chart."""
-    ni = analysis_result.get('news_integrity', 0.0)
-    fcn = analysis_result.get('fact_check_needed_score', 1.0)
-    ss = analysis_result.get('sentiment_score', 0.5)
-    bs = analysis_result.get('bias_score', 1.0)
+    """Подготовка данных для графика достоверности"""
+    integrity = analysis_result.get('news_integrity', 0.0)
+    fact_check = analysis_result.get('fact_check_needed_score', 1.0)
+    sentiment = analysis_result.get('sentiment_score', 0.5)
+    bias = analysis_result.get('bias_score', 1.0)
     index_of_credibility = analysis_result.get('index_of_credibility', 0.0)
 
-    factuality_display_score = 1.0 - fcn
+    factuality_display_score = 1.0 - fact_check
 
     return {
-        'Integrity': ni * 100,
+        'Integrity': integrity * 100,
         'Factuality': factuality_display_score * 100,
-        'Neutral Sentiment': (1.0 - abs(ss - 0.5) * 2) * 100,
-        'Low Bias': (1.0 - bs) * 100,
+        'Neutral Sentiment': (1.0 - abs(sentiment - 0.5) * 2) * 100,
+        'Low Bias': (1.0 - bias) * 100,
         'Overall Credibility Index': index_of_credibility * 100
     }
 
 # Инициализация приложения
 def initialize_application():
-    """Performs all necessary setup when the application starts."""
+    """Выполнение всех необходимых настроек при запуске приложения"""
     setup_logging()
     check_env_vars()
     configure_app()
@@ -924,6 +913,8 @@ if __name__ == '__main__':
     MODEL_NAME = 'claude-3-opus-20240229'
     SECRET_KEY = os.getenv('SECRET_KEY')
     DB_NAME = 'news_analysis.db'
+
+    app.secret_key = SECRET_KEY
 
     initialize_application()
     port = int(os.environ.get('PORT', 5000))
