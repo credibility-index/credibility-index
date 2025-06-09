@@ -5,11 +5,14 @@ import re
 import json
 import requests
 import html
+import smtplib
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
 from logging.handlers import RotatingFileHandler
 from flask import Flask, request, jsonify, render_template, abort
 from werkzeug.middleware.proxy_fix import ProxyFix
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 import anthropic
 from newspaper import Article
 from stop_words import get_stop_words
@@ -17,6 +20,14 @@ from stop_words import get_stop_words
 # Инициализация Flask приложения
 app = Flask(__name__, static_folder='static', template_folder='templates')
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
+# Конфигурация для отправки email
+app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER', 'smtp.gmail.com')
+app.config['MAIL_PORT'] = int(os.getenv('MAIL_PORT', 587))
+app.config['MAIL_USE_TLS'] = os.getenv('MAIL_USE_TLS', 'true').lower() == 'true'
+app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER')
 
 # Используем встроенную временную зону UTC
 UTC = timezone.utc
@@ -40,10 +51,31 @@ def setup_logging():
     app.logger.addHandler(console_handler)
     app.logger.setLevel(logging.INFO)
 
+def send_email(subject, body, recipient):
+    """Функция для отправки email"""
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = app.config['MAIL_DEFAULT_SENDER']
+        msg['To'] = recipient
+        msg['Subject'] = subject
+
+        msg.attach(MIMEText(body, 'plain'))
+
+        with smtplib.SMTP(app.config['MAIL_SERVER'], app.config['MAIL_PORT']) as server:
+            server.starttls()
+            server.login(app.config['MAIL_USERNAME'], app.config['MAIL_PASSWORD'])
+            server.send_message(msg)
+
+        app.logger.info(f"Email sent to {recipient}")
+        return True
+    except Exception as e:
+        app.logger.error(f"Error sending email: {str(e)}")
+        return False
+
 # Проверка обязательных переменных окружения
 def check_env_vars():
     """Проверка наличия обязательных переменных окружения"""
-    REQUIRED_ENV_VARS = ['ANTHROPIC_API_KEY', 'SECRET_KEY']
+    REQUIRED_ENV_VARS = ['ANTHROPIC_API_KEY', 'SECRET_KEY', 'MAIL_USERNAME', 'MAIL_PASSWORD', 'MAIL_DEFAULT_SENDER']
     for var in REQUIRED_ENV_VARS:
         if not os.getenv(var):
             error_msg = f"Missing required environment variable: {var}"
@@ -71,8 +103,6 @@ def ensure_db_schema():
     """Обеспечение наличия необходимых таблиц в базе данных"""
     with get_db_connection() as conn:
         c = conn.cursor()
-
-        # Таблица для хранения анализов статей
         c.execute('''CREATE TABLE IF NOT EXISTS news (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT,
@@ -89,7 +119,6 @@ def ensure_db_schema():
             short_summary TEXT
         )''')
 
-        # Таблица для статистики по источникам
         c.execute('''CREATE TABLE IF NOT EXISTS source_stats (
             source TEXT PRIMARY KEY,
             high INTEGER DEFAULT 0,
@@ -98,7 +127,6 @@ def ensure_db_schema():
             total_analyzed INTEGER DEFAULT 0
         )''')
 
-        # Таблица для обратной связи
         c.execute('''CREATE TABLE IF NOT EXISTS feedback (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
@@ -107,7 +135,6 @@ def ensure_db_schema():
             message TEXT NOT NULL,
             date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )''')
-
         conn.commit()
         app.logger.info('Database schema ensured successfully.')
 
@@ -358,7 +385,7 @@ def save_analysis_to_db(url, title, source, content, analysis_result):
 
         c.execute('''INSERT INTO news (url, title, source, content, integrity, fact_check, sentiment, bias,
                              credibility_level, short_summary, index_of_credibility)
-                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                              ON CONFLICT(url) DO UPDATE SET
                              title=excluded.title, source=excluded.source, content=excluded.content,
                              integrity=excluded.integrity, fact_check=excluded.fact_check,
@@ -741,47 +768,78 @@ def analysis_history_endpoint():
     history_html = get_analysis_history_html()
     return jsonify({'history_html': history_html})
 
-@app.route('/feedback', methods=['POST'])
-def handle_feedback():
-    """API endpoint для обработки форм обратной связи"""
-    data = request.get_json()
-    required_fields = ['name', 'email', 'type', 'message']
+@app.route('/feedback', methods=['GET', 'POST'])
+def feedback():
+    """Обработчик формы обратной связи"""
+    if request.method == 'POST':
+        data = request.get_json()
+        name = data.get('name')
+        email = data.get('email')
+        feedback_type = data.get('type')
+        message = data.get('message')
 
-    if not all(field in data for field in required_fields):
-        return jsonify({'message': 'All fields are required'}), 400
+        # Проверка обязательных полей
+        if not all([name, email, feedback_type, message]):
+            return jsonify({
+                'status': 'error',
+                'message': 'All fields are required'
+            }), 400
 
-    if not re.match(r"[^@]+@[^@]+\.[^@]+", data['email']):
-        return jsonify({'message': 'Invalid email address'}), 400
+        # Проверка формата email
+        if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
+            return jsonify({
+                'status': 'error',
+                'message': 'Invalid email address'
+            }), 400
 
-    try:
-        with get_db_connection() as conn:
-            c = conn.cursor()
-            c.execute('''
-                INSERT INTO feedback (name, email, type, message, date)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (
-                data['name'],
-                data['email'],
-                data['type'],
-                data['message'],
-                datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%S')
-            ))
-            conn.commit()
+        # Сохраняем в базу данных
+        try:
+            with get_db_connection() as conn:
+                c = conn.cursor()
+                c.execute('''
+                    INSERT INTO feedback (name, email, type, message, date)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (
+                    name,
+                    email,
+                    feedback_type,
+                    message,
+                    datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%S')
+                ))
+                conn.commit()
+        except Exception as e:
+            app.logger.error(f'Error saving feedback to database: {e}')
+            return jsonify({
+                'status': 'error',
+                'message': 'Error saving feedback to database'
+            }), 500
+
+        # Формируем и отправляем email
+        email_subject = f"New Feedback: {feedback_type}"
+        email_body = f"""
+        New feedback received:
+
+        Name: {name}
+        Email: {email}
+        Type: {feedback_type}
+        Message: {message}
+        """
+
+        recipient = app.config['MAIL_DEFAULT_SENDER']  # Отправляем на тот же адрес, что и отправитель
+
+        if send_email(email_subject, email_body, recipient):
             return jsonify({
                 'status': 'success',
                 'message': 'Thank you for your feedback! We appreciate it.'
             })
-    except Exception as e:
-        app.logger.error(f'Error saving feedback: {e}')
-        return jsonify({
-            'status': 'error',
-            'message': 'Error saving your feedback. Please try again.'
-        }), 500
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': 'Error sending feedback email'
+            }), 500
 
-@app.route('/feedback')
-def feedback_page():
-    """Отображение страницы формы обратной связи"""
     return render_template('feedback.html')
+
 @app.route('/faq')
 def faq():
     """Страница FAQ"""
