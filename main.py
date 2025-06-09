@@ -75,12 +75,34 @@ def send_email(subject, body, recipient):
 # Проверка обязательных переменных окружения
 def check_env_vars():
     """Проверка наличия обязательных переменных окружения"""
-    REQUIRED_ENV_VARS = ['ANTHROPIC_API_KEY', 'SECRET_KEY', 'MAIL_USERNAME', 'MAIL_PASSWORD', 'MAIL_DEFAULT_SENDER']
+    REQUIRED_ENV_VARS = [
+        'ANTHROPIC_API_KEY',
+        'SECRET_KEY',
+        'MAIL_USERNAME',
+        'MAIL_PASSWORD',
+        'MAIL_DEFAULT_SENDER',
+        'MAIL_SERVER',
+        'MAIL_PORT',
+        'MAIL_USE_TLS',
+        'DATABASE_URL',
+        'LOG_LEVEL',
+        'ANTHROPIC_MODEL',
+        'NEWS_API_KEY',
+        'NEWS_ENDPOINT',
+        'SEARCH_ENDPOINT',
+        'MAINTENANCE'  # Если используется
+    ]
+
+    missing_vars = []
     for var in REQUIRED_ENV_VARS:
         if not os.getenv(var):
-            error_msg = f"Missing required environment variable: {var}"
-            app.logger.critical(error_msg)
-            raise ValueError(error_msg)
+            missing_vars.append(var)
+
+    if missing_vars:
+        error_msg = f"Missing required environment variables: {', '.join(missing_vars)}"
+        app.logger.critical(error_msg)
+        raise ValueError(error_msg)
+
 
 # Конфигурация приложения
 def configure_app():
@@ -958,7 +980,15 @@ def prepare_chart_data(analysis_result):
 
 # Инициализация приложения
 def initialize_application():
-    """Выполнение всех необходимых настроек при запуске приложения"""
+    """Инициализация приложения"""
+    # Устанавливаем значения по умолчанию для необязательных переменных
+    os.environ.setdefault('MAINTENANCE', 'False')
+    os.environ.setdefault('LOG_LEVEL', 'INFO')
+    os.environ.setdefault('MAIL_USE_TLS', 'True')
+    os.environ.setdefault('MAIL_PORT', '587')
+    os.environ.setdefault('MAIL_SERVER', 'smtp.gmail.com')
+
+    # Продолжаем инициализацию
     setup_logging()
     check_env_vars()
     configure_app()
