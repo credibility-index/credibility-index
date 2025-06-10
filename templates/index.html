@@ -15,6 +15,9 @@
             --text-color: #000000;
             --light-color: #ecf0f1;
             --accent-color: #3498db;
+            --success-color: #28a745;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
         }
 
         body {
@@ -26,148 +29,9 @@
             margin: 0;
         }
 
-        /* Навигационное меню */
-        .navbar {
-            background-color: white;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-            padding: 15px 0;
-        }
+        /* Стили для навигации и основных элементов остаются прежними */
 
-        .navbar-brand {
-            display: flex;
-            align-items: center;
-            width: 100%;
-        }
-
-        .logo-container {
-            display: flex;
-            align-items: center;
-            margin-right: auto;
-        }
-
-        .logo {
-            width: 40px;
-            height: 40px;
-            margin-right: 10px;
-        }
-
-        .navbar-text {
-            font-size: 1.2rem;
-            font-weight: 700;
-            color: var(--accent-color);
-        }
-
-        .nav-link {
-            color: var(--text-color);
-            margin: 0 10px;
-            font-weight: 500;
-            position: relative;
-        }
-
-        /* Основной контейнер */
-        .main-container {
-            min-height: calc(100vh - 120px);
-            padding: 30px 0;
-        }
-
-        .page-title {
-            text-align: center;
-            margin-bottom: 40px;
-        }
-
-        .main-heading {
-            font-size: 2rem;
-            font-weight: 700;
-            color: var(--primary-color);
-            margin-bottom: 10px;
-        }
-
-        .subheading {
-            font-size: 1rem;
-            color: var(--secondary-color);
-            font-weight: 400;
-        }
-
-        /* Стили для формы анализа */
-        .form-container {
-            background-color: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 2px 15px rgba(0,0,0,0.05);
-            margin-bottom: 30px;
-        }
-
-        /* Стили для кнопки анализа */
-        .btn-analyze {
-            background-color: var(--accent-color);
-            border-color: var(--accent-color);
-            padding: 10px 20px;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            border-radius: 5px;
-        }
-
-        .btn-analyze:hover {
-            background-color: #2980b9;
-            border-color: #2980b9;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-
-        /* Стили для индикатора загрузки */
-        .loading-container {
-            display: none;
-            text-align: center;
-            margin: 30px 0;
-            padding: 30px;
-            background-color: rgba(255, 255, 255, 0.9);
-            border-radius: 10px;
-            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
-        }
-
-        .spinner {
-            width: 5rem;
-            height: 5rem;
-            margin: 0 auto 20px;
-            color: var(--primary-color);
-        }
-
-        .loading-text {
-            font-size: 1.2rem;
-            font-weight: 500;
-            color: var(--primary-color);
-            margin-top: 10px;
-        }
-
-        /* Стили для результатов анализа */
-        .analysis-container {
-            background-color: white;
-            border-radius: 10px;
-            padding: 30px;
-            box-shadow: 0 2px 15px rgba(0,0,0,0.05);
-            margin-top: 20px;
-        }
-
-        /* Стили для кнопки повторного анализа */
-        .btn-analyze-again {
-            background-color: var(--secondary-color);
-            border-color: var(--secondary-color);
-            color: white;
-            padding: 10px 20px;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            border-radius: 5px;
-            margin-top: 20px;
-        }
-
-        .btn-analyze-again:hover {
-            background-color: #2c3e50;
-            border-color: #2c3e50;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-
-        /* Стили для графиков */
+        /* Стили для чартов */
         .chart-container {
             width: 100%;
             height: 500px;
@@ -176,6 +40,19 @@
             background-color: white;
             box-shadow: 0 2px 15px rgba(0,0,0,0.05);
             padding: 20px;
+        }
+
+        /* Стили для рейтинга источников */
+        .source-rating-container {
+            margin: 30px 0;
+            padding: 20px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.05);
+        }
+
+        .rating-chart-container {
+            height: 400px;
         }
 
         /* Стили для похожих статей */
@@ -189,50 +66,46 @@
             transition: transform 0.3s ease;
         }
 
-        .similar-article:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        .show-more-btn {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 20px;
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
         }
 
-        .article-title {
-            color: var(--primary-color);
+        .show-more-btn:hover {
+            background-color: #2980b9;
+            transform: translateY(-2px);
+        }
+
+        /* Стили для индикаторов достоверности */
+        .credibility-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
             font-weight: 600;
-            margin-bottom: 5px;
+            margin-left: 10px;
         }
 
-        .article-title a {
-            color: inherit;
-            text-decoration: none;
+        .high-credibility {
+            background-color: rgba(40, 167, 69, 0.2);
+            color: var(--success-color);
         }
 
-        .article-title a:hover {
-            color: var(--accent-color);
+        .medium-credibility {
+            background-color: rgba(255, 193, 7, 0.2);
+            color: var(--warning-color);
         }
 
-        .article-meta {
-            color: var(--secondary-color);
-            font-size: 0.9rem;
-            margin-bottom: 10px;
-        }
-
-        .article-content {
-            color: var(--text-color);
-            line-height: 1.5;
-        }
-
-        /* Стили для футера */
-        .footer {
-            background-color: white;
-            padding: 20px 0;
-            margin-top: 50px;
-            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
-        }
-
-        /* Скрываем элементы при печати */
-        @media print {
-            .no-print {
-                display: none !important;
-            }
+        .low-credibility {
+            background-color: rgba(220, 53, 69, 0.2);
+            color: var(--danger-color);
         }
     </style>
 </head>
@@ -255,13 +128,13 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="/">Home</a>
+                        <a class="nav-link" href="#">Home</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/faq">FAQ</a>
+                        <a class="nav-link" href="#">FAQ</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/feedback">Feedback</a>
+                        <a class="nav-link" href="#">Feedback</a>
                     </li>
                 </ul>
             </div>
@@ -278,7 +151,7 @@
 
         <!-- Форма для анализа статьи -->
         <div class="row justify-content-center">
-            <div class="col-lg-8">
+            <div class="col-lg-10">
                 <div class="form-container">
                     <h3 class="mb-4">Analyze Article</h3>
                     <form id="analysisForm">
@@ -314,69 +187,30 @@
                         <i class="bi bi-arrow-repeat me-2"></i> Analyze Again
                     </button>
 
-                    <!-- Контейнер для чартов -->
+                    <!-- Контейнер для чарта достоверности статьи -->
                     <div class="chart-container">
-                        <h3 class="mb-4">Credibility Scores</h3>
-                        <div id="credibilityChart"></div>
+                        <h3 class="mb-4">Article Credibility Scores</h3>
+                        <div id="articleCredibilityChart"></div>
                     </div>
 
-                    <!-- Контейнер для похожих статей -->
-                    <div class="similar-articles-container">
-                        <h3 class="mb-4">Same Topic Articles</h3>
-
-                        <!-- Первая похожая статья -->
-                        <div class="similar-article">
-                            <h4 class="article-title">
-                                <a href="https://www.bbc.com/news/world-us-canada-65555555" target="_blank">
-                                    US inflation shows signs of cooling as price rises slow
-                                </a>
-                            </h4>
-                            <p class="article-meta">
-                                <strong>Source:</strong> BBC News |
-                                <strong>Published:</strong> 2023-05-15 |
-                                <strong>Credibility:</strong> 92%
-                            </p>
-                            <p class="article-content">
-                                The latest US inflation figures show prices rose by 4% in the year to May, down from 4.9% in April.
-                                The slowdown was driven by falling energy prices, though food costs continued to climb.
-                            </p>
+                    <!-- Контейнер для рейтинга источников -->
+                    <div class="source-rating-container">
+                        <h3 class="mb-4">Source Credibility Rating</h3>
+                        <div class="rating-chart-container">
+                            <div id="sourceRatingChart"></div>
                         </div>
+                    </div>
 
-                        <!-- Вторая похожая статья -->
-                        <div class="similar-article">
-                            <h4 class="article-title">
-                                <a href="https://www.reuters.com/business/us-inflation-cools-more-than-expected-2023-05-15/" target="_blank">
-                                    US inflation cools more than expected, raising hopes for Fed rate pause
-                                </a>
-                            </h4>
-                            <p class="article-meta">
-                                <strong>Source:</strong> Reuters |
-                                <strong>Published:</strong> 2023-05-15 |
-                                <strong>Credibility:</strong> 95%
-                            </p>
-                            <p class="article-content">
-                                U.S. consumer prices increased less than expected in May and underlying inflation pressures
-                                moderated, which could allow the Federal Reserve to skip an interest rate hike next week.
-                            </p>
+                    <!-- Контейнер для результатов поиска -->
+                    <div class="search-results">
+                        <div class="search-results-header">
+                            <h2 class="search-results-title">Same Topic Articles</h2>
+                            <span class="search-results-count" id="resultsCount">0 articles found</span>
                         </div>
-
-                        <!-- Третья похожая статья -->
-                        <div class="similar-article">
-                            <h4 class="article-title">
-                                <a href="https://www.theguardian.com/business/2023/may/15/us-inflation-rate-falls" target="_blank">
-                                    US inflation falls to lowest level in two years as price rises ease
-                                </a>
-                            </h4>
-                            <p class="article-meta">
-                                <strong>Source:</strong> The Guardian |
-                                <strong>Published:</strong> 2023-05-15 |
-                                <strong>Credibility:</strong> 89%
-                            </p>
-                            <p class="article-content">
-                                Inflation in the US has fallen to its lowest level in two years as the cost of living crisis eases.
-                                The consumer price index rose by 4% in the year to May, down from 4.9% in April.
-                            </p>
-                        </div>
+                        <div id="similarArticles"></div>
+                        <button id="showMoreBtn" class="show-more-btn" style="display: none;">
+                            Show More Articles
+                        </button>
                     </div>
                 </div>
             </div>
@@ -391,8 +225,8 @@
                     <p class="mb-0">&copy; 2025 Media Credibility Index. All rights reserved.</p>
                 </div>
                 <div class="col-md-6 text-center text-md-end">
-                    <a href="/faq" class="text-decoration-none me-3">FAQ</a>
-                    <a href="/feedback" class="text-decoration-none">Feedback</a>
+                    <a href="#" class="text-decoration-none me-3">FAQ</a>
+                    <a href="#" class="text-decoration-none">Feedback</a>
                 </div>
             </div>
         </div>
@@ -409,14 +243,27 @@
             loadingIndicator: document.getElementById('loadingIndicator'),
             analysisResults: document.getElementById('analysisResults'),
             analysisOutput: document.getElementById('analysisOutput'),
-            credibilityChart: document.getElementById('credibilityChart'),
+            articleCredibilityChart: document.getElementById('articleCredibilityChart'),
+            sourceRatingChart: document.getElementById('sourceRatingChart'),
             similarArticles: document.getElementById('similarArticles'),
             analyzeAgainBtn: document.getElementById('analyzeAgainBtn'),
+            showMoreBtn: document.getElementById('showMoreBtn'),
+            resultsCount: document.getElementById('resultsCount'),
             container: document.querySelector('.container')
+        };
+
+        // Данные для рейтинга источников
+        const sourceRatings = {
+            sources: ['BBC News', 'Reuters', 'The Guardian', 'CNN', 'Fox News', 'Al Jazeera'],
+            credibility: [92, 95, 88, 75, 60, 82],
+            colors: ['#1a73e8', '#fb8c00', '#12173f', '#ff0000', '#00529b', '#a31f34']
         };
 
         // Инициализация при загрузке страницы
         document.addEventListener('DOMContentLoaded', function() {
+            // Инициализация чартов
+            renderSourceRatingChart();
+
             if (elements.analysisForm) {
                 elements.analysisForm.addEventListener('submit', function(e) {
                     e.preventDefault();
@@ -426,74 +273,25 @@
 
             if (elements.analyzeAgainBtn) {
                 elements.analyzeAgainBtn.addEventListener('click', function() {
-                    // Скрываем результаты анализа
-                    elements.analysisResults.style.display = 'none';
-                    elements.analyzeAgainBtn.style.display = 'none';
-
-                    // Показываем форму анализа
-                    elements.analysisForm.style.display = 'block';
-
-                    // Очищаем поле ввода
-                    elements.articleInput.value = '';
-                    elements.sourceName.value = '';
-
-                    // Прокручиваем страницу к форме
-                    elements.articleInput.focus();
+                    resetAnalysis();
                 });
             }
 
-            // Инициализация чартов при загрузке
-            initializeCharts();
+            if (elements.showMoreBtn) {
+                elements.showMoreBtn.addEventListener('click', function() {
+                    loadMoreArticles();
+                });
+            }
         });
 
-        // Функция для инициализации чартов
-        function initializeCharts() {
-            const chartData = [{
-                type: 'scatterpolar',
-                r: [85, 90, 70, 80, 82.5],
-                theta: [
-                    'Integrity',
-                    'Factuality',
-                    'Neutral Sentiment',
-                    'Low Bias',
-                    'Overall Credibility'
-                ],
-                fill: 'toself',
-                name: 'Credibility Scores',
-                marker: {
-                    color: 'rgb(78, 115, 223)',
-                    line: {
-                        color: 'rgb(46, 65, 235)',
-                        width: 2
-                    }
-                }
-            }];
-
-            const layout = {
-                polar: {
-                    radialaxis: {
-                        visible: true,
-                        range: [0, 100]
-                    }
-                },
-                title: 'Article Credibility Radar Chart',
-                showlegend: false,
-                margin: {
-                    l: 50,
-                    r: 50,
-                    t: 80,
-                    b: 50
-                }
-            };
-
-            try {
-                Plotly.newPlot('credibilityChart', chartData, layout, {
-                    responsive: true,
-                    displayModeBar: true
-                });
-            } catch (error) {
-                console.error('Ошибка при инициализации чартов:', error);
-            }
+        // Функция для сброса анализа
+        function resetAnalysis() {
+            elements.loadingIndicator.style.display = 'none';
+            elements.analysisResults.style.display = 'none';
+            elements.analyzeAgainBtn.style.display = 'none';
+            elements.articleInput.value = '';
+            elements.sourceName.value = '';
+            elements.articleInput.focus();
         }
 
         // Функция для анализа статьи
@@ -519,6 +317,7 @@
                 // Показываем результаты анализа
                 elements.analysisResults.style.display = 'block';
                 elements.analyzeAgainBtn.style.display = 'block';
+                elements.showMoreBtn.style.display = 'block';
 
                 // Пример данных анализа
                 const sampleAnalysis = `
@@ -568,9 +367,129 @@ The media owner, Example Media Corporation, may influence source credibility.
 
                 elements.analysisOutput.innerHTML = marked.parse(sampleAnalysis);
 
+                // Визуализируем графики
+                renderArticleCredibilityChart({
+                    Integrity: 85,
+                    Factuality: 90,
+                    'Neutral Sentiment': 70,
+                    'Low Bias': 80,
+                    'Overall Credibility Index': 82.5
+                });
+
+                // Отображаем похожие статьи
+                displaySimilarArticles([
+                    {
+                        title: "US inflation shows unexpected cooling in early 2025 data",
+                        url: "https://www.bbc.com/news/world-us-canada-68555555",
+                        source: "BBC News",
+                        published_date: "2025-03-15",
+                        description: "The latest US inflation figures for February 2025 show prices rose by 2.8% annually, down from 3.2% in January. This unexpected cooling has raised hopes that the Federal Reserve may consider interest rate cuts later this year.",
+                        credibility: "High"
+                    },
+                    {
+                        title: "US inflation cools more than expected in February 2025",
+                        url: "https://www.reuters.com/business/us-inflation-cools-more-than-expected-2025-03-15/",
+                        source: "Reuters",
+                        published_date: "2025-03-15",
+                        description: "U.S. consumer prices increased less than expected in February 2025, with the annual inflation rate falling to 2.8% from 3.2% in January. This development has increased market expectations for potential Fed rate cuts in mid-2025.",
+                        credibility: "High"
+                    }
+                ]);
+
                 // Прокручиваем страницу к результатам
                 elements.analysisResults.scrollIntoView({ behavior: 'smooth' });
-            }, 2000);
+            }, 2000); // Имитация задержки сервера
+        }
+
+        // Функция для отображения похожих статей
+        function displaySimilarArticles(articles) {
+            if (!articles || articles.length === 0) {
+                elements.similarArticles.innerHTML = '<p>No similar articles found.</p>';
+                elements.resultsCount.textContent = '0 articles found';
+                return;
+            }
+
+            elements.resultsCount.textContent = `${articles.length} articles found`;
+
+            const articlesHTML = articles.map(article => `
+                <div class="similar-article">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h4 class="article-title m-0">
+                            <a href="${article.url}" target="_blank">${article.title}</a>
+                        </h4>
+                        <span class="credibility-badge ${getCredibilityClass(article.credibility)}">
+                            ${article.credibility} Credibility
+                        </span>
+                    </div>
+                    <p class="article-meta">
+                        <strong>Source:</strong> ${article.source} |
+                        <strong>Published:</strong> ${article.published_date}
+                    </p>
+                    <p class="article-content">${article.description}</p>
+                </div>
+            `).join('<hr>');
+
+            elements.similarArticles.innerHTML = articlesHTML;
+        }
+
+        // Функция для загрузки дополнительных статей
+        function loadMoreArticles() {
+            // Имитация загрузки дополнительных статей
+            setTimeout(() => {
+                const additionalArticles = [
+                    {
+                        title: "US inflation falls to 18-month low as economic outlook improves",
+                        url: "https://www.theguardian.com/business/2025/mar/15/us-inflation-rate-falls",
+                        source: "The Guardian",
+                        published_date: "2025-03-15",
+                        description: "Inflation in the US has fallen to its lowest level in 18 months, with February 2025 data showing a 2.8% annual increase. Economists suggest this trend could lead to a more optimistic economic outlook for the remainder of 2025.",
+                        credibility: "Medium"
+                    },
+                    {
+                        title: "Fed officials signal potential rate cuts as inflation cools",
+                        url: "https://www.cnn.com/2025/03/15/economy/fed-rate-cuts-inflation/index.html",
+                        source: "CNN",
+                        published_date: "2025-03-16",
+                        description: "Federal Reserve officials have indicated that they may consider interest rate cuts later this year as inflation continues to cool. The central bank will carefully monitor economic data before making any decisions.",
+                        credibility: "Medium"
+                    }
+                ];
+
+                // Добавляем новые статьи к существующим
+                const currentArticles = elements.similarArticles.querySelectorAll('.similar-article');
+                const currentCount = currentArticles.length;
+
+                const additionalArticlesHTML = additionalArticles.map(article => `
+                    <div class="similar-article">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h4 class="article-title m-0">
+                                <a href="${article.url}" target="_blank">${article.title}</a>
+                            </h4>
+                            <span class="credibility-badge ${getCredibilityClass(article.credibility)}">
+                                ${article.credibility} Credibility
+                            </span>
+                        </div>
+                        <p class="article-meta">
+                            <strong>Source:</strong> ${article.source} |
+                            <strong>Published:</strong> ${article.published_date}
+                        </p>
+                        <p class="article-content">${article.description}</p>
+                    </div>
+                `).join('<hr>');
+
+                elements.similarArticles.innerHTML += `<hr>${additionalArticlesHTML}`;
+                elements.resultsCount.textContent = `${currentCount + additionalArticles.length} articles found`;
+
+                // Прокручиваем к новым статьям
+                document.querySelector('.similar-article:last-child').scrollIntoView({ behavior: 'smooth' });
+            }, 1000);
+        }
+
+        // Функция для определения класса достоверности
+        function getCredibilityClass(credibility) {
+            if (credibility === 'High') return 'high-credibility';
+            if (credibility === 'Medium') return 'medium-credibility';
+            return 'low-credibility';
         }
 
         // Функция для отображения уведомлений
@@ -589,6 +508,157 @@ The media owner, Example Media Corporation, may influence source credibility.
                 const alert = bootstrap.Alert.getOrCreateInstance(alertContainer);
                 alert.close();
             }, 5000);
+        }
+
+        // Функция для визуализации графика достоверности статьи
+        function renderArticleCredibilityChart(scores) {
+            if (typeof Plotly === 'undefined') {
+                console.error('Plotly не загружен!');
+                showAlert('Error loading visualization library', 'danger');
+                return;
+            }
+
+            const chartContainer = document.getElementById('articleCredibilityChart');
+            if (!chartContainer) {
+                console.error('Контейнер для чартов не найден!');
+                return;
+            }
+
+            chartContainer.style.width = '100%';
+            chartContainer.style.height = '500px';
+
+            const chartData = [{
+                type: 'scatterpolar',
+                r: [
+                    scores.Integrity || 0,
+                    scores.Factuality || 0,
+                    scores['Neutral Sentiment'] || 0,
+                    scores['Low Bias'] || 0,
+                    scores['Overall Credibility Index'] || 0
+                ],
+                theta: [
+                    'Integrity',
+                    'Factuality',
+                    'Neutral Sentiment',
+                    'Low Bias',
+                    'Overall Credibility'
+                ],
+                fill: 'toself',
+                name: 'Credibility Scores',
+                marker: {
+                    color: 'rgb(78, 115, 223)',
+                    line: {
+                        color: 'rgb(46, 65, 235)',
+                        width: 2
+                    }
+                }
+            }];
+
+            const layout = {
+                polar: {
+                    radialaxis: {
+                        visible: true,
+                        range: [0, 100],
+                        tickangle: 45,
+                        tickfont: {
+                            size: 12
+                        }
+                    },
+                    angularaxis: {
+                        direction: "clockwise",
+                        rotation: 90
+                    }
+                },
+                title: {
+                    text: 'Article Credibility Radar Chart',
+                    font: {
+                        size: 18
+                    }
+                },
+                showlegend: false,
+                margin: {
+                    l: 50,
+                    r: 50,
+                    t: 80,
+                    b: 50,
+                    pad: 10
+                },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)'
+            };
+
+            try {
+                Plotly.newPlot('articleCredibilityChart', chartData, layout, {
+                    responsive: true,
+                    displayModeBar: true
+                });
+            } catch (error) {
+                console.error('Ошибка при инициализации чартов:', error);
+                showAlert('Error rendering charts', 'danger');
+            }
+        }
+
+        // Функция для визуализации рейтинга источников
+        function renderSourceRatingChart() {
+            if (typeof Plotly === 'undefined') {
+                console.error('Plotly не загружен!');
+                return;
+            }
+
+            const chartContainer = document.getElementById('sourceRatingChart');
+            if (!chartContainer) {
+                console.error('Контейнер для чартов не найден!');
+                return;
+            }
+
+            chartContainer.style.width = '100%';
+            chartContainer.style.height = '400px';
+
+            const chartData = [{
+                x: sourceRatings.sources,
+                y: sourceRatings.credibility,
+                type: 'bar',
+                marker: {
+                    color: sourceRatings.colors
+                },
+                text: sourceRatings.credibility.map((val, i) => `${sourceRatings.sources[i]}: ${val}%`),
+                hoverinfo: 'text'
+            }];
+
+            const layout = {
+                title: {
+                    text: 'Source Credibility Rating',
+                    font: {
+                        size: 18
+                    }
+                },
+                xaxis: {
+                    title: 'News Sources',
+                    tickangle: -45
+                },
+                yaxis: {
+                    title: 'Credibility Score (%)',
+                    range: [0, 100]
+                },
+                margin: {
+                    l: 50,
+                    r: 50,
+                    b: 100,
+                    t: 80,
+                    pad: 10
+                },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)'
+            };
+
+            try {
+                Plotly.newPlot('sourceRatingChart', chartData, layout, {
+                    responsive: true,
+                    displayModeBar: true
+                });
+            } catch (error) {
+                console.error('Ошибка при инициализации чартов:', error);
+            }
         }
     </script>
 </body>
