@@ -4,15 +4,10 @@ import sqlite3
 import re
 import json
 import requests
-import html
-import smtplib
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
-from logging.handlers import RotatingFileHandler
-from flask import Flask, request, jsonify, render_template, abort, make_response, session
+from flask import Flask, request, jsonify, render_template, session
 from werkzeug.middleware.proxy_fix import ProxyFix
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 import anthropic
 from newspaper import Article
 from stop_words import get_stop_words
@@ -27,35 +22,12 @@ ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
 MODEL_NAME = os.getenv('ANTHROPIC_MODEL', 'claude-3-opus-20240229')
 NEWS_API_KEY = os.getenv('NEWS_API_KEY')
 
-# Email configuration
-app.config.update(
-    MAIL_SERVER=os.getenv('MAIL_SERVER', 'smtp.gmail.com'),
-    MAIL_PORT=int(os.getenv('MAIL_PORT', 587)),
-    MAIL_USE_TLS=os.getenv('MAIL_USE_TLS', 'true').lower() == 'true',
-    MAIL_USERNAME=os.getenv('MAIL_USERNAME'),
-    MAIL_PASSWORD=os.getenv('MAIL_PASSWORD'),
-    MAIL_DEFAULT_SENDER=os.getenv('MAIL_DEFAULT_SENDER')
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
-
-# Timezone
-UTC = timezone.utc
-
-# Logging setup
-def setup_logging():
-    """Configure logging system"""
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-
-    # File logging with rotation
-    file_handler = RotatingFileHandler('app.log', maxBytes=1024*1024, backupCount=5)
-    file_handler.setFormatter(formatter)
-
-    # Console logging
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-
-    app.logger.addHandler(file_handler)
-    app.logger.addHandler(console_handler)
-    app.logger.setLevel(logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Database initialization
 DB_NAME = 'news_analysis.db'
@@ -67,43 +39,38 @@ def get_db_connection():
     return conn
 
 def initialize_database():
-    """Ensure database schema exists"""
+    """Initialize database schema"""
     with get_db_connection() as conn:
-        c = conn.cursor()
-        c.execute('''CREATE TABLE IF NOT EXISTS news (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT,
-            source TEXT,
-            content TEXT,
-            integrity REAL,
-            fact_check REAL,
-            sentiment REAL,
-            bias REAL,
-            credibility_level TEXT,
-            index_of_credibility REAL,
-            url TEXT UNIQUE,
-            analysis_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            short_summary TEXT
-        )''')
-
-        c.execute('''CREATE TABLE IF NOT EXISTS source_stats (
-            source TEXT PRIMARY KEY,
-            high INTEGER DEFAULT 0,
-            medium INTEGER DEFAULT 0,
-            low INTEGER DEFAULT 0,
-            total_analyzed INTEGER DEFAULT 0
-        )''')
-
-        c.execute('''CREATE TABLE IF NOT EXISTS feedback (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            email TEXT NOT NULL,
-            type TEXT NOT NULL,
-            message TEXT NOT NULL,
-            date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )''')
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS news (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT,
+                source TEXT,
+                content TEXT,
+                integrity REAL,
+                fact_check REAL,
+                sentiment REAL,
+                bias REAL,
+                credibility_level TEXT,
+                index_of_credibility REAL,
+                url TEXT UNIQUE,
+                analysis_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                short_summary TEXT
+            )
+        ''')
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS source_stats (
+                source TEXT PRIMARY KEY,
+                high INTEGER DEFAULT 0,
+                medium INTEGER DEFAULT 0,
+                low INTEGER DEFAULT 0,
+                total_analyzed INTEGER DEFAULT 0
+            )
+        ''')
         conn.commit()
-        app.logger.info('Database schema initialized successfully')
+
+# Initialize database
+initialize_database()
 
 # Initial data
 INITIAL_SOURCE_COUNTS = {
@@ -159,24 +126,19 @@ def block_wordpress_scanners():
     """Block WordPress scanner requests"""
     path = request.path.lower()
     if any(pattern.search(path) for pattern in WORDPRESS_PATHS):
-        app.logger.warning(f'Blocked WordPress scanner request from {request.remote_addr}')
-        return abort(404)
-
-    if any(param in request.query_string.decode('utf-8', 'ignore') for param in ['=http://', '=https://', '=ftp://']):
-        app.logger.warning(f'Blocked suspicious query parameter from {request.remote_addr}')
-        return abort(404)
+        logger.warning(f'Blocked WordPress scanner request from {request.remote_addr}')
+        return jsonify({'error': 'Not found'}), 404
 
 @app.after_request
 def add_security_headers(response):
     """Add security and CORS headers"""
-    response.headers['X-Content-Type-Options'] = 'nosniff'
-    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
-    response.headers['X-XSS-Protection'] = '1; mode=block'
-    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
     response.headers['Access-Control-Allow-Origin'] = '*'
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
     response.headers['Access-Control-Allow-Credentials'] = 'true'
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
     return response
 
 # Error handlers
@@ -205,22 +167,7 @@ class ClaudeNewsAnalyzer:
     def analyze_article_text(self, article_text_content, source_name_for_context):
         """Analyze article text using Claude API"""
         try:
-            max_chars = 10000
-            if len(article_text_content) > max_chars:
-                article_text_content = article_text_content[:max_chars]
-                app.logger.warning(f"Article content truncated to {max_chars} characters")
-
-            media_owner = media_owners.get(source_name_for_context, 'Unknown Owner')
-
-            prompt = f"""Analyze this news article:
-
-Article Text:
-{article_text_content}
-
-Source: {source_name_for_context}
-Media Owner: {media_owner}
-
-Return results in JSON format with these fields:
+            prompt = f"""Analyze this news article and provide a JSON response with these fields:
 - news_integrity (0.0-1.0)
 - fact_check_needed_score (0.0-1.0)
 - sentiment_score (0.0-1.0)
@@ -232,27 +179,35 @@ Return results in JSON format with these fields:
 - potential_biases_identified (list of strings)
 - short_summary (string)
 - index_of_credibility (0.0-1.0)
-- published_date (string)"""
 
-            message = self.client.messages.create(
+Article: {article_text_content[:5000]}..."""
+
+            response = self.client.messages.create(
                 model=self.model_name,
                 max_tokens=2000,
-                temperature=0.2,
-                messages=[{'role': 'user', 'content': prompt}]
+                messages=[{"role": "user", "content": prompt}]
             )
 
-            response_text = message.content[0].text.strip()
-            json_match = re.search(r'```json\s*(\{.*\})\s*```', response_text, re.DOTALL)
+            response_text = response.content[0].text.strip()
+            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
 
             if json_match:
-                return json.loads(json_match.group(1))
-            return json.loads(response_text)
+                try:
+                    return json.loads(json_match.group(0))
+                except json.JSONDecodeError as e:
+                    logger.error(f"Failed to parse JSON: {str(e)}. Response was: {response_text}")
+                    raise ValueError("Invalid JSON in response")
+
+            try:
+                return json.loads(response_text)
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse response as JSON: {str(e)}. Response was: {response_text}")
+                raise ValueError("Response is not valid JSON")
 
         except Exception as e:
-            app.logger.error(f'Claude analysis error: {str(e)}')
+            logger.error(f'Claude analysis error: {str(e)}')
             raise ValueError(f'AI analysis error: {str(e)}')
 
-# Article processing functions
 def extract_text_from_url(url):
     """Extract text from URL"""
     try:
@@ -265,12 +220,14 @@ def extract_text_from_url(url):
         article.parse()
 
         if len(article.text) < 100:
-            app.logger.warning(f"Short content from {url}")
+            logger.warning(f"Short content from {url}")
             return None, None, None
 
-        return article.text.strip(), urlparse(clean_url).netloc.replace('www.', ''), article.title.strip()
+        return (article.text.strip(),
+                urlparse(clean_url).netloc.replace('www.', ''),
+                article.title.strip())
     except Exception as e:
-        app.logger.error(f'Error extracting article from {url}: {str(e)}')
+        logger.error(f'Error extracting article from {url}: {str(e)}')
         return None, None, None
 
 def calculate_credibility(integrity, fact_check, sentiment, bias):
@@ -291,8 +248,6 @@ def save_analysis(url, title, source, content, analysis):
     """Save analysis to database"""
     try:
         with get_db_connection() as conn:
-            c = conn.cursor()
-
             integrity = analysis.get('news_integrity', 0.0)
             fact_check = analysis.get('fact_check_needed_score', 1.0)
             sentiment = analysis.get('sentiment_score', 0.5)
@@ -301,9 +256,10 @@ def save_analysis(url, title, source, content, analysis):
             credibility = analysis.get('index_of_credibility', 0.0)
 
             level = calculate_credibility(integrity, fact_check, sentiment, bias)
-            db_url = url if url else f'text_{datetime.now(UTC).timestamp()}'
+            db_url = url if url else f'text_{datetime.now(timezone.utc).timestamp()}'
 
-            c.execute('''INSERT INTO news
+            conn.execute('''
+                INSERT INTO news
                 (url, title, source, content, integrity, fact_check, sentiment, bias,
                 credibility_level, short_summary, index_of_credibility)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -314,36 +270,154 @@ def save_analysis(url, title, source, content, analysis):
                 credibility_level=excluded.credibility_level,
                 short_summary=excluded.short_summary,
                 index_of_credibility=excluded.index_of_credibility,
-                analysis_date=CURRENT_TIMESTAMP''',
-                (db_url, title, source, content, integrity, fact_check,
-                sentiment, bias, level, summary, credibility))
-
-            c.execute('SELECT high, medium, low, total_analyzed FROM source_stats WHERE source = ?', (source,))
-            row = c.fetchone()
-
-            if row:
-                high, medium, low, total = row
-                if level == 'High': high += 1
-                elif level == 'Medium': medium += 1
-                else: low += 1
-                total += 1
-                c.execute('''UPDATE source_stats SET high=?, medium=?, low=?, total_analyzed=?
-                    WHERE source=?''', (high, medium, low, total, source))
-            else:
-                counts = {'High': 1, 'Medium': 0, 'Low': 0}
-                counts[level] = 1
-                c.execute('''INSERT INTO source_stats
-                    (source, high, medium, low, total_analyzed)
-                    VALUES (?, ?, ?, ?, ?)''',
-                    (source, counts['High'], counts['Medium'], counts['Low'], 1))
+                analysis_date=CURRENT_TIMESTAMP
+            ''', (db_url, title, source, content, integrity, fact_check,
+                  sentiment, bias, level, summary, credibility))
 
             conn.commit()
             return level
     except Exception as e:
-        app.logger.error(f'Database error: {str(e)}')
+        logger.error(f'Database error: {str(e)}')
         raise
 
-# API Endpoints
+def generate_query(analysis_result):
+    """Generate query for finding similar articles"""
+    topics = analysis_result.get('topics', [])
+    key_arguments = analysis_result.get('key_arguments', [])
+    mentioned_facts = analysis_result.get('mentioned_facts', [])
+
+    all_terms = []
+    for phrase_list in [topics, key_arguments]:
+        for phrase in phrase_list:
+            if not phrase.strip():
+                continue
+            if ' ' in phrase.strip() and len(phrase.strip().split()) > 1:
+                all_terms.append('"' + phrase.strip() + '"')
+            else:
+                all_terms.append(phrase.strip())
+
+    for fact in mentioned_facts:
+        if not fact.strip():
+            continue
+        words = [word for word in fact.lower().split() if word not in stop_words_en and len(word) > 2]
+        all_terms.extend(words)
+
+    unique_terms = list(set(all_terms))
+
+    if len(unique_terms) >= 3:
+        query = ' AND '.join(unique_terms)
+    elif unique_terms:
+        query = ' OR '.join(unique_terms)
+    else:
+        query = 'current events OR news'
+
+    return query
+
+def make_newsapi_request(params):
+    """Make request to NewsAPI"""
+    url = 'https://newsapi.org/v2/everything'
+    try:
+        response = requests.get(url, params=params, timeout=15)
+        response.raise_for_status()
+        return response.json().get('articles', [])
+    except Exception as e:
+        logger.error(f'NewsAPI Request Error: {str(e)}')
+        return []
+
+def fetch_same_topic_articles(analysis_result, page=1, per_page=3):
+    """Fetch similar articles by topic with pagination"""
+    if not NEWS_API_KEY:
+        logger.warning('NEWS_API_KEY is not configured. Skipping similar news search.')
+        return []
+
+    query = generate_query(analysis_result)
+    end_date = datetime.now(timezone.utc).date()
+    start_date = end_date - timedelta(days=7)
+
+    params = {
+        'q': query,
+        'apiKey': NEWS_API_KEY,
+        'language': 'en',
+        'pageSize': per_page,
+        'page': page,
+        'sortBy': 'relevancy',
+        'from': start_date.strftime('%Y-%m-%d'),
+        'to': end_date.strftime('%Y-%m-%d'),
+    }
+
+    if TRUSTED_NEWS_SOURCES_IDS:
+        params['sources'] = ','.join(TRUSTED_NEWS_SOURCES_IDS)
+
+    articles = make_newsapi_request(params)
+
+    if not articles and query != 'current events OR news':
+        broader_query = ' OR '.join([f'"{term}"' if ' ' in term else term
+                                  for term in analysis_result.get('topics', [])[:3]
+                                  if term and term not in stop_words_en])
+        if not broader_query:
+            broader_query = 'current events OR news'
+
+        params['q'] = broader_query
+        additional_articles = make_newsapi_request(params)
+        articles.extend(additional_articles)
+
+    unique_articles = {}
+    for article in articles:
+        if article.get('url'):
+            unique_articles[article['url']] = article
+
+    articles = list(unique_articles.values())
+
+    if not articles:
+        return []
+
+    all_query_terms = []
+    all_query_terms.extend([t.lower().replace('"', '') for t in query.split(' AND ') if t.strip()])
+    if 'broader_query' in locals():
+        all_query_terms.extend([t.lower().replace('"', '') for t in broader_query.split(' OR ') if t.strip()])
+    all_query_terms = list(set([t for t in all_query_terms if t and t not in stop_words_en]))
+
+    ranked_articles = []
+    for article in articles:
+        source_domain = urlparse(article.get('url', '')).netloc.replace('www.', '')
+        trust_score = predefined_trust_scores.get(source_domain, 0.5)
+
+        article_text = (article.get('title', '') + ' ' + article.get('description', '')).lower()
+        relevance_score = sum(1 for term in all_query_terms if term in article_text)
+        final_score = (relevance_score * 10) + (trust_score * 5)
+        ranked_articles.append((article, final_score))
+
+    ranked_articles.sort(key=lambda item: item[1], reverse=True)
+    return [item[0] for item in ranked_articles[:per_page]]
+
+def render_same_topic_articles_html(articles):
+    """Render HTML for similar articles"""
+    if not articles:
+        return '<p>No similar articles found.</p>'
+
+    html_items = []
+    for art in articles:
+        title = html.escape(art.get('title', 'No Title'))
+        article_url = html.escape(art.get('url', '#'))
+        source_api_name = html.escape(art.get('source', {}).get('name', 'Unknown Source'))
+        published_at = html.escape(art.get('publishedAt', 'N/A').split('T')[0])
+        description = html.escape(art.get('description', 'No description available.'))
+
+        domain = urlparse(art.get('url', '#')).netloc.replace('www.', '')
+        trust_score = predefined_trust_scores.get(domain, 0.5)
+        trust_display = f' (Credibility: {int(trust_score*100)}%)'
+
+        html_items.append(
+            f'<div class="same-topic-article">'
+            f'<h4><a href="{article_url}" target="_blank">{title}</a></h4>'
+            f'<p><strong>Source:</strong> {source_api_name}{trust_display} | '
+            f'<strong>Published:</strong> {published_at}</p>'
+            f'<p>{description}</p>'
+            f'</div>'
+        )
+
+    return '<div class="same-topic-articles-container">' + ''.join(html_items) + '</div>'
+
 @app.route('/')
 def home():
     """Home page"""
@@ -377,6 +451,7 @@ def analyze():
         else:
             content = input_text
             title = 'User-provided Text'
+            source = source_name
 
         if len(content) < 100:
             return jsonify({'error': 'Content too short (min 100 chars)'}), 400
@@ -394,54 +469,54 @@ def analyze():
             analysis
         )
 
+        # Store analysis result in session
+        session['last_analysis_result'] = analysis
+
+        # Get similar articles
+        same_topic_articles = fetch_same_topic_articles(analysis)
+        same_topic_html = render_same_topic_articles_html(same_topic_articles)
+
         # Prepare response
         response = {
+            'status': 'success',
             'analysis': analysis,
             'credibility': credibility,
             'title': title,
-            'source': source
+            'source': source,
+            'same_topic_articles': same_topic_html
         }
 
         return jsonify(response), 200
 
+    except ValueError as e:
+        logger.error(f'Analysis error: {str(e)}')
+        return jsonify({'status': 'error', 'message': str(e)}), 400
     except Exception as e:
-        app.logger.error(f'Analysis error: {str(e)}')
-        return jsonify({'error': f'Analysis failed: {str(e)}'}), 500
+        logger.error(f'Unexpected error: {str(e)}')
+        return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
 
-@app.route('/feedback', methods=['POST'])
-def feedback():
-    """Feedback endpoint"""
+@app.route('/same_topic_articles', methods=['GET'])
+def get_same_topic_articles():
+    """Endpoint for getting more articles on the same topic"""
     try:
-        data = request.get_json()
-        if not data or not all(k in data for k in ['name', 'email', 'type', 'message']):
-            return jsonify({'error': 'Missing required fields'}), 400
+        page = int(request.args.get('page', 1))
+        per_page = 3
 
-        if not re.match(r"[^@]+@[^@]+\.[^@]+", data['email']):
-            return jsonify({'error': 'Invalid email'}), 400
+        analysis_result = session.get('last_analysis_result')
+        if not analysis_result:
+            return jsonify({'error': 'No analysis result found. Please analyze an article first.'}), 400
 
-        with get_db_connection() as conn:
-            c = conn.cursor()
-            c.execute('''INSERT INTO feedback
-                (name, email, type, message, date)
-                VALUES (?, ?, ?, ?, ?)''',
-                (data['name'], data['email'], data['type'], data['message'],
-                 datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%S')))
-            conn.commit()
+        same_topic_articles = fetch_same_topic_articles(analysis_result, page=page, per_page=per_page)
+        same_topic_html = render_same_topic_articles_html(same_topic_articles)
 
-        return jsonify({'message': 'Feedback received'}), 200
+        return jsonify({
+            'same_topic_html': same_topic_html
+        })
 
     except Exception as e:
-        app.logger.error(f'Feedback error: {str(e)}')
-        return jsonify({'error': 'Failed to save feedback'}), 500
-
-# Initialize application
-def initialize_app():
-    """Initialize the application"""
-    setup_logging()
-    initialize_database()
-    app.logger.info("Application initialized successfully")
+        logger.error(f"Error in get_same_topic_articles endpoint: {str(e)}")
+        return jsonify({'error': 'An error occurred while fetching same topic articles'}), 500
 
 if __name__ == '__main__':
-    initialize_app()
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+
