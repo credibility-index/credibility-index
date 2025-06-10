@@ -6,6 +6,7 @@
     <title>Media Credibility Index</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdn.plot.ly/plotly-3.0.1.min.js">
     <style>
         :root {
             --primary-color: #2c3e50;
@@ -112,6 +113,48 @@
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
 
+        /* Стили для индикатора загрузки */
+        .loading-container {
+            display: none;
+            text-align: center;
+            margin: 30px 0;
+        }
+
+        .spinner {
+            width: 3rem;
+            height: 3rem;
+            margin: 0 auto 15px;
+            color: var(--primary-color);
+        }
+
+        /* Стили для результатов анализа */
+        .analysis-container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.05);
+            margin-top: 20px;
+        }
+
+        /* Стили для графиков */
+        .chart-container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.05);
+            margin: 30px 0;
+        }
+
+        /* Стили для похожих статей */
+        .similar-article {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+            border-left: 4px solid var(--primary-color);
+        }
+
         /* Стили для футера */
         .footer {
             background-color: white;
@@ -180,6 +223,31 @@
                         </button>
                     </form>
                 </div>
+
+                <!-- Индикатор загрузки -->
+                <div class="loading-container text-center" id="loadingIndicator">
+                    <div class="spinner-border spinner" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="text-muted mt-3">Analyzing article... This may take a moment</p>
+                </div>
+
+                <!-- Контейнер для результатов анализа -->
+                <div id="analysisResults" class="analysis-container" style="display: none;">
+                    <div id="analysisOutput" class="article-content"></div>
+
+                    <!-- Контейнер для графика достоверности -->
+                    <div class="chart-container">
+                        <h3 class="mb-4">Credibility Scores</h3>
+                        <div id="credibilityChart" class="credibility-radar"></div>
+                    </div>
+
+                    <!-- Контейнер для похожих статей -->
+                    <div class="similar-articles-container">
+                        <h3 class="mb-4">Similar Articles</h3>
+                        <div id="similarArticles"></div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -201,5 +269,163 @@
 
     <!-- Подключаем скрипты -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-3.0.1.min.js"></script>
+
+    <!-- Основной скрипт приложения -->
+    <script>
+        // Кэшируем элементы DOM
+        const elements = {
+            analysisForm: document.getElementById('analysisForm'),
+            articleInput: document.getElementById('articleInput'),
+            sourceName: document.getElementById('sourceName'),
+            loadingIndicator: document.getElementById('loadingIndicator'),
+            analysisResults: document.getElementById('analysisResults'),
+            analysisOutput: document.getElementById('analysisOutput'),
+            credibilityChart: document.getElementById('credibilityChart'),
+            similarArticles: document.getElementById('similarArticles'),
+            container: document.querySelector('.container')
+        };
+
+        // Инициализация при загрузке страницы
+        document.addEventListener('DOMContentLoaded', function() {
+            if (elements.analysisForm) {
+                elements.analysisForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    analyzeArticle();
+                });
+            }
+        });
+
+        // Функция для анализа статьи
+        function analyzeArticle() {
+            const inputText = elements.articleInput.value.trim();
+            const sourceName = elements.sourceName ? elements.sourceName.value.trim() : '';
+
+            if (!inputText) {
+                showAlert('Please enter article text or URL', 'danger');
+                return;
+            }
+
+            // Показываем индикатор загрузки
+            elements.loadingIndicator.style.display = 'block';
+            elements.analysisResults.style.display = 'none';
+
+            fetch('/analyze', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    input_text: inputText,
+                    source_name_manual: sourceName
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => {
+                        throw new Error(`Server error: ${text}`);
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                elements.loadingIndicator.style.display = 'none';
+                elements.analysisResults.style.display = 'block';
+
+                if (data.error_message) {
+                    elements.analysisOutput.innerHTML = `<div class="alert alert-danger">${data.error_message}</div>`;
+                    return;
+                }
+
+                // Отображаем результаты анализа
+                elements.analysisOutput.innerHTML = marked.parse(data.output_md);
+
+                // Визуализируем графики
+                if (data.scores_for_chart) {
+                    renderCredibilityChart(data.scores_for_chart);
+                }
+
+                // Отображаем похожие статьи
+                if (data.same_topic_news) {
+                    elements.similarArticles.innerHTML = data.same_topic_news;
+                }
+            })
+            .catch(error => {
+                elements.loadingIndicator.style.display = 'none';
+                console.error('Error:', error);
+                showAlert(`An error occurred during analysis: ${error.message}`, 'danger');
+            });
+        }
+
+        // Функция для отображения уведомлений
+        function showAlert(message, type) {
+            const alertContainer = document.createElement('div');
+            alertContainer.className = `alert alert-${type} alert-dismissible fade show`;
+            alertContainer.role = 'alert';
+            alertContainer.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+
+            elements.container.prepend(alertContainer);
+
+            setTimeout(() => {
+                const alert = bootstrap.Alert.getOrCreateInstance(alertContainer);
+                alert.close();
+            }, 5000);
+        }
+
+        // Функция для визуализации графика достоверности
+        function renderCredibilityChart(scores) {
+            if (!elements.credibilityChart) return;
+
+            const chartData = [{
+                type: 'scatterpolar',
+                r: [
+                    scores.Integrity || 0,
+                    scores.Factuality || 0,
+                    scores['Neutral Sentiment'] || 0,
+                    scores['Low Bias'] || 0,
+                    scores['Overall Credibility Index'] || 0
+                ],
+                theta: [
+                    'Integrity',
+                    'Factuality',
+                    'Neutral Sentiment',
+                    'Low Bias',
+                    'Overall Credibility'
+                ],
+                fill: 'toself',
+                name: 'Credibility Scores',
+                marker: {
+                    color: 'rgb(78, 115, 223)',
+                    line: {
+                        color: 'rgb(46, 65, 235)',
+                        width: 2
+                    }
+                }
+            }];
+
+            const layout = {
+                polar: {
+                    radialaxis: {
+                        visible: true,
+                        range: [0, 100]
+                    }
+                },
+                title: 'Article Credibility Radar Chart',
+                showlegend: false,
+                margin: {
+                    l: 50,
+                    r: 50,
+                    t: 80,
+                    b: 50
+                }
+            };
+
+            Plotly.newPlot('credibilityChart', chartData, layout, {responsive: true});
+        }
+    </script>
 </body>
 </html>
