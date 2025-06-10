@@ -130,17 +130,72 @@
             margin-top: 10px;
         }
 
-        .analysis-container {
+        .analysis-results {
+            margin-top: 30px;
+        }
+
+        .analysis-section {
+            margin-bottom: 30px;
+            padding: 20px;
             background-color: white;
-            border-radius: 10px;
-            padding: 30px;
-            box-shadow: 0 2px 15px rgba(0,0,0,0.05);
-            margin-top: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        .analysis-title {
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--accent-color);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .score-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .score-item {
+            flex: 1 1 200px;
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .score-name {
+            font-weight: 600;
+            color: var(--secondary-color);
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+
+        .score-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+
+        .score-description {
+            font-size: 0.8rem;
+            color: var(--secondary-color);
+            margin-top: 5px;
         }
 
         .chart-container {
             width: 100%;
             height: 500px;
+            margin: 20px 0;
+            border-radius: 10px;
+            background-color: white;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.05);
+            padding: 20px;
+        }
+
+        .source-chart-container {
+            width: 100%;
+            height: 400px;
             margin: 20px 0;
             border-radius: 10px;
             background-color: white;
@@ -231,13 +286,6 @@
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
 
-        .footer {
-            background-color: white;
-            padding: 20px 0;
-            margin-top: 50px;
-            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
-        }
-
         .feedback-btn {
             position: fixed;
             bottom: 30px;
@@ -265,71 +313,11 @@
             font-size: 24px;
         }
 
-        /* Analysis results styling */
-        .analysis-results {
-            margin-top: 30px;
-        }
-
-        .analysis-section {
-            margin-bottom: 30px;
-            padding: 20px;
+        .footer {
             background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        }
-
-        .analysis-title {
-            color: var(--primary-color);
-            border-bottom: 2px solid var(--accent-color);
-            padding-bottom: 10px;
-            margin-bottom: 20px;
-        }
-
-        .score-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-
-        .score-item {
-            flex: 1 1 200px;
-            background-color: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-            text-align: center;
-        }
-
-        .score-name {
-            font-weight: 600;
-            color: var(--secondary-color);
-            margin-bottom: 5px;
-            font-size: 0.9rem;
-        }
-
-        .score-value {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--primary-color);
-        }
-
-        .score-description {
-            font-size: 0.8rem;
-            color: var(--secondary-color);
-            margin-top: 5px;
-        }
-
-        .analysis-details {
-            margin-top: 20px;
-        }
-
-        .detail-item {
-            margin-bottom: 15px;
-        }
-
-        .detail-title {
-            font-weight: 600;
-            color: var(--primary-color);
+            padding: 20px 0;
+            margin-top: 50px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
         }
 
         .credibility-indicator {
@@ -482,9 +470,16 @@
                     </div>
 
                     <div class="analysis-section">
-                        <h2 class="analysis-title">Credibility Visualization</h2>
+                        <h2 class="analysis-title">Article Credibility Radar Chart</h2>
                         <div class="chart-container">
-                            <div id="credibilityChart"></div>
+                            <div id="articleCredibilityChart"></div>
+                        </div>
+                    </div>
+
+                    <div class="analysis-section">
+                        <h2 class="analysis-title">Source Credibility Comparison</h2>
+                        <div class="source-chart-container">
+                            <div id="sourceCredibilityChart"></div>
                         </div>
                     </div>
 
@@ -594,7 +589,11 @@
 
                 // Render charts
                 if (data.scores_for_chart) {
-                    renderCredibilityChart(data.scores_for_chart);
+                    renderArticleCredibilityChart(data.scores_for_chart);
+                }
+
+                if (data.source_credibility_data) {
+                    renderSourceCredibilityChart(data.source_credibility_data);
                 }
 
                 // Display same topic articles
@@ -622,9 +621,9 @@
 
             // Set scores
             elements.newsIntegrity.textContent = (data.analysis.news_integrity || 0).toFixed(2);
-            elements.factCheckNeeded.textContent = (data.analysis.fact_check_needed_score || 0).toFixed(2);
-            elements.sentimentScore.textContent = (data.analysis.sentiment_score || 0).toFixed(2);
-            elements.biasScore.textContent = (data.analysis.bias_score || 0).toFixed(2);
+            elements.factCheckNeeded.textContent = (data.analysis.fact_check_needed_score || 1).toFixed(2);
+            elements.sentimentScore.textContent = (data.analysis.sentiment_score || 0.5).toFixed(2);
+            elements.biasScore.textContent = (data.analysis.bias_score || 1).toFixed(2);
 
             // Set author purpose and summary
             elements.authorPurpose.textContent = data.analysis.author_purpose || 'Not specified';
@@ -733,30 +732,21 @@
             }, 5000);
         }
 
-        // Function to render credibility chart
-        function renderCredibilityChart(scores) {
+        // Function to render article credibility chart
+        function renderArticleCredibilityChart(scores) {
             if (typeof Plotly === 'undefined') {
                 console.error('Plotly is not loaded!');
                 showAlert('Error loading visualization library', 'danger');
                 return;
             }
 
-            const chartContainer = document.getElementById('credibilityChart');
-            if (!chartContainer) {
-                console.error('Chart container not found!');
-                return;
-            }
-
-            chartContainer.style.width = '100%';
-            chartContainer.style.height = '500px';
-
             const chartData = [{
                 type: 'scatterpolar',
                 r: [
-                    scores.integrity * 100 || 0,
-                    (1 - scores.fact_check) * 100 || 0,
-                    scores.sentiment * 100 || 0,
-                    (1 - scores.bias) * 100 || 0,
+                    scores.news_integrity * 100 || 0,
+                    (1 - scores.fact_check_needed_score) * 100 || 0,
+                    scores.sentiment_score * 100 || 0,
+                    (1 - scores.bias_score) * 100 || 0,
                     scores.index_of_credibility * 100 || 0
                 ],
                 theta: [
@@ -810,15 +800,52 @@
                 plot_bgcolor: 'rgba(0,0,0,0)'
             };
 
-            try {
-                Plotly.newPlot('credibilityChart', chartData, layout, {
-                    responsive: true,
-                    displayModeBar: true
-                });
-            } catch (error) {
-                console.error('Error initializing charts:', error);
-                showAlert('Error rendering charts', 'danger');
+            Plotly.newPlot('articleCredibilityChart', chartData, layout);
+        }
+
+        // Function to render source credibility chart
+        function renderSourceCredibilityChart(data) {
+            if (typeof Plotly === 'undefined') {
+                console.error('Plotly is not loaded!');
+                showAlert('Error loading visualization library', 'danger');
+                return;
             }
+
+            const chartData = [{
+                x: data.sources,
+                y: data.credibility_indices_for_plot,
+                type: 'bar',
+                marker: {
+                    color: data.credibility_indices_for_plot.map(score => {
+                        if (score >= 0.75) return 'rgba(40, 167, 69, 0.8)';
+                        if (score >= 0.5) return 'rgba(255, 193, 7, 0.8)';
+                        return 'rgba(220, 53, 69, 0.8)';
+                    })
+                },
+                text: data.credibility_indices_for_plot.map(score => (score * 100).toFixed(0) + '%'),
+                textposition: 'auto'
+            }];
+
+            const layout = {
+                title: 'Source Credibility Comparison',
+                xaxis: {
+                    title: 'News Sources',
+                    tickangle: 45
+                },
+                yaxis: {
+                    title: 'Credibility Score',
+                    range: [0, 1]
+                },
+                margin: {
+                    l: 50,
+                    r: 50,
+                    b: 100,
+                    t: 50,
+                    pad: 4
+                }
+            };
+
+            Plotly.newPlot('sourceCredibilityChart', chartData, layout);
         }
     </script>
 </body>
