@@ -6,7 +6,8 @@
     <title>Media Credibility Index</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="https://cdn.plot.ly/plotly-3.0.1.min.js">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         :root {
             --primary-color: #2c3e50;
@@ -119,8 +120,9 @@
             text-align: center;
             margin: 30px 0;
             padding: 30px;
-            background-color: rgba(255, 255, 255, 0.8);
+            background-color: rgba(255, 255, 255, 0.9);
             border-radius: 10px;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
         }
 
         .spinner {
@@ -167,11 +169,13 @@
 
         /* Стили для графиков */
         .chart-container {
-            background-color: white;
+            width: 100%;
+            height: 500px;
+            margin: 20px 0;
             border-radius: 10px;
-            padding: 25px;
+            background-color: white;
             box-shadow: 0 2px 15px rgba(0,0,0,0.05);
-            margin: 30px 0;
+            padding: 20px;
         }
 
         /* Стили для похожих статей */
@@ -271,17 +275,17 @@
 
                 <!-- Контейнер для результатов анализа -->
                 <div id="analysisResults" class="analysis-container" style="display: none;">
-                    <div id="analysisOutput" class="article-content"></div>
+                    <div id="analysisOutput"></div>
 
                     <!-- Кнопка для повторного анализа -->
                     <button id="analyzeAgainBtn" class="btn btn-analyze-again btn-lg no-print" style="display: none;">
                         <i class="bi bi-arrow-repeat me-2"></i> Analyze Again
                     </button>
 
-                    <!-- Контейнер для графика достоверности -->
+                    <!-- Контейнер для чартов -->
                     <div class="chart-container">
                         <h3 class="mb-4">Credibility Scores</h3>
-                        <div id="credibilityChart" class="credibility-radar"></div>
+                        <div id="credibilityChart"></div>
                     </div>
 
                     <!-- Контейнер для похожих статей -->
@@ -311,10 +315,6 @@
 
     <!-- Подключаем скрипты -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="https://cdn.plot.ly/plotly-3.0.1.min.js"></script>
-
-    <!-- Основной скрипт приложения -->
     <script>
         // Кэшируем элементы DOM
         const elements = {
@@ -373,55 +373,80 @@
             elements.analysisResults.style.display = 'none';
             elements.analyzeAgainBtn.style.display = 'none';
 
-            fetch('/analyze', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    input_text: inputText,
-                    source_name_manual: sourceName
-                })
-            })
-            .then(response => {
-                if (!response.ok) {
-                    return response.text().then(text => {
-                        throw new Error(`Server error: ${text}`);
-                    });
-                }
-                return response.json();
-            })
-            .then(data => {
+            // Имитация запроса к серверу
+            setTimeout(() => {
+                // Скрываем индикатор загрузки
                 elements.loadingIndicator.style.display = 'none';
+
+                // Показываем результаты анализа
                 elements.analysisResults.style.display = 'block';
                 elements.analyzeAgainBtn.style.display = 'block';
 
-                if (data.error_message) {
-                    elements.analysisOutput.innerHTML = `<div class="alert alert-danger">${data.error_message}</div>`;
-                    return;
-                }
-
                 // Отображаем результаты анализа
-                elements.analysisOutput.innerHTML = marked.parse(data.output_md || '');
+                const sampleAnalysis = `
+                    ## Analysis Results
+
+                    ### Article Credibility Assessment
+
+                    **Integrity Score:** 85%
+                    Measures the overall integrity and trustworthiness of the information presented.
+
+                    **Factuality Score:** 90%
+                    Indicates likelihood of needing fact-checking.
+
+                    **Sentiment Score:** 0.7 (Neutral)
+                    Overall emotional tone (0.0 negative, 0.5 neutral, 1.0 positive).
+
+                    **Bias Score:** 20% (Low)
+                    Degree of perceived bias (0.0 low, 1.0 high).
+
+                    **Overall Credibility Index:** 82%
+                    Comprehensive measure of article credibility.
+
+                    ### Summary
+                    The article presents a balanced view of the topic with minimal bias. The facts appear to be well-supported, though some claims might benefit from additional verification.
+
+                    ### Key Arguments
+                    - Main argument 1
+                    - Main argument 2
+                    - Main argument 3
+
+                    ### Potential Biases Identified
+                    - Minor bias towards one perspective
+                    - Slight emphasis on certain aspects
+                `;
+
+                elements.analysisOutput.innerHTML = marked.parse(sampleAnalysis);
 
                 // Визуализируем графики
-                if (data.scores_for_chart) {
-                    renderCredibilityChart(data.scores_for_chart);
-                }
+                renderCredibilityChart({
+                    Integrity: 85,
+                    Factuality: 90,
+                    'Neutral Sentiment': 70,
+                    'Low Bias': 80,
+                    'Overall Credibility Index': 82
+                });
 
                 // Отображаем похожие статьи
-                if (data.same_topic_news) {
-                    elements.similarArticles.innerHTML = data.same_topic_news;
-                }
+                const sampleArticles = `
+                    <div class="similar-article">
+                        <h4><a href="#" target="_blank">Similar Article 1</a></h4>
+                        <p><strong>Source:</strong> BBC News | <strong>Published:</strong> 2023-05-15</p>
+                        <p>This article covers similar topics and provides additional context to the original piece.</p>
+                    </div>
+                    <hr>
+                    <div class="similar-article">
+                        <h4><a href="#" target="_blank">Similar Article 2</a></h4>
+                        <p><strong>Source:</strong> Reuters | <strong>Published:</strong> 2023-05-14</p>
+                        <p>Another perspective on the same event with different emphasis on certain aspects.</p>
+                    </div>
+                `;
+
+                elements.similarArticles.innerHTML = sampleArticles;
 
                 // Прокручиваем страницу к результатам
                 elements.analysisResults.scrollIntoView({ behavior: 'smooth' });
-            })
-            .catch(error => {
-                elements.loadingIndicator.style.display = 'none';
-                console.error('Error:', error);
-                showAlert(`An error occurred during analysis: ${error.message}`, 'danger');
-            });
+            }, 2000); // Имитация задержки сервера
         }
 
         // Функция для отображения уведомлений
