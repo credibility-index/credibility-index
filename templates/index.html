@@ -36,6 +36,114 @@
             padding: 15px 0;
         }
 
+        .navbar-brand {
+            display: flex;
+            align-items: center;
+            width: 100%;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            margin-right: auto;
+        }
+
+        .logo {
+            width: 40px;
+            height: 40px;
+            margin-right: 10px;
+        }
+
+        .navbar-text {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--accent-color);
+        }
+
+        /* Основной контейнер */
+        .main-container {
+            min-height: calc(100vh - 120px);
+            padding: 30px 0;
+        }
+
+        .page-title {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .main-heading {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 10px;
+        }
+
+        .subheading {
+            font-size: 1rem;
+            color: var(--secondary-color);
+            font-weight: 400;
+        }
+
+        /* Стили для формы анализа */
+        .form-container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.05);
+            margin-bottom: 30px;
+        }
+
+        /* Стили для кнопки анализа */
+        .btn-analyze {
+            background-color: var(--accent-color);
+            border-color: var(--accent-color);
+            padding: 10px 20px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border-radius: 5px;
+        }
+
+        .btn-analyze:hover {
+            background-color: #2980b9;
+            border-color: #2980b9;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        /* Стили для индикатора загрузки */
+        .loading-container {
+            display: none;
+            text-align: center;
+            margin: 30px 0;
+            padding: 30px;
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 10px;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+        }
+
+        .spinner {
+            width: 5rem;
+            height: 5rem;
+            margin: 0 auto 20px;
+            color: var(--primary-color);
+        }
+
+        .loading-text {
+            font-size: 1.2rem;
+            font-weight: 500;
+            color: var(--primary-color);
+            margin-top: 10px;
+        }
+
+        /* Стили для результатов анализа */
+        .analysis-container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.05);
+            margin-top: 20px;
+        }
+
         /* Стили для чартов */
         .chart-container {
             width: 100%;
@@ -58,20 +166,37 @@
             transition: transform 0.3s ease;
         }
 
-        /* Стили для кнопки "Показать больше" */
-        .show-more-btn {
-            display: block;
-            margin: 20px auto;
-            padding: 10px 20px;
-            background-color: var(--accent-color);
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: all 0.3s ease;
+        .same-topic-article:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
         }
 
-        /* Стили для индикаторов достоверности */
+        .article-title {
+            color: var(--primary-color);
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .article-title a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        .article-title a:hover {
+            color: var(--accent-color);
+        }
+
+        .article-meta {
+            color: var(--secondary-color);
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+        }
+
+        .article-content {
+            color: var(--text-color);
+            line-height: 1.5;
+        }
+
         .credibility-badge {
             display: inline-block;
             padding: 3px 8px;
@@ -94,6 +219,33 @@
         .low-credibility {
             background-color: rgba(220, 53, 69, 0.2);
             color: var(--danger-color);
+        }
+
+        /* Стили для кнопки "Показать больше" */
+        .show-more-btn {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 20px;
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .show-more-btn:hover {
+            background-color: #2980b9;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        /* Стили для футера */
+        .footer {
+            background-color: white;
+            padding: 20px 0;
+            margin-top: 50px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
         }
     </style>
 </head>
@@ -154,16 +306,10 @@
                 <div id="analysisResults" style="display: none;">
                     <div id="analysisOutput"></div>
 
-                    <!-- Контейнер для чарта достоверности статьи -->
+                    <!-- Контейнер для чартов -->
                     <div class="chart-container">
-                        <h3 class="mb-4">Article Credibility Scores</h3>
-                        <div id="articleCredibilityChart"></div>
-                    </div>
-
-                    <!-- Контейнер для чарта рейтинга источников -->
-                    <div class="chart-container">
-                        <h3 class="mb-4">Source Credibility Rating</h3>
-                        <div id="sourceRatingChart"></div>
+                        <h3 class="mb-4">Credibility Scores</h3>
+                        <div id="credibilityChart"></div>
                     </div>
 
                     <!-- Контейнер для статей по той же теме -->
@@ -202,24 +348,13 @@
             loadingIndicator: document.getElementById('loadingIndicator'),
             analysisResults: document.getElementById('analysisResults'),
             analysisOutput: document.getElementById('analysisOutput'),
-            articleCredibilityChart: document.getElementById('articleCredibilityChart'),
-            sourceRatingChart: document.getElementById('sourceRatingChart'),
+            credibilityChart: document.getElementById('credibilityChart'),
             sameTopicArticles: document.getElementById('sameTopicArticles'),
             showMoreBtn: document.getElementById('showMoreBtn')
         };
 
-        // Данные для рейтинга источников
-        const sourceRatings = {
-            sources: ['BBC News', 'Reuters', 'The Guardian', 'CNN', 'Fox News', 'Al Jazeera'],
-            credibility: [92, 95, 88, 75, 60, 82],
-            colors: ['#1a73e8', '#fb8c00', '#12173f', '#ff0000', '#00529b', '#a31f34']
-        };
-
         // Инициализация при загрузке страницы
         document.addEventListener('DOMContentLoaded', function() {
-            // Инициализация чарта рейтинга источников
-            renderSourceRatingChart();
-
             if (elements.analysisForm) {
                 elements.analysisForm.addEventListener('submit', function(e) {
                     e.preventDefault();
@@ -278,12 +413,13 @@
 
                 // Визуализируем графики
                 if (data.scores_for_chart) {
-                    renderArticleCredibilityChart(data.scores_for_chart);
+                    renderCredibilityChart(data.scores_for_chart);
                 }
 
                 // Отображаем статьи по той же теме
                 if (data.same_topic_html) {
                     elements.sameTopicArticles.innerHTML = data.same_topic_html;
+                    currentPage = 1;
                 }
 
                 // Прокручиваем страницу к результатам
@@ -296,16 +432,20 @@
             });
         }
 
+        // Переменная для отслеживания текущей страницы
+        let currentPage = 1;
+
         // Функция для загрузки дополнительных статей
         function loadMoreArticles() {
-            fetch('/same_topic_articles', {
-                method: 'POST',
+            currentPage++;
+            elements.showMoreBtn.disabled = true;
+            elements.showMoreBtn.textContent = 'Loading...';
+
+            fetch(`/same_topic_articles?page=${currentPage}`, {
+                method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    analysis_result: {} // Здесь должен быть результат анализа
-                })
+                }
             })
             .then(response => {
                 if (!response.ok) {
@@ -316,11 +456,18 @@
             .then(data => {
                 if (data.same_topic_html) {
                     elements.sameTopicArticles.innerHTML += data.same_topic_html;
+                } else {
+                    elements.showMoreBtn.style.display = 'none';
                 }
+
+                elements.showMoreBtn.disabled = false;
+                elements.showMoreBtn.textContent = 'Show More Articles';
             })
             .catch(error => {
                 console.error('Error loading more articles:', error);
                 showAlert(`An error occurred while loading more articles: ${error.message}`, 'danger');
+                elements.showMoreBtn.disabled = false;
+                elements.showMoreBtn.textContent = 'Show More Articles';
             });
         }
 
@@ -342,15 +489,15 @@
             }, 5000);
         }
 
-        // Функция для визуализации графика достоверности статьи
-        function renderArticleCredibilityChart(scores) {
+        // Функция для визуализации графика достоверности
+        function renderCredibilityChart(scores) {
             if (typeof Plotly === 'undefined') {
                 console.error('Plotly не загружен!');
                 showAlert('Error loading visualization library', 'danger');
                 return;
             }
 
-            const chartContainer = document.getElementById('articleCredibilityChart');
+            const chartContainer = document.getElementById('credibilityChart');
             if (!chartContainer) {
                 console.error('Контейнер для чартов не найден!');
                 return;
@@ -420,76 +567,13 @@
             };
 
             try {
-                Plotly.newPlot('articleCredibilityChart', chartData, layout, {
+                Plotly.newPlot('credibilityChart', chartData, layout, {
                     responsive: true,
                     displayModeBar: true
                 });
             } catch (error) {
                 console.error('Ошибка при инициализации чартов:', error);
                 showAlert('Error rendering charts', 'danger');
-            }
-        }
-
-        // Функция для визуализации чарта рейтинга источников
-        function renderSourceRatingChart() {
-            if (typeof Plotly === 'undefined') {
-                console.error('Plotly не загружен!');
-                return;
-            }
-
-            const chartContainer = document.getElementById('sourceRatingChart');
-            if (!chartContainer) {
-                console.error('Контейнер для чартов не найден!');
-                return;
-            }
-
-            chartContainer.style.width = '100%';
-            chartContainer.style.height = '400px';
-
-            const chartData = [{
-                x: sourceRatings.sources,
-                y: sourceRatings.credibility,
-                type: 'bar',
-                marker: {
-                    color: sourceRatings.colors
-                },
-                text: sourceRatings.credibility.map((val, i) => `${sourceRatings.sources[i]}: ${val}%`),
-                hoverinfo: 'text'
-            }];
-
-            const layout = {
-                title: {
-                    text: 'Source Credibility Rating',
-                    font: {
-                        size: 18
-                    }
-                },
-                xaxis: {
-                    title: 'News Sources',
-                    tickangle: -45
-                },
-                yaxis: {
-                    title: 'Credibility Score (%)',
-                    range: [0, 100]
-                },
-                margin: {
-                    l: 50,
-                    r: 50,
-                    b: 100,
-                    t: 80,
-                    pad: 10
-                },
-                paper_bgcolor: 'rgba(0,0,0,0)',
-                plot_bgcolor: 'rgba(0,0,0,0)'
-            };
-
-            try {
-                Plotly.newPlot('sourceRatingChart', chartData, layout, {
-                    responsive: true,
-                    displayModeBar: true
-                });
-            } catch (error) {
-                console.error('Ошибка при инициализации чартов:', error);
             }
         }
     </script>
