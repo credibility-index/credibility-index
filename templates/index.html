@@ -10,7 +10,7 @@
         :root {
             --primary-color: #2c3e50;
             --secondary-color: #34495e;
-            --text-color: #2c3e50;
+            --text-color: #000000;
             --light-color: #ecf0f1;
             --accent-color: #3498db;
         }
@@ -34,26 +34,43 @@
         .navbar-brand {
             display: flex;
             align-items: center;
+            justify-content: space-between;
+            width: 100%;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
         }
 
         .logo {
             width: 40px;
             height: 40px;
-            margin-right: 10px;
+            margin-right: 15px;
+        }
+
+        .title-container {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-left: auto;
+            margin-right: 20px;
         }
 
         .main-title {
-            font-size: 1.8rem;
+            font-size: 1.5rem;
             font-weight: 700;
             color: var(--text-color);
             margin: 0;
+            text-align: right;
         }
 
         .subtitle {
-            font-size: 0.9rem;
+            font-size: 0.8rem;
             color: var(--secondary-color);
             font-weight: 400;
             margin-top: 4px;
+            text-align: right;
         }
 
         .nav-link {
@@ -75,14 +92,14 @@
         }
 
         .main-heading {
-            font-size: 2.5rem;
+            font-size: 2rem;
             font-weight: 700;
             color: var(--primary-color);
             margin-bottom: 10px;
         }
 
         .subheading {
-            font-size: 1.1rem;
+            font-size: 1rem;
             color: var(--secondary-color);
             font-weight: 400;
         }
@@ -126,18 +143,21 @@
     <!-- Навигационное меню -->
     <nav class="navbar navbar-expand-lg navbar-light bg-white">
         <div class="container">
-            <a class="navbar-brand" href="/">
-                <svg class="logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="10" y="10" width="80" height="80" rx="10" fill="#3498db"/>
-                    <path d="M30,30 L70,30 L70,70 L30,70 Z" fill="white" stroke="#2c3e50" stroke-width="2"/>
-                    <path d="M40,40 L60,40 L60,60 L40,60 Z" fill="#3498db" stroke="#2c3e50" stroke-width="1"/>
-                    <text x="50" y="55" font-family="Arial" font-size="12" fill="white" text-anchor="middle">MCI</text>
-                </svg>
-                <div class="text-container">
-                    <div class="main-title">Media Credibility Index</div>
-                    <div class="subtitle">Setting the Standard for Media Trust</div>
+            <div class="navbar-brand">
+                <div class="logo-container">
+                    <svg class="logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="10" y="10" width="80" height="80" rx="10" fill="#3498db"/>
+                        <path d="M30,30 L70,30 L70,70 L30,70 Z" fill="white" stroke="#2c3e50" stroke-width="2"/>
+                        <path d="M40,40 L60,40 L60,60 L40,60 Z" fill="#3498db" stroke="#2c3e50" stroke-width="1"/>
+                        <text x="50" y="55" font-family="Arial" font-size="12" fill="white" text-anchor="middle">MCI</text>
+                    </svg>
+                    <span class="navbar-text">Media Credibility Index</span>
                 </div>
-            </a>
+                <div class="title-container">
+                    <div class="main-title">Check Credibility Index</div>
+                    <div class="subtitle">of the article</div>
+                </div>
+            </div>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
