@@ -556,7 +556,7 @@ def fetch_same_topic_articles(analysis_result, page=1, per_page=3):
         ranked_articles.append((article, final_score))
 
     ranked_articles.sort(key=lambda item: item[1], reverse=True)
-    return [item[0] for item in ranked_articles[\:per_page]]
+    return [item[0] for item in ranked_articles[:per_page]]
 
 def render_same_topic_articles_html(articles):
     """Формирование HTML для похожих статей"""
