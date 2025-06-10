@@ -18,7 +18,13 @@ from flask_cors import CORS
 app = Flask(__name__, static_folder='static', template_folder='templates')
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-here')
-CORS(app)
+CORS(app, resources={
+    r"/*": {
+        "origins": "*",
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"]
+    }
+})
 
 # Environment variables
 ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
@@ -144,11 +150,7 @@ def block_wordpress_scanners():
 
 @app.after_request
 def add_security_headers(response):
-    """Add security and CORS headers"""
-    response.headers['Access-Control-Allow-Origin'] = '*'
-    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
-    response.headers['Access-Control-Allow-Credentials'] = 'true'
+    """Add security headers"""
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'SAMEORIGIN'
     response.headers['X-XSS-Protection'] = '1; mode=block'
@@ -163,12 +165,18 @@ def page_not_found(e):
 @app.errorhandler(400)
 def bad_request(e):
     """400 error handler"""
-    return jsonify({'error': 'Bad request'}), 400
+    return jsonify({
+        'error': 'Bad request',
+        'message': str(e)
+    }), 400
 
 @app.errorhandler(500)
 def internal_server_error(e):
     """500 error handler"""
-    return render_template('500.html'), 500
+    return jsonify({
+        'error': 'Internal server error',
+        'message': str(e)
+    }), 500
 
 def get_source_credibility_data():
     """Get source credibility data from database"""
@@ -184,10 +192,6 @@ def get_source_credibility_data():
             data = cursor.fetchall()
             sources = []
             credibility_scores = []
-            high_counts = []
-            medium_counts = []
-            low_counts = []
-            total_counts = []
 
             for source, high, medium, low, total in data:
                 total_current = high + medium + low
@@ -198,28 +202,16 @@ def get_source_credibility_data():
 
                 sources.append(source)
                 credibility_scores.append(round(score, 2))
-                high_counts.append(high)
-                medium_counts.append(medium)
-                low_counts.append(low)
-                total_counts.append(total_current)
 
             return {
                 'sources': sources,
-                'credibility_scores': credibility_scores,
-                'high_counts': high_counts,
-                'medium_counts': medium_counts,
-                'low_counts': low_counts,
-                'total_counts': total_counts
+                'credibility_scores': credibility_scores
             }
     except Exception as e:
         logger.error(f"Error getting source credibility data: {str(e)}")
         return {
             'sources': [],
-            'credibility_scores': [],
-            'high_counts': [],
-            'medium_counts': [],
-            'low_counts': [],
-            'total_counts': []
+            'credibility_scores': []
         }
 
 class ClaudeNewsAnalyzer:
@@ -351,29 +343,6 @@ def save_analysis(url, title, source, content, analysis):
                 analysis_date=CURRENT_TIMESTAMP
             ''', (db_url, title, source, content, integrity, fact_check,
                   sentiment, bias, level, summary, credibility))
-
-            # Update source stats
-            cursor.execute('SELECT high, medium, low, total_analyzed FROM source_stats WHERE source = ?', (source,))
-            row = cursor.fetchone()
-
-            if row:
-                high, medium, low, total = row
-                if level == 'High': high += 1
-                elif level == 'Medium': medium += 1
-                else: low += 1
-                total += 1
-                cursor.execute('''
-                    UPDATE source_stats SET high=?, medium=?, low=?, total_analyzed=?
-                    WHERE source=?
-                ''', (high, medium, low, total, source))
-            else:
-                counts = {'High': 1, 'Medium': 0, 'Low': 0}
-                counts[level] = 1
-                cursor.execute('''
-                    INSERT INTO source_stats
-                    (source, high, medium, low, total_analyzed)
-                    VALUES (?, ?, ?, ?, ?)
-                ''', (source, counts['High'], counts['Medium'], counts['Low'], 1))
 
             conn.commit()
             return level
@@ -671,41 +640,64 @@ def analyze():
         return response
 
     try:
+        # Check content type
         if not request.is_json:
-            return jsonify({'error': 'Request must be JSON'}), 400
+            return jsonify({
+                'error': 'Request must be JSON',
+                'status': 400
+            }), 400
 
+        # Get and validate data
         data = request.get_json()
         if not data or 'input_text' not in data:
-            return jsonify({'error': 'Missing input text'}), 400
+            return jsonify({
+                'error': 'Missing input text',
+                'status': 400
+            }), 400
 
         input_text = data['input_text']
         source_name = data.get('source_name_manual', 'Direct Input')
 
-        if not input_text:
-            return jsonify({'error': 'Empty input text'}), 400
+        if not input_text or not input_text.strip():
+            return jsonify({
+                'error': 'Empty input text',
+                'status': 400
+            }), 400
 
         # Process article
         if input_text.startswith('http'):
             content, source, title = extract_text_from_url(input_text)
             if not content:
-                return jsonify({'error': 'Could not extract article content'}), 400
+                return jsonify({
+                    'error': 'Could not extract article content',
+                    'status': 400
+                }), 400
         else:
             content = input_text
             title = 'User-provided Text'
             source = source_name
 
         if len(content) < 100:
-            return jsonify({'error': 'Content too short (min 100 chars)'}), 400
+            return jsonify({
+                'error': 'Content too short (min 100 chars)',
+                'status': 400
+            }), 400
 
         # Analyze with Claude
         try:
             analyzer = ClaudeNewsAnalyzer()
             analysis = analyzer.analyze_article_text(content, source)
         except ValueError as e:
-            return jsonify({'error': str(e)}), 400
+            return jsonify({
+                'error': str(e),
+                'status': 400
+            }), 400
         except Exception as e:
             logger.error(f"Analysis failed: {str(e)}")
-            return jsonify({'error': 'Analysis failed'}), 500
+            return jsonify({
+                'error': 'Analysis failed',
+                'status': 500
+            }), 500
 
         # Save to database
         try:
@@ -717,10 +709,16 @@ def analyze():
                 analysis
             )
         except ValueError as e:
-            return jsonify({'error': str(e)}), 500
+            return jsonify({
+                'error': str(e),
+                'status': 500
+            }), 500
         except Exception as e:
             logger.error(f"Failed to save analysis: {str(e)}")
-            return jsonify({'error': 'Failed to save analysis'}), 500
+            return jsonify({
+                'error': 'Failed to save analysis',
+                'status': 500
+            }), 500
 
         # Store analysis result in session
         session['last_analysis_result'] = analysis
@@ -737,7 +735,7 @@ def analyze():
         source_credibility_data = get_source_credibility_data()
 
         # Prepare response
-        response = {
+        response_data = {
             'status': 'success',
             'analysis': analysis,
             'credibility': credibility,
@@ -755,11 +753,16 @@ def analyze():
             'output': format_analysis_results(title, source, analysis, credibility)
         }
 
-        return jsonify(response), 200
+        response = jsonify(response_data)
+        response.headers['Content-Type'] = 'application/json'
+        return response, 200
 
     except Exception as e:
         logger.error(f"Unexpected error in analyze endpoint: {str(e)}")
-        return jsonify({'error': 'Internal server error'}), 500
+        return jsonify({
+            'error': 'Internal server error',
+            'status': 500
+        }), 500
 
 @app.route('/same_topic_articles', methods=['GET'])
 def get_same_topic_articles():
@@ -770,18 +773,27 @@ def get_same_topic_articles():
 
         analysis_result = session.get('last_analysis_result')
         if not analysis_result:
-            return jsonify({'error': 'No analysis result found. Please analyze an article first.'}), 400
+            return jsonify({
+                'error': 'No analysis result found. Please analyze an article first.',
+                'status': 400
+            }), 400
 
         same_topic_articles = fetch_same_topic_articles(analysis_result, page=page, per_page=per_page)
         same_topic_html = render_same_topic_articles_html(same_topic_articles)
 
-        return jsonify({
-            'same_topic_html': same_topic_html
+        response = jsonify({
+            'same_topic_html': same_topic_html,
+            'status': 'success'
         })
+        response.headers['Content-Type'] = 'application/json'
+        return response
 
     except Exception as e:
         logger.error(f"Error in get_same_topic_articles endpoint: {str(e)}")
-        return jsonify({'error': 'An error occurred while fetching same topic articles'}), 500
+        return jsonify({
+            'error': 'An error occurred while fetching same topic articles',
+            'status': 500
+        }), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
