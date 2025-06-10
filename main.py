@@ -438,9 +438,10 @@ def save_analysis_to_db(url, title, source, content, analysis_result):
         credibility_level = calculate_credibility_level(integrity, fact_check_needed, sentiment, bias)
         db_url = url if url else f'text_input_{datetime.now(UTC).timestamp()}'
 
+        # Исправленный SQL запрос - убрал лишнюю запятую и значение
         c.execute('''INSERT INTO news (url, title, source, content, integrity, fact_check, sentiment, bias,
                              credibility_level, short_summary, index_of_credibility)
-                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                              ON CONFLICT(url) DO UPDATE SET
                              title=excluded.title, source=excluded.source, content=excluded.content,
                              integrity=excluded.integrity, fact_check=excluded.fact_check,
@@ -472,6 +473,7 @@ def save_analysis_to_db(url, title, source, content, analysis_result):
 
         conn.commit()
         return credibility_level
+
 
 def generate_query(analysis_result):
     """Генерация запроса для поиска похожих статей"""
