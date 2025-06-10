@@ -29,7 +29,6 @@
             margin: 0;
         }
 
-        /* Navigation menu */
         .navbar {
             background-color: white;
             box-shadow: 0 2px 10px rgba(0,0,0,0.05);
@@ -39,6 +38,7 @@
         .navbar-brand {
             display: flex;
             align-items: center;
+            width: 100%;
         }
 
         .logo-container {
@@ -59,27 +59,6 @@
             color: var(--accent-color);
         }
 
-        /* Navigation buttons */
-        .nav-buttons {
-            display: flex;
-            gap: 10px;
-        }
-
-        .nav-btn {
-            padding: 8px 15px;
-            border-radius: 5px;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            text-decoration: none;
-            color: var(--text-color);
-        }
-
-        .nav-btn:hover {
-            color: var(--accent-color);
-            background-color: rgba(52, 152, 219, 0.1);
-        }
-
-        /* Main container */
         .main-container {
             min-height: calc(100vh - 120px);
             padding: 30px 0;
@@ -103,7 +82,6 @@
             font-weight: 400;
         }
 
-        /* Form container */
         .form-container {
             background-color: white;
             padding: 30px;
@@ -112,7 +90,6 @@
             margin-bottom: 30px;
         }
 
-        /* Analyze button */
         .btn-analyze {
             background-color: var(--accent-color);
             border-color: var(--accent-color);
@@ -129,7 +106,6 @@
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
 
-        /* Loading indicator */
         .loading-container {
             display: none;
             text-align: center;
@@ -154,7 +130,6 @@
             margin-top: 10px;
         }
 
-        /* Analysis results container */
         .analysis-container {
             background-color: white;
             border-radius: 10px;
@@ -163,7 +138,6 @@
             margin-top: 20px;
         }
 
-        /* Chart container */
         .chart-container {
             width: 100%;
             height: 500px;
@@ -174,7 +148,6 @@
             padding: 20px;
         }
 
-        /* Same topic articles */
         .same-topic-article {
             background-color: white;
             border-radius: 8px;
@@ -240,7 +213,6 @@
             color: var(--danger-color);
         }
 
-        /* Show more button */
         .show-more-btn {
             display: block;
             margin: 20px auto;
@@ -259,7 +231,6 @@
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
 
-        /* Footer */
         .footer {
             background-color: white;
             padding: 20px 0;
@@ -267,7 +238,6 @@
             box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
         }
 
-        /* Feedback button */
         .feedback-btn {
             position: fixed;
             bottom: 30px;
@@ -294,44 +264,127 @@
         .feedback-btn i {
             font-size: 24px;
         }
+
+        /* Analysis results styling */
+        .analysis-results {
+            margin-top: 30px;
+        }
+
+        .analysis-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        .analysis-title {
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--accent-color);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .score-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .score-item {
+            flex: 1 1 200px;
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .score-name {
+            font-weight: 600;
+            color: var(--secondary-color);
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+
+        .score-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+
+        .score-description {
+            font-size: 0.8rem;
+            color: var(--secondary-color);
+            margin-top: 5px;
+        }
+
+        .analysis-details {
+            margin-top: 20px;
+        }
+
+        .detail-item {
+            margin-bottom: 15px;
+        }
+
+        .detail-title {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .credibility-indicator {
+            height: 20px;
+            margin-top: 10px;
+            border-radius: 10px;
+            overflow: hidden;
+            background-color: #e9ecef;
+        }
+
+        .credibility-fill {
+            height: 100%;
+            border-radius: 10px;
+        }
+
+        .high-credibility-fill {
+            background-color: var(--success-color);
+            width: 100%;
+        }
+
+        .medium-credibility-fill {
+            background-color: var(--warning-color);
+            width: 66%;
+        }
+
+        .low-credibility-fill {
+            background-color: var(--danger-color);
+            width: 33%;
+        }
     </style>
 </head>
 <body>
-    <!-- Navigation menu -->
     <nav class="navbar navbar-expand-lg navbar-light bg-white">
         <div class="container">
-            <div class="logo-container">
-                <svg class="logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="10" y="10" width="80" height="80" rx="10" fill="#3498db"/>
-                    <path d="M30,30 L70,30 L70,70 L30,70 Z" fill="white" stroke="#2c3e50" stroke-width="2"/>
-                    <path d="M40,40 L60,40 L60,60 L40,60 Z" fill="#3498db" stroke="#2c3e50" stroke-width="1"/>
-                    <text x="50" y="55" font-family="Arial" font-size="12" fill="white" text-anchor="middle">MCI</text>
-                </svg>
-                <span class="navbar-text">Media Credibility Index</span>
-            </div>
-
-            <!-- Navigation buttons -->
-            <div class="nav-buttons">
-                <a href="/faq" class="nav-btn">FAQ</a>
-                <a href="/feedback" class="nav-btn">Feedback</a>
+            <a class="navbar-brand" href="/">
+                <i class="bi bi-newspaper me-2"></i>
+                Media Credibility Index
+            </a>
+            <div class="d-flex">
+                <a href="/faq" class="btn btn-outline-secondary me-2">FAQ</a>
+                <a href="/feedback" class="btn btn-outline-primary">Feedback</a>
             </div>
         </div>
     </nav>
 
-    <!-- Feedback button -->
     <a href="/feedback" class="feedback-btn">
         <i class="bi bi-chat-dots"></i>
     </a>
 
-    <!-- Main container -->
     <div class="container main-container">
-        <!-- Page title -->
         <div class="page-title">
-            <h1 class="main-heading">Check Credibility Index of the article:</h1>
-            <p class="subheading">Setting the Standard for Media Trust</p>
+            <h1 class="main-heading">Article Credibility Analyzer</h1>
+            <p class="subheading">Analyze news articles for credibility, bias, and factual accuracy</p>
         </div>
 
-        <!-- Article analysis form -->
         <div class="row justify-content-center">
             <div class="col-lg-10">
                 <div class="form-container">
@@ -351,7 +404,6 @@
                     </form>
                 </div>
 
-                <!-- Loading indicator -->
                 <div class="loading-container text-center" id="loadingIndicator">
                     <div class="spinner-border spinner" role="status">
                         <span class="visually-hidden">Loading...</span>
@@ -360,21 +412,84 @@
                     <p class="text-muted">This may take a moment as we perform deep analysis</p>
                 </div>
 
-                <!-- Analysis results container -->
-                <div id="analysisResults" style="display: none;">
-                    <div id="analysisOutput"></div>
+                <div id="analysisResults" class="analysis-results" style="display: none;">
+                    <div class="analysis-section">
+                        <h2 class="analysis-title">Analysis Results</h2>
 
-                    <!-- Chart container -->
-                    <div class="chart-container">
-                        <h3 class="mb-4">Credibility Scores</h3>
-                        <div id="credibilityChart"></div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="detail-item">
+                                    <h4 class="detail-title">Article Information</h4>
+                                    <p><strong>Title:</strong> <span id="articleTitle"></span></p>
+                                    <p><strong>Source:</strong> <span id="articleSource"></span></p>
+                                    <p><strong>Credibility Level:</strong> <span id="credibilityLevel"></span></p>
+                                </div>
+
+                                <div class="detail-item">
+                                    <h4 class="detail-title">Author Purpose</h4>
+                                    <p id="authorPurpose"></p>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="detail-item">
+                                    <h4 class="detail-title">Short Summary</h4>
+                                    <p id="shortSummary"></p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="score-container">
+                            <div class="score-item">
+                                <div class="score-name">News Integrity</div>
+                                <div class="score-value" id="newsIntegrity">0.0</div>
+                                <div class="score-description">Overall integrity and trustworthiness</div>
+                            </div>
+
+                            <div class="score-item">
+                                <div class="score-name">Fact Check Needed</div>
+                                <div class="score-value" id="factCheckNeeded">0.0</div>
+                                <div class="score-description">Likelihood that claims need fact-checking</div>
+                            </div>
+
+                            <div class="score-item">
+                                <div class="score-name">Sentiment</div>
+                                <div class="score-value" id="sentimentScore">0.0</div>
+                                <div class="score-description">Emotional tone (0.0 negative, 0.5 neutral, 1.0 positive)</div>
+                            </div>
+
+                            <div class="score-item">
+                                <div class="score-name">Bias</div>
+                                <div class="score-value" id="biasScore">0.0</div>
+                                <div class="score-description">Degree of perceived bias</div>
+                            </div>
+                        </div>
+
+                        <div class="detail-item">
+                            <h4 class="detail-title">Topics</h4>
+                            <div id="topicsList" class="d-flex flex-wrap gap-2"></div>
+                        </div>
+
+                        <div class="detail-item">
+                            <h4 class="detail-title">Key Arguments</h4>
+                            <ul id="keyArgumentsList" class="list-unstyled"></ul>
+                        </div>
+
+                        <div class="detail-item">
+                            <h4 class="detail-title">Potential Biases Identified</h4>
+                            <ul id="potentialBiasesList" class="list-unstyled"></ul>
+                        </div>
                     </div>
 
-                    <!-- Same topic articles container -->
-                    <div class="search-results">
-                        <div class="search-results-header">
-                            <h2 class="search-results-title">Same Topic Articles</h2>
+                    <div class="analysis-section">
+                        <h2 class="analysis-title">Credibility Visualization</h2>
+                        <div class="chart-container">
+                            <div id="credibilityChart"></div>
                         </div>
+                    </div>
+
+                    <div class="analysis-section">
+                        <h2 class="analysis-title">Similar Articles</h2>
                         <div id="sameTopicArticles"></div>
                         <button id="showMoreBtn" class="show-more-btn" style="display: none;">
                             Show More Articles
@@ -385,14 +500,9 @@
         </div>
     </div>
 
-    <!-- Footer -->
     <footer class="footer">
-        <div class="container">
-            <div class="row">
-                <div class="col-md-6 text-center text-md-start">
-                    <p class="mb-0">&copy; 2025 Media Credibility Index. All rights reserved.</p>
-                </div>
-            </div>
+        <div class="container text-center">
+            <p class="mb-0">&copy; 2023 Media Credibility Index. All rights reserved.</p>
         </div>
     </footer>
 
@@ -405,8 +515,18 @@
             sourceName: document.getElementById('sourceName'),
             loadingIndicator: document.getElementById('loadingIndicator'),
             analysisResults: document.getElementById('analysisResults'),
-            analysisOutput: document.getElementById('analysisOutput'),
-            credibilityChart: document.getElementById('credibilityChart'),
+            articleTitle: document.getElementById('articleTitle'),
+            articleSource: document.getElementById('articleSource'),
+            credibilityLevel: document.getElementById('credibilityLevel'),
+            authorPurpose: document.getElementById('authorPurpose'),
+            shortSummary: document.getElementById('shortSummary'),
+            newsIntegrity: document.getElementById('newsIntegrity'),
+            factCheckNeeded: document.getElementById('factCheckNeeded'),
+            sentimentScore: document.getElementById('sentimentScore'),
+            biasScore: document.getElementById('biasScore'),
+            topicsList: document.getElementById('topicsList'),
+            keyArgumentsList: document.getElementById('keyArgumentsList'),
+            potentialBiasesList: document.getElementById('potentialBiasesList'),
             sameTopicArticles: document.getElementById('sameTopicArticles'),
             showMoreBtn: document.getElementById('showMoreBtn')
         };
@@ -470,7 +590,7 @@
                 elements.showMoreBtn.style.display = 'block';
 
                 // Display analysis results
-                elements.analysisOutput.innerHTML = marked.parse(data.output_md || '');
+                displayAnalysisResults(data);
 
                 // Render charts
                 if (data.scores_for_chart) {
@@ -493,18 +613,84 @@
             });
         }
 
+        // Function to display analysis results
+        function displayAnalysisResults(data) {
+            // Set basic article information
+            elements.articleTitle.textContent = data.title || 'No title';
+            elements.articleSource.textContent = data.source || 'Unknown source';
+            elements.credibilityLevel.textContent = data.credibility || 'Unknown';
+
+            // Set scores
+            elements.newsIntegrity.textContent = (data.analysis.news_integrity || 0).toFixed(2);
+            elements.factCheckNeeded.textContent = (data.analysis.fact_check_needed_score || 0).toFixed(2);
+            elements.sentimentScore.textContent = (data.analysis.sentiment_score || 0).toFixed(2);
+            elements.biasScore.textContent = (data.analysis.bias_score || 0).toFixed(2);
+
+            // Set author purpose and summary
+            elements.authorPurpose.textContent = data.analysis.author_purpose || 'Not specified';
+            elements.shortSummary.textContent = data.analysis.short_summary || 'No summary available';
+
+            // Display topics
+            displayListItems(data.analysis.topics || [], elements.topicsList, 'badge bg-primary me-1');
+
+            // Display key arguments
+            displayListItems(data.analysis.key_arguments || [], elements.keyArgumentsList, 'list-item');
+
+            // Display potential biases
+            displayListItems(data.analysis.potential_biases_identified || [], elements.potentialBiasesList, 'list-item');
+
+            // Set credibility indicator
+            setCredibilityIndicator(data.credibility);
+        }
+
+        // Function to display list items
+        function displayListItems(items, container, className) {
+            container.innerHTML = '';
+
+            if (items.length === 0) {
+                container.innerHTML = '<p>None identified</p>';
+                return;
+            }
+
+            items.forEach(item => {
+                const element = document.createElement('span');
+                element.className = className;
+                element.textContent = item;
+                container.appendChild(element);
+            });
+        }
+
+        // Function to set credibility indicator
+        function setCredibilityIndicator(level) {
+            const container = document.createElement('div');
+            container.className = 'credibility-indicator mt-3';
+
+            const fill = document.createElement('div');
+            fill.className = 'credibility-fill';
+
+            if (level === 'High') {
+                fill.classList.add('high-credibility-fill');
+            } else if (level === 'Medium') {
+                fill.classList.add('medium-credibility-fill');
+            } else {
+                fill.classList.add('low-credibility-fill');
+            }
+
+            container.appendChild(fill);
+
+            const credibilitySection = document.querySelector('.detail-item:first-child');
+            if (credibilitySection) {
+                credibilitySection.appendChild(container);
+            }
+        }
+
         // Function to load more articles
         function loadMoreArticles() {
             currentPage++;
             elements.showMoreBtn.disabled = true;
             elements.showMoreBtn.textContent = 'Loading...';
 
-            fetch(`/same_topic_articles?page=${currentPage}`, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            })
+            fetch(`/same_topic_articles?page=${currentPage}`)
             .then(response => {
                 if (!response.ok) {
                     throw new Error('Network response was not ok');
