@@ -382,39 +382,51 @@
                 elements.analysisResults.style.display = 'block';
                 elements.analyzeAgainBtn.style.display = 'block';
 
-                // Отображаем результаты анализа
+                // Пример данных анализа
                 const sampleAnalysis = `
-                    ## Analysis Results
+### Credibility Analysis for: "Sample Article Title"
 
-                    ### Article Credibility Assessment
+**Source:** Example News
+**Media Owner:** Example Media Corporation
+**Overall Calculated Credibility:** High (82.5%)
 
-                    **Integrity Score:** 85%
-                    Measures the overall integrity and trustworthiness of the information presented.
+---
 
-                    **Factuality Score:** 90%
-                    Indicates likelihood of needing fact-checking.
+#### Analysis Scores:
+- **Integrity Score:** 85.0% - Measures the overall integrity and trustworthiness.
+- **Factuality Score:** 90.0% - Indicates likelihood of needing fact-checking.
+- **Sentiment Score:** 0.70 - Overall emotional tone (0.0 negative, 0.5 neutral, 1.0 positive).
+- **Bias Score:** 20.0% - Degree of perceived bias (0.0 low, 1.0 high).
+- **Index of Credibility:** 82.5% - Overall credibility index.
 
-                    **Sentiment Score:** 0.7 (Neutral)
-                    Overall emotional tone (0.0 negative, 0.5 neutral, 1.0 positive).
+---
 
-                    **Bias Score:** 20% (Low)
-                    Degree of perceived bias (0.0 low, 1.0 high).
+#### Summary:
+This article provides a comprehensive overview of the current situation with well-supported facts and minimal bias.
 
-                    **Overall Credibility Index:** 82%
-                    Comprehensive measure of article credibility.
+#### Key Arguments:
+- Main argument 1 about the topic
+- Main argument 2 supporting the first point
+- Main argument 3 presenting another perspective
 
-                    ### Summary
-                    The article presents a balanced view of the topic with minimal bias. The facts appear to be well-supported, though some claims might benefit from additional verification.
+#### Mentioned Facts/Data:
+- Fact 1 with supporting data
+- Fact 2 with additional context
+- Fact 3 with relevant statistics
 
-                    ### Key Arguments
-                    - Main argument 1
-                    - Main argument 2
-                    - Main argument 3
+#### Author's Purpose:
+To inform readers about the current situation and provide balanced analysis.
 
-                    ### Potential Biases Identified
-                    - Minor bias towards one perspective
-                    - Slight emphasis on certain aspects
-                `;
+#### Potential Biases Identified:
+- Slight preference for one perspective
+- Emphasis on certain aspects over others
+
+#### Main Topics Identified:
+Topic 1, Topic 2, Topic 3
+
+#### Media Owner Influence:
+The media owner, Example Media Corporation, may influence source credibility.
+`;
 
                 elements.analysisOutput.innerHTML = marked.parse(sampleAnalysis);
 
@@ -424,23 +436,23 @@
                     Factuality: 90,
                     'Neutral Sentiment': 70,
                     'Low Bias': 80,
-                    'Overall Credibility Index': 82
+                    'Overall Credibility Index': 82.5
                 });
 
                 // Отображаем похожие статьи
                 const sampleArticles = `
-                    <div class="similar-article">
-                        <h4><a href="#" target="_blank">Similar Article 1</a></h4>
-                        <p><strong>Source:</strong> BBC News | <strong>Published:</strong> 2023-05-15</p>
-                        <p>This article covers similar topics and provides additional context to the original piece.</p>
-                    </div>
-                    <hr>
-                    <div class="similar-article">
-                        <h4><a href="#" target="_blank">Similar Article 2</a></h4>
-                        <p><strong>Source:</strong> Reuters | <strong>Published:</strong> 2023-05-14</p>
-                        <p>Another perspective on the same event with different emphasis on certain aspects.</p>
-                    </div>
-                `;
+<div class="similar-article">
+    <h4><a href="#" target="_blank">Similar Article 1</a></h4>
+    <p><strong>Source:</strong> BBC News | <strong>Published:</strong> 2023-05-15</p>
+    <p>This article covers similar topics and provides additional context to the original piece.</p>
+</div>
+<hr>
+<div class="similar-article">
+    <h4><a href="#" target="_blank">Similar Article 2</a></h4>
+    <p><strong>Source:</strong> Reuters | <strong>Published:</strong> 2023-05-14</p>
+    <p>Another perspective on the same event with different emphasis on certain aspects.</p>
+</div>
+`;
 
                 elements.similarArticles.innerHTML = sampleArticles;
 
