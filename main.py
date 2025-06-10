@@ -6,11 +6,11 @@ import json
 import requests
 import html
 from datetime import datetime, timedelta, timezone
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
 from flask import Flask, request, jsonify, render_template, session, make_response
 from werkzeug.middleware.proxy_fix import ProxyFix
 import anthropic
-from newspaper import Article
+from newspaper import Article, Config
 from stop_words import get_stop_words
 from flask_cors import CORS
 
@@ -18,6 +18,8 @@ from flask_cors import CORS
 app = Flask(__name__, static_folder='static', template_folder='templates')
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-here')
+
+# Configure CORS for Railway
 CORS(app, resources={
     r"/*": {
         "origins": "*",
@@ -127,6 +129,12 @@ TRUSTED_NEWS_SOURCES_IDS = [
 
 stop_words_en = get_stop_words('en')
 
+# Configure newspaper library
+user_agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+config = Config()
+config.browser_user_agent = user_agent
+config.request_timeout = 30
+
 # WordPress scanner protection
 WORDPRESS_PATHS = [
     re.compile(r'wp-admin', re.IGNORECASE),
@@ -214,86 +222,37 @@ def get_source_credibility_data():
             'credibility_scores': []
         }
 
-class ClaudeNewsAnalyzer:
-    """Class for interacting with Anthropic Claude API"""
-    def __init__(self):
-        if not ANTHROPIC_API_KEY:
-            raise ValueError("Anthropic API key is not configured")
-
-        self.client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-        self.model_name = MODEL_NAME
-
-    def analyze_article_text(self, article_text_content, source_name_for_context):
-        """Analyze article text using Claude API"""
-        try:
-            max_chars = 10000
-            if len(article_text_content) > max_chars:
-                article_text_content = article_text_content[:max_chars]
-                logger.warning(f"Article content truncated to {max_chars} characters")
-
-            prompt = f"""Analyze this news article and provide a JSON response with these fields:
-- news_integrity (0.0-1.0)
-- fact_check_needed_score (0.0-1.0)
-- sentiment_score (0.0-1.0)
-- bias_score (0.0-1.0)
-- topics (list of strings)
-- key_arguments (list of strings)
-- mentioned_facts (list of strings)
-- author_purpose (string)
-- potential_biases_identified (list of strings)
-- short_summary (string)
-- index_of_credibility (0.0-1.0)
-
-Article content:
-{article_text_content[:5000]}..."""
-
-            response = self.client.messages.create(
-                model=self.model_name,
-                max_tokens=2000,
-                messages=[{"role": "user", "content": prompt}]
-            )
-
-            response_text = response.content[0].text.strip()
-            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
-
-            if json_match:
-                try:
-                    return json.loads(json_match.group(0))
-                except json.JSONDecodeError as e:
-                    logger.error(f"Failed to parse JSON: {str(e)}. Response was: {response_text}")
-                    raise ValueError("Invalid JSON in response")
-
-            try:
-                return json.loads(response_text)
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse response as JSON: {str(e)}. Response was: {response_text}")
-                raise ValueError("Response is not valid JSON")
-
-        except anthropic.APIError as e:
-            logger.error(f"Anthropic API error: {str(e)}")
-            raise ValueError(f"API Error: {str(e)}")
-        except Exception as e:
-            logger.error(f"Analysis error: {str(e)}")
-            raise ValueError(f"Analysis failed: {str(e)}")
-
 def extract_text_from_url(url):
-    """Extract text from URL"""
+    """Extract text from URL with improved error handling"""
     try:
-        clean_url = re.sub(r'/amp(/)?$', '', url)
+        # Normalize URL
+        parsed = urlparse(url)
+        clean_url = urlunparse(parsed._replace(scheme=parsed.scheme.lower(), netloc=parsed.netloc.lower()))
+
+        # Check for video content
         if any(domain in url for domain in ['youtube.com', 'vimeo.com']):
-            return "Video content detected", urlparse(clean_url).netloc.replace('www.', ''), "Video: " + url
+            return "Video content detected", parsed.netloc.replace('www.', ''), "Video: " + url
 
-        article = Article(clean_url)
+        # Configure article with timeout and user agent
+        article = Article(clean_url, config=config)
+
+        # Download and parse article
         article.download()
-        article.parse()
-
-        if len(article.text) < 100:
-            logger.warning(f"Short content from {url}")
+        if article.download_state != 2:
+            logger.error(f"Failed to download article from {url}")
             return None, None, None
 
-        return (article.text.strip(),
-                urlparse(clean_url).netloc.replace('www.', ''),
-                article.title.strip())
+        article.parse()
+        if not article.text or len(article.text.strip()) < 100:
+            logger.warning(f"Short or empty content from {url}")
+            return None, None, None
+
+        # Extract domain and title
+        domain = parsed.netloc.replace('www.', '')
+        title = article.title.strip() if article.title else "No title"
+
+        return article.text.strip(), domain, title
+
     except Exception as e:
         logger.error(f"Error extracting article from {url}: {str(e)}")
         return None, None, None
@@ -311,6 +270,78 @@ def calculate_credibility(integrity, fact_check, sentiment, bias):
     if score >= 0.5:
         return 'Medium'
     return 'Low'
+
+class ClaudeNewsAnalyzer:
+    """Class for interacting with Anthropic Claude API"""
+    def __init__(self):
+        if not ANTHROPIC_API_KEY:
+            raise ValueError("Anthropic API key is not configured")
+
+        self.client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        self.model_name = MODEL_NAME
+
+    def analyze_article_text(self, article_text_content, source_name_for_context):
+        """Analyze article text using Claude API with improved error handling"""
+        try:
+            # Validate input
+            if not article_text_content or not isinstance(article_text_content, str):
+                raise ValueError("Invalid article content")
+
+            # Limit the article length
+            max_chars = 10000
+            if len(article_text_content) > max_chars:
+                article_text_content = article_text_content[:max_chars]
+                logger.warning(f"Article content truncated to {max_chars} characters")
+
+            # Create prompt for analysis
+            prompt = f"""Analyze this news article and provide a JSON response with these fields:
+- news_integrity (0.0-1.0)
+- fact_check_needed_score (0.0-1.0)
+- sentiment_score (0.0-1.0)
+- bias_score (0.0-1.0)
+- topics (list of strings)
+- key_arguments (list of strings)
+- mentioned_facts (list of strings)
+- author_purpose (string)
+- potential_biases_identified (list of strings)
+- short_summary (string)
+- index_of_credibility (0.0-1.0)
+
+Article content:
+{article_text_content[:5000]}..."""
+
+            # Make API request with error handling
+            try:
+                response = self.client.messages.create(
+                    model=self.model_name,
+                    max_tokens=2000,
+                    messages=[{"role": "user", "content": prompt}]
+                )
+
+                response_text = response.content[0].text.strip()
+
+                # Try to find and parse JSON in the response
+                json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+                if json_match:
+                    try:
+                        return json.loads(json_match.group(0))
+                    except json.JSONDecodeError as e:
+                        logger.error(f"Failed to parse JSON: {str(e)}. Response was: {response_text}")
+                        raise ValueError("Invalid JSON in response")
+
+                try:
+                    return json.loads(response_text)
+                except json.JSONDecodeError as e:
+                    logger.error(f"Failed to parse response as JSON: {str(e)}. Response was: {response_text}")
+                    raise ValueError("Response is not valid JSON")
+
+            except anthropic.APIError as e:
+                logger.error(f"Anthropic API error: {str(e)}")
+                raise ValueError(f"API Error: {str(e)}")
+
+        except Exception as e:
+            logger.error(f"Analysis error: {str(e)}")
+            raise ValueError(f"Analysis failed: {str(e)}")
 
 def save_analysis(url, title, source, content, analysis):
     """Save analysis to database"""
@@ -346,9 +377,6 @@ def save_analysis(url, title, source, content, analysis):
 
             conn.commit()
             return level
-    except sqlite3.Error as e:
-        logger.error(f"Database error: {str(e)}")
-        raise ValueError("Database operation failed")
     except Exception as e:
         logger.error(f"Error saving analysis: {str(e)}")
         raise ValueError("Failed to save analysis")
@@ -631,7 +659,7 @@ def feedback():
 
 @app.route('/analyze', methods=['POST', 'OPTIONS'])
 def analyze():
-    """Analyze article endpoint"""
+    """Analyze article endpoint with comprehensive error handling"""
     if request.method == 'OPTIONS':
         response = make_response()
         response.headers['Access-Control-Allow-Origin'] = '*'
@@ -640,48 +668,66 @@ def analyze():
         return response
 
     try:
-        # Check content type
+        # Validate request content type
         if not request.is_json:
             return jsonify({
                 'error': 'Request must be JSON',
-                'status': 400
+                'status': 400,
+                'details': 'Content-Type header must be application/json'
             }), 400
 
         # Get and validate data
         data = request.get_json()
-        if not data or 'input_text' not in data:
+        if not data:
             return jsonify({
-                'error': 'Missing input text',
+                'error': 'Empty request body',
                 'status': 400
             }), 400
 
-        input_text = data['input_text']
-        source_name = data.get('source_name_manual', 'Direct Input')
+        if 'input_text' not in data:
+            return jsonify({
+                'error': 'Missing input text',
+                'status': 400,
+                'details': 'input_text field is required'
+            }), 400
 
-        if not input_text or not input_text.strip():
+        input_text = data['input_text'].strip()
+        source_name = data.get('source_name_manual', 'Direct Input').strip()
+
+        if not input_text:
             return jsonify({
                 'error': 'Empty input text',
-                'status': 400
+                'status': 400,
+                'details': 'Input text cannot be empty'
             }), 400
 
         # Process article
-        if input_text.startswith('http'):
-            content, source, title = extract_text_from_url(input_text)
-            if not content:
+        if input_text.startswith(('http://', 'https://')):
+            try:
+                content, source, title = extract_text_from_url(input_text)
+                if not content:
+                    return jsonify({
+                        'error': 'Could not extract article content',
+                        'status': 400,
+                        'details': 'Failed to download or parse the article from the provided URL'
+                    }), 400
+            except Exception as e:
+                logger.error(f"Error processing URL: {str(e)}")
                 return jsonify({
-                    'error': 'Could not extract article content',
-                    'status': 400
+                    'error': 'Error processing URL',
+                    'status': 400,
+                    'details': str(e)
                 }), 400
         else:
+            if len(input_text) < 100:
+                return jsonify({
+                    'error': 'Content too short',
+                    'status': 400,
+                    'details': 'Minimum 100 characters required'
+                }), 400
             content = input_text
             title = 'User-provided Text'
             source = source_name
-
-        if len(content) < 100:
-            return jsonify({
-                'error': 'Content too short (min 100 chars)',
-                'status': 400
-            }), 400
 
         # Analyze with Claude
         try:
@@ -696,28 +742,25 @@ def analyze():
             logger.error(f"Analysis failed: {str(e)}")
             return jsonify({
                 'error': 'Analysis failed',
-                'status': 500
+                'status': 500,
+                'details': str(e)
             }), 500
 
         # Save to database
         try:
             credibility = save_analysis(
-                input_text if input_text.startswith('http') else None,
+                input_text if input_text.startswith(('http://', 'https://')) else None,
                 title,
                 source,
                 content,
                 analysis
             )
-        except ValueError as e:
-            return jsonify({
-                'error': str(e),
-                'status': 500
-            }), 500
         except Exception as e:
             logger.error(f"Failed to save analysis: {str(e)}")
             return jsonify({
                 'error': 'Failed to save analysis',
-                'status': 500
+                'status': 500,
+                'details': str(e)
             }), 500
 
         # Store analysis result in session
@@ -761,7 +804,8 @@ def analyze():
         logger.error(f"Unexpected error in analyze endpoint: {str(e)}")
         return jsonify({
             'error': 'Internal server error',
-            'status': 500
+            'status': 500,
+            'details': str(e)
         }), 500
 
 @app.route('/same_topic_articles', methods=['GET'])
@@ -792,8 +836,10 @@ def get_same_topic_articles():
         logger.error(f"Error in get_same_topic_articles endpoint: {str(e)}")
         return jsonify({
             'error': 'An error occurred while fetching same topic articles',
-            'status': 500
+            'status': 500,
+            'details': str(e)
         }), 500
 
 if __name__ == '__main__':
+    # For Railway deployment
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
