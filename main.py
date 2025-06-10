@@ -9,7 +9,7 @@ import smtplib
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
 from logging.handlers import RotatingFileHandler
-from flask import Flask, request, jsonify, render_template, abort, make_response
+from flask import Flask, request, jsonify, render_template, abort, make_response, session
 from werkzeug.middleware.proxy_fix import ProxyFix
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -20,6 +20,7 @@ from stop_words import get_stop_words
 # Инициализация Flask приложения
 app = Flask(__name__, static_folder='static', template_folder='templates')
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-here')
 
 # Конфигурация для отправки email
 app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER', 'smtp.gmail.com')
@@ -35,9 +36,7 @@ UTC = timezone.utc
 # Настройка логгирования
 def setup_logging():
     """Настройка системы логгирования"""
-    formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s - %(pathname)s:%(lineno)d'
-    )
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s - %(pathname)s:%(lineno)d')
 
     # Логирование в файл с ротацией
     file_handler = RotatingFileHandler('app.log', maxBytes=1024*1024, backupCount=5)
@@ -58,7 +57,6 @@ def send_email(subject, body, recipient):
         msg['From'] = app.config['MAIL_DEFAULT_SENDER']
         msg['To'] = recipient
         msg['Subject'] = subject
-
         msg.attach(MIMEText(body, 'plain'))
 
         with smtplib.SMTP(app.config['MAIL_SERVER'], app.config['MAIL_PORT']) as server:
@@ -81,23 +79,13 @@ def check_env_vars():
         'MAIL_USERNAME',
         'MAIL_PASSWORD',
         'MAIL_DEFAULT_SENDER',
-        'MAIL_SERVER',
-        'MAIL_PORT',
-        'MAIL_USE_TLS',
         'DATABASE_URL',
         'LOG_LEVEL',
         'ANTHROPIC_MODEL',
-        'NEWS_API_KEY',
-        'NEWS_ENDPOINT',
-        'SEARCH_ENDPOINT',
-        'MAINTENANCE'
+        'NEWS_API_KEY'
     ]
 
-    missing_vars = []
-    for var in REQUIRED_ENV_VARS:
-        if not os.getenv(var):
-            missing_vars.append(var)
-
+    missing_vars = [var for var in REQUIRED_ENV_VARS if not os.getenv(var)]
     if missing_vars:
         error_msg = f"Missing required environment variables: {', '.join(missing_vars)}"
         app.logger.critical(error_msg)
@@ -114,6 +102,8 @@ def configure_app():
     )
 
 # Инициализация базы данных
+DB_NAME = 'news_analysis.db'
+
 def get_db_connection():
     """Создание подключения к базе данных"""
     conn = sqlite3.connect(DB_NAME)
@@ -165,12 +155,12 @@ def initialize_sources(initial_counts):
         c = conn.cursor()
         for source, counts in initial_counts.items():
             c.execute('SELECT total_analyzed FROM source_stats WHERE source = ?', (source,))
-            row = c.fetchone()
-            if row is None:
+            if not c.fetchone():
                 high = counts.get('high', 0)
                 medium = counts.get('medium', 0)
                 low = counts.get('low', 0)
-                c.execute('''INSERT INTO source_stats (source, high, medium, low, total_analyzed)
+                c.execute('''INSERT INTO source_stats
+                             (source, high, medium, low, total_analyzed)
                              VALUES (?, ?, ?, ?, ?)''',
                              (source, high, medium, low, high + medium + low))
         conn.commit()
@@ -180,7 +170,7 @@ def check_database_integrity():
     """Проверка целостности базы данных"""
     try:
         if not os.path.exists(DB_NAME):
-            app.logger.critical(f'Database file {DB_NAME} not found! Please check setup.')
+            app.logger.critical(f'Database file {DB_NAME} not found!')
             return False
 
         with get_db_connection() as conn:
@@ -188,15 +178,15 @@ def check_database_integrity():
             c.execute('SELECT name FROM sqlite_master WHERE type="table"')
             tables = [table[0] for table in c.fetchall()]
             required_tables = ['news', 'source_stats', 'feedback']
-            for table in required_tables:
-                if table not in tables:
-                    app.logger.critical(f'Critical table "{table}" is missing in the database!')
-                    return False
+
+            if not all(table in tables for table in required_tables):
+                app.logger.critical('Critical tables missing in the database!')
+                return False
 
         app.logger.info("Database integrity check passed.")
         return True
     except Exception as e:
-        app.logger.critical(f'Error during database integrity check: {e}', exc_info=True)
+        app.logger.critical(f'Error during database integrity check: {e}')
         return False
 
 # Данные для инициализации
@@ -252,10 +242,9 @@ WORDPRESS_PATHS = [
 def block_wordpress_scanners():
     """Блокировка запросов к WordPress путям"""
     path = request.path.lower()
-    for pattern in WORDPRESS_PATHS:
-        if pattern.search(path):
-            app.logger.warning(f'Blocked WordPress scanner request from {request.remote_addr} to: {request.path}')
-            return abort(404)
+    if any(pattern.search(path) for pattern in WORDPRESS_PATHS):
+        app.logger.warning(f'Blocked WordPress scanner request from {request.remote_addr}')
+        return abort(404)
 
     if any(param in request.query_string.decode('utf-8', 'ignore') for param in ['=http://', '=https://', '=ftp://']):
         app.logger.warning(f'Blocked suspicious query parameter from {request.remote_addr}')
@@ -285,7 +274,7 @@ def add_security_headers(response):
     response.headers['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
     return response
 
-# Обработчик OPTIONS запросов для /analyze
+# Обработчик OPTIONS запросов
 @app.route('/analyze', methods=['OPTIONS'])
 def handle_options():
     """Обработчик OPTIONS запросов для CORS"""
@@ -315,14 +304,6 @@ def internal_server_error(e):
 class ClaudeNewsAnalyzer:
     """Класс для взаимодействия с API Anthropic Claude"""
     def __init__(self, api_key, model_name):
-        self.client = anthropic.Anthropic(api_key=api_key)
-        self.model_name = model_name
-
-# Обновленный класс для работы с API Anthropic
-class ClaudeNewsAnalyzer:
-    """Класс для взаимодействия с API Anthropic Claude"""
-    def __init__(self, api_key, model_name):
-        # Удаляем параметр proxies, так как он не поддерживается в текущей версии
         self.client = anthropic.Anthropic(api_key=api_key)
         self.model_name = model_name
 
@@ -377,21 +358,14 @@ class ClaudeNewsAnalyzer:
 
             return json.loads(json_str)
 
-        except anthropic.APIError as e:
-            app.logger.error(f'Anthropic API Error: {str(e)}')
-            raise ValueError(f'Anthropic API Error: {str(e)}')
-        except json.JSONDecodeError as e:
-            app.logger.error(f'Error parsing JSON response: {str(e)}')
-            app.logger.error(f'Raw response: {raw_json_text}')
-            raise ValueError(f'Error parsing analysis results: {str(e)}')
         except Exception as e:
-            app.logger.error(f'Unexpected error in Claude analysis: {str(e)}', exc_info=True)
+            app.logger.error(f'Error in Claude analysis: {str(e)}')
             raise ValueError(f'Error communicating with AI: {str(e)}')
 
 def extract_text_from_url(url):
     """Извлечение текста из URL"""
     try:
-        clean_url = re.sub(r'/amp(/)?$', '', url)
+        clean_url = re.sub(r'/amp(/)?\$', '', url)
 
         if any(domain in url for domain in ['youtube.com', 'vimeo.com']):
             return "Video content detected", urlparse(clean_url).netloc.replace('www.', ''), "Video: " + url
@@ -438,20 +412,20 @@ def save_analysis_to_db(url, title, source, content, analysis_result):
         credibility_level = calculate_credibility_level(integrity, fact_check_needed, sentiment, bias)
         db_url = url if url else f'text_input_{datetime.now(UTC).timestamp()}'
 
-        # Исправленный SQL запрос - убрал лишнюю запятую и значение
-        c.execute('''INSERT INTO news (url, title, source, content, integrity, fact_check, sentiment, bias,
-                             credibility_level, short_summary, index_of_credibility)
-                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                             ON CONFLICT(url) DO UPDATE SET
-                             title=excluded.title, source=excluded.source, content=excluded.content,
-                             integrity=excluded.integrity, fact_check=excluded.fact_check,
-                             sentiment=excluded.sentiment, bias=excluded.bias,
-                             credibility_level=excluded.credibility_level,
-                             short_summary=excluded.short_summary,
-                             index_of_credibility=excluded.index_of_credibility,
-                             analysis_date=CURRENT_TIMESTAMP''',
-                         (db_url, title, source, content, integrity, fact_check_needed, sentiment, bias,
-                          credibility_level, short_summary, index_of_credibility))
+        c.execute('''INSERT INTO news
+                     (url, title, source, content, integrity, fact_check, sentiment, bias,
+                      credibility_level, short_summary, index_of_credibility)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     ON CONFLICT(url) DO UPDATE SET
+                     title=excluded.title, source=excluded.source, content=excluded.content,
+                     integrity=excluded.integrity, fact_check=excluded.fact_check,
+                     sentiment=excluded.sentiment, bias=excluded.bias,
+                     credibility_level=excluded.credibility_level,
+                     short_summary=excluded.short_summary,
+                     index_of_credibility=excluded.index_of_credibility,
+                     analysis_date=CURRENT_TIMESTAMP''',
+                     (db_url, title, source, content, integrity, fact_check_needed,
+                      sentiment, bias, credibility_level, short_summary, index_of_credibility))
 
         c.execute('SELECT high, medium, low, total_analyzed FROM source_stats WHERE source = ?', (source,))
         row = c.fetchone()
@@ -462,18 +436,19 @@ def save_analysis_to_db(url, title, source, content, analysis_result):
             elif credibility_level == 'Medium': medium += 1
             else: low += 1
             total += 1
-            c.execute('''UPDATE source_stats SET high=?, medium=?, low=?, total_analyzed=? WHERE source=?''',
-                        (high, medium, low, total, source))
+            c.execute('''UPDATE source_stats SET high=?, medium=?, low=?, total_analyzed=?
+                         WHERE source=?''', (high, medium, low, total, source))
         else:
             high = 1 if credibility_level == 'High' else 0
             medium = 1 if credibility_level == 'Medium' else 0
             low = 1 if credibility_level == 'Low' else 0
-            c.execute('''INSERT INTO source_stats (source, high, medium, low, total_analyzed)
-                         VALUES (?, ?, ?, ?, ?)''', (source, high, medium, low, 1))
+            c.execute('''INSERT INTO source_stats
+                         (source, high, medium, low, total_analyzed)
+                         VALUES (?, ?, ?, ?, ?)''',
+                         (source, high, medium, low, high + medium + low))
 
         conn.commit()
         return credibility_level
-
 
 def generate_query(analysis_result):
     """Генерация запроса для поиска похожих статей"""
@@ -482,7 +457,6 @@ def generate_query(analysis_result):
     mentioned_facts = analysis_result.get('mentioned_facts', [])
 
     all_terms = []
-
     for phrase_list in [topics, key_arguments]:
         for phrase in phrase_list:
             if not phrase.strip(): continue
@@ -513,155 +487,104 @@ def make_newsapi_request(params):
     try:
         response = requests.get(url, params=params, timeout=15)
         response.raise_for_status()
-        data = response.json()
-        return data.get('articles', [])
+        return response.json().get('articles', [])
     except Exception as e:
         app.logger.error(f'NewsAPI Request Error: {e}')
         return []
 
-def fetch_same_topic_articles(analysis_result, days_range=7, max_articles=3):
-    """Поиск похожих статей по теме"""
-    if not NEWS_API_ENABLED:
-        app.logger.warning('NEWS_API_KEY is not configured or enabled. Skipping similar news search.')
+def fetch_same_topic_articles(analysis_result, page=1, per_page=3):
+    """Поиск похожих статей по теме с пагинацией"""
+    if not NEWS_API_KEY:
+        app.logger.warning('NEWS_API_KEY is not configured. Skipping similar news search.')
         return []
 
-    initial_query = generate_query(analysis_result)
+    query = generate_query(analysis_result)
     end_date = datetime.now(UTC).date()
+    start_date = end_date - timedelta(days=7)
 
-    try:
-        original_published_date_str = analysis_result.get('published_date', 'N/A')
-        if original_published_date_str and original_published_date_str != 'N/A':
-            parsed_date = datetime.strptime(original_published_date_str, '%Y-%m-%d').date()
-            start_date = parsed_date - timedelta(days=days_range)
-            end_date = parsed_date + timedelta(days=days_range)
-        else:
-            start_date = end_date - timedelta(days=days_range)
-    except ValueError:
-        start_date = end_date - timedelta(days=days_range)
-
-    params_specific = {
-        'q': initial_query,
+    params = {
+        'q': query,
         'apiKey': NEWS_API_KEY,
         'language': 'en',
-        'pageSize': max_articles * 2,
+        'pageSize': per_page,
+        'page': page,
         'sortBy': 'relevancy',
         'from': start_date.strftime('%Y-%m-%d'),
         'to': end_date.strftime('%Y-%m-%d'),
     }
 
     if TRUSTED_NEWS_SOURCES_IDS:
-        params_specific['sources'] = ','.join(TRUSTED_NEWS_SOURCES_IDS)
+        params['sources'] = ','.join(TRUSTED_NEWS_SOURCES_IDS)
 
-    articles_found = make_newsapi_request(params_specific)
+    articles = make_newsapi_request(params)
 
-    if len(articles_found) < (max_articles / 2) and initial_query != 'current events OR news':
-        broader_query_terms = list(set(analysis_result.get('topics', [])[:3]))
-        broader_query = ' OR '.join([f'"{term}"' if ' ' in term else term for term in broader_query_terms if term and term not in stop_words_en])
-
+    if not articles and query != 'current events OR news':
+        broader_query = ' OR '.join([f'"{term}"' if ' ' in term else term
+                                  for term in analysis_result.get('topics', [])[:3]
+                                  if term and term not in stop_words_en])
         if not broader_query:
             broader_query = 'current events OR news'
 
-        params_broad = {
-            'q': broader_query,
-            'apiKey': NEWS_API_KEY,
-            'language': 'en',
-            'pageSize': max_articles * 2,
-            'sortBy': 'relevancy',
-            'from': start_date.strftime('%Y-%m-%d'),
-            'to': end_date.strftime('%Y-%m-%d'),
-        }
-
-        if TRUSTED_NEWS_SOURCES_IDS:
-            params_broad['sources'] = ','.join(TRUSTED_NEWS_SOURCES_IDS)
-
-        additional_articles = make_newsapi_request(params_broad)
-        articles_found.extend(additional_articles)
+        params['q'] = broader_query
+        additional_articles = make_newsapi_request(params)
+        articles.extend(additional_articles)
 
     unique_articles = {}
-    for article in articles_found:
+    for article in articles:
         if article.get('url'):
             unique_articles[article['url']] = article
-    articles_found = list(unique_articles.values())
 
-    if not articles_found:
+    articles = list(unique_articles.values())
+
+    if not articles:
         return []
 
     all_query_terms = []
-    all_query_terms.extend([t.lower().replace('"', '') for t in initial_query.split(' AND ') if t.strip()])
+    all_query_terms.extend([t.lower().replace('"', '') for t in query.split(' AND ') if t.strip()])
     if 'broader_query' in locals():
         all_query_terms.extend([t.lower().replace('"', '') for t in broader_query.split(' OR ') if t.strip()])
     all_query_terms = list(set([t for t in all_query_terms if t and t not in stop_words_en]))
 
     ranked_articles = []
-    for article in articles_found:
+    for article in articles:
         source_domain = urlparse(article.get('url', '')).netloc.replace('www.', '')
         trust_score = predefined_trust_scores.get(source_domain, 0.5)
 
-        article_text_for_relevance = (article.get('title', '') + ' ' + article.get('description', '')).lower()
-        relevance_score = sum(1 for term in all_query_terms if term in article_text_for_relevance)
+        article_text = (article.get('title', '') + ' ' + article.get('description', '')).lower()
+        relevance_score = sum(1 for term in all_query_terms if term in article_text)
         final_score = (relevance_score * 10) + (trust_score * 5)
         ranked_articles.append((article, final_score))
 
     ranked_articles.sort(key=lambda item: item[1], reverse=True)
-    return [item[0] for item in ranked_articles[:max_articles]]
+    return [item[0] for item in ranked_articles[\:per_page]]
 
 def render_same_topic_articles_html(articles):
     """Формирование HTML для похожих статей"""
     if not articles:
         return '<p>No same topic articles found for the selected criteria.</p>'
 
-    try:
-        with get_db_connection() as conn:
-            c = conn.cursor()
-            html_items = []
+    html_items = []
+    for art in articles:
+        title = html.escape(art.get('title', 'No Title'))
+        article_url = html.escape(art.get('url', '#'))
+        source_api_name = html.escape(art.get('source', {}).get('name', 'Unknown Source'))
+        published_at = html.escape(art.get('publishedAt', 'N/A').split('T')[0])
+        description = html.escape(art.get('description', 'No description available.'))
 
-            for art in articles:
-                title = html.escape(art.get('title', 'No Title'))
-                article_url = html.escape(art.get('url', '#'))
-                source_api_name = html.escape(art.get('source', {}).get('name', 'Unknown Source'))
-                published_at_raw = art.get('publishedAt', 'N/A')
-                published_at_display = html.escape(published_at_raw.split('T')[0] if 'T' in published_at_raw and published_at_raw != 'N/A' else published_at_raw)
-                description_raw = art.get('description', 'No description available.')
+        domain = urlparse(art.get('url', '#')).netloc.replace('www.', '')
+        trust_score = predefined_trust_scores.get(domain, 0.5)
+        trust_display = f' (Credibility: {int(trust_score*100)}%)'
 
-                if title != 'No Title' and description_raw.startswith(art.get('title', '')):
-                    description_raw = description_raw[len(art.get('title', '')):].strip()
-                    if description_raw.startswith('- '):
-                        description_raw = description_raw[2:].strip()
-                description_display = html.escape(description_raw)
+        html_items.append(
+            f'<div class="same-topic-article">'
+            f'<h4><a href="{article_url}" target="_blank">{title}</a></h4>'
+            f'<p><strong>Source:</strong> {source_api_name}{trust_display} | '
+            f'<strong>Published:</strong> {published_at}</p>'
+            f'<p>{description}</p>'
+            f'</div>'
+        )
 
-                domain = urlparse(art.get('url', '#')).netloc.replace('www.', '')
-                trust_display = ''
-
-                c.execute('SELECT high, medium, low, total_analyzed FROM source_stats WHERE source = ?', (domain,))
-                row = c.fetchone()
-
-                if row:
-                    high, medium, low, total_analyzed = row
-                    if total_analyzed > 0:
-                        score = (high * 1.0 + medium * 0.5 + low * 0.0) / total_analyzed
-                        trust_display = f' (Hist. Src. Credibility: {int(score*100)}%)'
-                elif domain in predefined_trust_scores:
-                    predefined_score = predefined_trust_scores.get(domain)
-                    trust_display = f' (Predefined Credibility: {int(predefined_score*100)}%)'
-
-                html_items.append(
-                    f'<div class="similar-article">'
-                    f'<h4><a href="{article_url}" target="_blank" rel="noopener noreferrer">{title}</a></h4>'
-                    f'<p><strong>Source:</strong> {source_api_name}{trust_display} | <strong>Published:</strong> {published_at_display}</p>'
-                    f'<p>{description_display}</p>'
-                    f'</div>'
-                    f'<hr>'
-                )
-
-            return (
-                '<div class="similar-articles-container">'
-                '<h3>Same Topic News Articles (Ranked by Relevance & Trust):</h3>'
-                ''.join(html_items) +
-                '</div>'
-            )
-    except Exception as e:
-        app.logger.error(f'Error rendering similar articles: {e}')
-        return '<p>Error retrieving same topic articles due to a database issue.</p>'
+    return '<div class="same-topic-articles-container">' + ''.join(html_items) + '</div>'
 
 def get_source_reliability_data():
     """Получение данных о надежности источников"""
@@ -728,18 +651,17 @@ def get_analysis_history_html():
 
             html_items = []
             for url, title, source, credibility, short_summary, date_str in rows:
-                display_title = title[:70] + '...' if title and len(title) > 70 else title if title else 'N/A'
+                display_title = title[:70] + '...' if title and len(title) > 70 else title
                 source_display = source if source else 'N/A'
-                link_start = f'<a href="{html.escape(url)}" target="_blank" rel="noopener noreferrer">' if url and url.startswith(('http://', 'https://')) else ''
-                link_end = '</a>' if url and url.startswith(('http://', 'https://')) else ''
+                link_start = f'<a href="{html.escape(url)}" target="_blank">' if url else ''
+                link_end = '</a>' if url else ''
                 summary_display = short_summary if short_summary else 'No summary available.'
 
                 html_items.append(
-                    f'<li>'
-                    f'<strong>{html.escape(date_str)}</strong>: {link_start}{html.escape(display_title)}{link_end} ({html.escape(source_display)}, {html.escape(credibility)})'
-                    f'<br>'
-                    f'<em>Summary:</em> {html.escape(summary_display)}'
-                    f'</li>'
+                    f'<li><strong>{html.escape(date_str)}</strong>: '
+                    f'{link_start}{html.escape(display_title)}{link_end} '
+                    f'({html.escape(source_display)}, {html.escape(credibility)})<br>'
+                    f'<em>Summary:</em> {html.escape(summary_display)}</li>'
                 )
 
             return '<h3>Recent Analyses:</h3><ul>' + ''.join(html_items) + '</ul>'
@@ -755,98 +677,64 @@ def index():
 
 @app.route('/analyze', methods=['POST'])
 def analyze():
-    """API endpoint для анализа статьи с улучшенной обработкой CORS"""
-    # Обработка OPTIONS запросов
+    """API endpoint для анализа статьи"""
     if request.method == 'OPTIONS':
         response = make_response()
         response.headers['Access-Control-Allow-Origin'] = '*'
-        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
-        response.headers['Access-Control-Max-Age'] = '86400'
+        response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
         return response
 
-    # Проверка Content-Type
     if not request.is_json:
-        response = jsonify({'error': 'Invalid content type', 'message': 'Content-Type must be application/json'})
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        return response, 415
-
-    # Основная логика обработки запроса
-    try:
-        data = request.get_json()
-        input_text = data.get('input_text')
-        source_name_manual = data.get('source_name_manual')
-
-        if not input_text:
-            response = jsonify({'error': 'Missing input', 'message': 'No input text or URL provided'})
-            response.headers['Access-Control-Allow-Origin'] = '*'
-            return response, 400
-
-        output_md, scores_for_chart, analysis_result = process_article_analysis(input_text, source_name_manual)
-
-        if analysis_result is None:
-            response = jsonify({'error': 'Analysis failed', 'message': output_md})
-            response.headers['Access-Control-Allow-Origin'] = '*'
-            return response, 400
-
-        same_topic_news = fetch_same_topic_articles(analysis_result)
-        same_topic_html = render_same_topic_articles_html(same_topic_news)
-
-        response = jsonify({
-            'status': 'success',
-            'output_md': output_md,
-            'scores_for_chart': scores_for_chart,
-            'same_topic_news': same_topic_html
-        })
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        return response
-
-    except Exception as e:
-        app.logger.error(f"Error in analyze endpoint: {str(e)}", exc_info=True)
-        response = jsonify({
-            'error': 'Server error',
-            'message': f'An error occurred during analysis: {str(e)}'
-        })
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        return response, 500
-
-@app.route('/same_topic_articles', methods=['POST'])
-def same_topic_articles_endpoint():
-    """API endpoint для получения и отображения HTML для похожих статей по теме"""
-    if request.method == 'OPTIONS':
-        response = make_response()
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
-        response.headers['Access-Control-Max-Age'] = '86400'
-        return response
+        return jsonify({'error': 'Content-Type must be application/json'}), 415
 
     data = request.get_json()
-    analysis_result = data.get('analysis_result')
+    input_text = data.get('input_text')
+    source_name_manual = data.get('source_name_manual')
 
-    if not analysis_result:
-        response = jsonify({'same_topic_html': '<p>No analysis result provided.</p>'})
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        return response, 400
+    if not input_text:
+        return jsonify({'error': 'No input text or URL provided'}), 400
 
-    similar_articles_list = fetch_same_topic_articles(analysis_result)
-    response = jsonify({
-        'same_topic_html': render_same_topic_articles_html(similar_articles_list)
+    output_md, scores_for_chart, analysis_result = process_article_analysis(input_text, source_name_manual)
+
+    if analysis_result is None:
+        return jsonify({'error': output_md}), 400
+
+    session['last_analysis_result'] = analysis_result
+    same_topic_news = fetch_same_topic_articles(analysis_result)
+    same_topic_html = render_same_topic_articles_html(same_topic_news)
+
+    return jsonify({
+        'output_md': output_md,
+        'scores_for_chart': scores_for_chart,
+        'same_topic_news': same_topic_html
     })
-    response.headers['Access-Control-Allow-Origin'] = '*'
-    return response
 
-@app.route('/source_reliability_data')
+@app.route('/same_topic_articles', methods=['GET'])
+def get_same_topic_articles():
+    """Эндпоинт для получения дополнительных статей по той же теме"""
+    try:
+        page = int(request.args.get('page', 1))
+        per_page = 3
+
+        analysis_result = session.get('last_analysis_result')
+        if not analysis_result:
+            return jsonify({'error': 'No analysis result found. Please analyze an article first.'}), 400
+
+        same_topic_articles = fetch_same_topic_articles(analysis_result, page=page, per_page=per_page)
+        same_topic_html = render_same_topic_articles_html(same_topic_articles)
+
+        return jsonify({
+            'same_topic_html': same_topic_html
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error in get_same_topic_articles endpoint: {str(e)}")
+        return jsonify({'error': 'An error occurred while fetching same topic articles'}), 500
+
+@app.route('/source_reliability_data', methods=['GET'])
 def source_reliability_data_endpoint():
     """API endpoint для предоставления данных о надежности источников"""
-    if request.method == 'OPTIONS':
-        response = make_response()
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
-        response.headers['Access-Control-Max-Age'] = '86400'
-        return response
-
     data = get_source_reliability_data()
     labeled_sources = []
 
@@ -860,7 +748,7 @@ def source_reliability_data_endpoint():
                 f"{html.escape(source)}<br>Credibility: {int(score*100)}%<br>Articles: {total}"
             )
 
-    response = jsonify({
+    return jsonify({
         'sources': labeled_sources,
         'credibility_indices_for_plot': data['credibility_indices_for_plot'],
         'high_counts': data['high_counts'],
@@ -868,36 +756,16 @@ def source_reliability_data_endpoint():
         'low_counts': data['low_counts'],
         'total_analyzed_counts': data['total_analyzed_counts']
     })
-    response.headers['Access-Control-Allow-Origin'] = '*'
-    return response
 
-@app.route('/analysis_history')
+@app.route('/analysis_history', methods=['GET'])
 def analysis_history_endpoint():
-    """API endpoint для получения и отображения HTML для истории анализов"""
-    if request.method == 'OPTIONS':
-        response = make_response()
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
-        response.headers['Access-Control-Max-Age'] = '86400'
-        return response
-
+    """API endpoint для получения истории анализов"""
     history_html = get_analysis_history_html()
-    response = jsonify({'history_html': history_html})
-    response.headers['Access-Control-Allow-Origin'] = '*'
-    return response
+    return jsonify({'history_html': history_html})
 
 @app.route('/feedback', methods=['GET', 'POST'])
 def feedback():
     """Обработчик формы обратной связи"""
-    if request.method == 'OPTIONS':
-        response = make_response()
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
-        response.headers['Access-Control-Max-Age'] = '86400'
-        return response
-
     if request.method == 'POST':
         data = request.get_json()
         name = data.get('name')
@@ -905,86 +773,34 @@ def feedback():
         feedback_type = data.get('type')
         message = data.get('message')
 
-        # Проверка обязательных полей
         if not all([name, email, feedback_type, message]):
-            response = jsonify({
-                'status': 'error',
-                'message': 'All fields are required'
-            })
-            response.headers['Access-Control-Allow-Origin'] = '*'
-            return response, 400
+            return jsonify({'error': 'All fields are required'}), 400
 
-        # Проверка формата email
         if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
-            response = jsonify({
-                'status': 'error',
-                'message': 'Invalid email address'
-            })
-            response.headers['Access-Control-Allow-Origin'] = '*'
-            return response, 400
+            return jsonify({'error': 'Invalid email address'}), 400
 
-        # Сохраняем в базу данных
         try:
             with get_db_connection() as conn:
                 c = conn.cursor()
                 c.execute('''
                     INSERT INTO feedback (name, email, type, message, date)
                     VALUES (?, ?, ?, ?, ?)
-                ''', (
-                    name,
-                    email,
-                    feedback_type,
-                    message,
-                    datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%S')
-                ))
+                ''', (name, email, feedback_type, message, datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%S')))
                 conn.commit()
         except Exception as e:
             app.logger.error(f'Error saving feedback to database: {e}')
-            response = jsonify({
-                'status': 'error',
-                'message': 'Error saving feedback to database'
-            })
-            response.headers['Access-Control-Allow-Origin'] = '*'
-            return response, 500
+            return jsonify({'error': 'Error saving feedback to database'}), 500
 
-        # Формируем и отправляем email
         email_subject = f"New Feedback: {feedback_type}"
-        email_body = f"""
-        New feedback received:
-
-        Name: {name}
-        Email: {email}
-        Type: {feedback_type}
-        Message: {message}
-        """
-
+        email_body = f"Name: {name}\nEmail: {email}\nType: {feedback_type}\nMessage: {message}"
         recipient = app.config['MAIL_DEFAULT_SENDER']
 
         if send_email(email_subject, email_body, recipient):
-            response = jsonify({
-                'status': 'success',
-                'message': 'Thank you for your feedback! We appreciate it.'
-            })
-            response.headers['Access-Control-Allow-Origin'] = '*'
-            return response
+            return jsonify({'message': 'Thank you for your feedback! We appreciate it.'})
         else:
-            response = jsonify({
-                'status': 'error',
-                'message': 'Error sending feedback email'
-            })
-            response.headers['Access-Control-Allow-Origin'] = '*'
-            return response, 500
+            return jsonify({'error': 'Error sending feedback email'}), 500
 
-    response = make_response(render_template('feedback.html'))
-    response.headers['Access-Control-Allow-Origin'] = '*'
-    return response
-
-@app.route('/faq')
-def faq():
-    """Страница FAQ"""
-    response = make_response(render_template('faq.html'))
-    response.headers['Access-Control-Allow-Origin'] = '*'
-    return response
+    return render_template('feedback.html')
 
 def process_article_analysis(input_text, source_name_manual):
     """Организация полного процесса анализа статьи"""
@@ -1008,9 +824,6 @@ def process_article_analysis(input_text, source_name_manual):
     if len(article_content) < 100:
         return ('❌ Article content is too short for analysis (min 100 chars).', None, None)
 
-    if not source_name:
-        source_name = 'Unknown Source'
-
     analyzer = ClaudeNewsAnalyzer(ANTHROPIC_API_KEY, MODEL_NAME)
     try:
         analysis_result = analyzer.analyze_article_text(article_content, source_name)
@@ -1033,100 +846,3 @@ def format_analysis_results(article_title, source_name, analysis_result, credibi
     fact_check = analysis_result.get('fact_check_needed_score', 1.0)
     sentiment = analysis_result.get('sentiment_score', 0.5)
     bias = analysis_result.get('bias_score', 1.0)
-    topics = analysis_result.get('topics', [])
-    key_arguments = analysis_result.get('key_arguments', [])
-    mentioned_facts = analysis_result.get('mentioned_facts', [])
-    author_purpose = analysis_result.get('author_purpose', 'N/A')
-    potential_biases = analysis_result.get('potential_biases_identified', [])
-    short_summary = analysis_result.get('short_summary', 'N/A')
-    index_of_credibility = analysis_result.get('index_of_credibility', 0.0)
-
-    factuality_display_score = 1.0 - fact_check
-
-    def format_list(items):
-        if not items:
-            return "N/A"
-        return "- " + "\n- ".join(items)
-
-    result = [
-        f"### Credibility Analysis for: \"{article_title}\"",
-        f"**Source:** {source_name}",
-        f"**Media Owner:** {media_owners.get(source_name, 'Unknown Owner')}",
-        f"**Overall Calculated Credibility:** **{credibility_saved}** ({index_of_credibility*100:.1f}%)",
-        "\n---",
-        "#### Analysis Scores:",
-        f"- **Integrity Score:** {integrity*100:.1f}% - Measures the overall integrity and trustworthiness.",
-        f"- **Factuality Score:** {factuality_display_score*100:.1f}% - Indicates likelihood of needing fact-checking.",
-        f"- **Sentiment Score:** {sentiment:.2f} - Overall emotional tone (0.0 negative, 0.5 neutral, 1.0 positive).",
-        f"- **Bias Score:** {bias*100:.1f}% - Degree of perceived bias (0.0 low, 1.0 high).",
-        f"- **Index of Credibility:** {index_of_credibility*100:.1f}% - Overall credibility index.",
-        "\n---",
-        "#### Summary:",
-        short_summary,
-        "\n#### Key Arguments:",
-        format_list(key_arguments),
-        "\n#### Mentioned Facts/Data:",
-        format_list(mentioned_facts),
-        "\n#### Author's Purpose:",
-        author_purpose,
-        "\n#### Potential Biases Identified:",
-        format_list(potential_biases),
-        "\n#### Main Topics Identified:",
-        ", ".join(topics) if topics else "N/A",
-        "\n#### Media Owner Influence:",
-        f"The media owner, {media_owners.get(source_name, 'Unknown Owner')}, may influence source credibility."
-    ]
-
-    return "\n".join(result)
-
-def prepare_chart_data(analysis_result):
-    """Подготовка данных для графика достоверности"""
-    integrity = analysis_result.get('news_integrity', 0.0)
-    fact_check = analysis_result.get('fact_check_needed_score', 1.0)
-    sentiment = analysis_result.get('sentiment_score', 0.5)
-    bias = analysis_result.get('bias_score', 1.0)
-    index_of_credibility = analysis_result.get('index_of_credibility', 0.0)
-
-    factuality_display_score = 1.0 - fact_check
-
-    return {
-        'Integrity': integrity * 100,
-        'Factuality': factuality_display_score * 100,
-        'Neutral Sentiment': (1.0 - abs(sentiment - 0.5) * 2) * 100,
-        'Low Bias': (1.0 - bias) * 100,
-        'Overall Credibility Index': index_of_credibility * 100
-    }
-
-# Инициализация приложения
-def initialize_application():
-    """Инициализация приложения"""
-    # Устанавливаем значения по умолчанию для необязательных переменных
-    os.environ.setdefault('MAINTENANCE', 'False')
-    os.environ.setdefault('LOG_LEVEL', 'INFO')
-    os.environ.setdefault('MAIL_USE_TLS', 'True')
-    os.environ.setdefault('MAIL_PORT', '587')
-    os.environ.setdefault('MAIL_SERVER', 'smtp.gmail.com')
-
-    # Продолжаем инициализацию
-    setup_logging()
-    check_env_vars()
-    configure_app()
-    ensure_db_schema()
-    initialize_sources(INITIAL_SOURCE_COUNTS)
-    check_database_integrity()
-    app.logger.info("Flask application initialized and ready to serve.")
-
-if __name__ == '__main__':
-    # Инициализация переменных окружения
-    ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
-    NEWS_API_KEY = os.getenv('NEWS_API_KEY')
-    NEWS_API_ENABLED = bool(NEWS_API_KEY)
-    MODEL_NAME = 'claude-3-opus-20240229'
-    SECRET_KEY = os.getenv('SECRET_KEY')
-    DB_NAME = 'news_analysis.db'
-
-    app.secret_key = SECRET_KEY
-
-    initialize_application()
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=os.environ.get('FLASK_DEBUG', 'false').lower() == 'true')
