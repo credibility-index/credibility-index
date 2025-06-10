@@ -12,11 +12,13 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 import anthropic
 from newspaper import Article
 from stop_words import get_stop_words
+from flask_cors import CORS
 
 # Initialize Flask application
 app = Flask(__name__, static_folder='static', template_folder='templates')
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-here')
+CORS(app)
 
 # Environment variables
 ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
@@ -168,7 +170,58 @@ def internal_server_error(e):
     """500 error handler"""
     return render_template('500.html'), 500
 
-# Claude API class
+def get_source_credibility_data():
+    """Get source credibility data from database"""
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT source, high, medium, low, total_analyzed
+                FROM source_stats
+                ORDER BY total_analyzed DESC, source ASC
+            ''')
+
+            data = cursor.fetchall()
+            sources = []
+            credibility_scores = []
+            high_counts = []
+            medium_counts = []
+            low_counts = []
+            total_counts = []
+
+            for source, high, medium, low, total in data:
+                total_current = high + medium + low
+                if total_current > 0:
+                    score = (high * 1.0 + medium * 0.5 + low * 0.0) / total_current
+                else:
+                    score = 0.5
+
+                sources.append(source)
+                credibility_scores.append(round(score, 2))
+                high_counts.append(high)
+                medium_counts.append(medium)
+                low_counts.append(low)
+                total_counts.append(total_current)
+
+            return {
+                'sources': sources,
+                'credibility_scores': credibility_scores,
+                'high_counts': high_counts,
+                'medium_counts': medium_counts,
+                'low_counts': low_counts,
+                'total_counts': total_counts
+            }
+    except Exception as e:
+        logger.error(f"Error getting source credibility data: {str(e)}")
+        return {
+            'sources': [],
+            'credibility_scores': [],
+            'high_counts': [],
+            'medium_counts': [],
+            'low_counts': [],
+            'total_counts': []
+        }
+
 class ClaudeNewsAnalyzer:
     """Class for interacting with Anthropic Claude API"""
     def __init__(self):
@@ -181,13 +234,11 @@ class ClaudeNewsAnalyzer:
     def analyze_article_text(self, article_text_content, source_name_for_context):
         """Analyze article text using Claude API"""
         try:
-            # Limit the article length to avoid API errors
             max_chars = 10000
             if len(article_text_content) > max_chars:
                 article_text_content = article_text_content[:max_chars]
                 logger.warning(f"Article content truncated to {max_chars} characters")
 
-            # Create prompt for analysis
             prompt = f"""Analyze this news article and provide a JSON response with these fields:
 - news_integrity (0.0-1.0)
 - fact_check_needed_score (0.0-1.0)
@@ -204,18 +255,15 @@ class ClaudeNewsAnalyzer:
 Article content:
 {article_text_content[:5000]}..."""
 
-            # Make API request
             response = self.client.messages.create(
                 model=self.model_name,
                 max_tokens=2000,
                 messages=[{"role": "user", "content": prompt}]
             )
 
-            # Extract and parse JSON response
             response_text = response.content[0].text.strip()
-
-            # Try to find JSON in the response
             json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+
             if json_match:
                 try:
                     return json.loads(json_match.group(0))
@@ -223,7 +271,6 @@ Article content:
                     logger.error(f"Failed to parse JSON: {str(e)}. Response was: {response_text}")
                     raise ValueError("Invalid JSON in response")
 
-            # If no JSON found, try to parse the whole response
             try:
                 return json.loads(response_text)
             except json.JSONDecodeError as e:
@@ -261,21 +308,17 @@ def extract_text_from_url(url):
 
 def calculate_credibility(integrity, fact_check, sentiment, bias):
     """Calculate credibility level"""
-    try:
-        fact_check_score = 1.0 - fact_check
-        sentiment_score = 1.0 - abs(sentiment - 0.5) * 2
-        bias_score = 1.0 - bias
+    fact_check_score = 1.0 - fact_check
+    sentiment_score = 1.0 - abs(sentiment - 0.5) * 2
+    bias_score = 1.0 - bias
 
-        score = (integrity * 0.45) + (fact_check_score * 0.35) + (sentiment_score * 0.10) + (bias_score * 0.10)
+    score = (integrity * 0.45) + (fact_check_score * 0.35) + (sentiment_score * 0.10) + (bias_score * 0.10)
 
-        if score >= 0.75:
-            return 'High'
-        if score >= 0.5:
-            return 'Medium'
-        return 'Low'
-    except Exception as e:
-        logger.error(f"Error calculating credibility: {str(e)}")
-        raise ValueError("Error calculating credibility score")
+    if score >= 0.75:
+        return 'High'
+    if score >= 0.5:
+        return 'Medium'
+    return 'Low'
 
 def save_analysis(url, title, source, content, analysis):
     """Save analysis to database"""
@@ -283,7 +326,6 @@ def save_analysis(url, title, source, content, analysis):
         with get_db_connection() as conn:
             cursor = conn.cursor()
 
-            # Extract analysis data
             integrity = analysis.get('news_integrity', 0.0)
             fact_check = analysis.get('fact_check_needed_score', 1.0)
             sentiment = analysis.get('sentiment_score', 0.5)
@@ -291,13 +333,9 @@ def save_analysis(url, title, source, content, analysis):
             summary = analysis.get('short_summary', 'No summary')
             credibility = analysis.get('index_of_credibility', 0.0)
 
-            # Calculate credibility level
             level = calculate_credibility(integrity, fact_check, sentiment, bias)
-
-            # Generate unique URL for text input
             db_url = url if url else f'text_{datetime.now(timezone.utc).timestamp()}'
 
-            # Save to database
             cursor.execute('''
                 INSERT INTO news
                 (url, title, source, content, integrity, fact_check, sentiment, bias,
@@ -313,6 +351,29 @@ def save_analysis(url, title, source, content, analysis):
                 analysis_date=CURRENT_TIMESTAMP
             ''', (db_url, title, source, content, integrity, fact_check,
                   sentiment, bias, level, summary, credibility))
+
+            # Update source stats
+            cursor.execute('SELECT high, medium, low, total_analyzed FROM source_stats WHERE source = ?', (source,))
+            row = cursor.fetchone()
+
+            if row:
+                high, medium, low, total = row
+                if level == 'High': high += 1
+                elif level == 'Medium': medium += 1
+                else: low += 1
+                total += 1
+                cursor.execute('''
+                    UPDATE source_stats SET high=?, medium=?, low=?, total_analyzed=?
+                    WHERE source=?
+                ''', (high, medium, low, total, source))
+            else:
+                counts = {'High': 1, 'Medium': 0, 'Low': 0}
+                counts[level] = 1
+                cursor.execute('''
+                    INSERT INTO source_stats
+                    (source, high, medium, low, total_analyzed)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (source, counts['High'], counts['Medium'], counts['Low'], 1))
 
             conn.commit()
             return level
@@ -461,6 +522,103 @@ def render_same_topic_articles_html(articles):
 
     return '<div class="same-topic-articles-container">' + ''.join(html_items) + '</div>'
 
+def format_analysis_results(title, source, analysis, credibility):
+    """Format analysis results for display"""
+    try:
+        output = {
+            'title': title,
+            'source': source,
+            'credibility': credibility,
+            'analysis': analysis,
+            'scores': {
+                'news_integrity': analysis.get('news_integrity', 0.0),
+                'fact_check_needed_score': analysis.get('fact_check_needed_score', 1.0),
+                'sentiment_score': analysis.get('sentiment_score', 0.5),
+                'bias_score': analysis.get('bias_score', 1.0),
+                'index_of_credibility': analysis.get('index_of_credibility', 0.0)
+            },
+            'output_md': f"""
+            <div class="analysis-section">
+                <h2>Article Information</h2>
+                <p><strong>Title:</strong> {html.escape(title)}</p>
+                <p><strong>Source:</strong> {html.escape(source)}</p>
+                <p><strong>Credibility Level:</strong> {html.escape(credibility)}</p>
+            </div>
+
+            <div class="analysis-section">
+                <h2>Analysis Scores</h2>
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="score-item">
+                            <div class="score-name">News Integrity</div>
+                            <div class="score-value">{analysis.get('news_integrity', 0.0):.2f}</div>
+                            <div class="score-description">Overall integrity and trustworthiness</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="score-item">
+                            <div class="score-name">Fact Check Needed</div>
+                            <div class="score-value">{analysis.get('fact_check_needed_score', 1.0):.2f}</div>
+                            <div class="score-description">Likelihood that claims need fact-checking</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="score-item">
+                            <div class="score-name">Sentiment</div>
+                            <div class="score-value">{analysis.get('sentiment_score', 0.5):.2f}</div>
+                            <div class="score-description">Emotional tone (0.0 negative, 0.5 neutral, 1.0 positive)</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="score-item">
+                            <div class="score-name">Bias</div>
+                            <div class="score-value">{analysis.get('bias_score', 1.0):.2f}</div>
+                            <div class="score-description">Degree of perceived bias</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="analysis-section">
+                <h2>Additional Information</h2>
+                <div class="detail-item">
+                    <h4>Author Purpose</h4>
+                    <p>{html.escape(analysis.get('author_purpose', 'Not specified'))}</p>
+                </div>
+
+                <div class="detail-item">
+                    <h4>Short Summary</h4>
+                    <p>{html.escape(analysis.get('short_summary', 'No summary available'))}</p>
+                </div>
+
+                <div class="detail-item">
+                    <h4>Topics</h4>
+                    <div class="d-flex flex-wrap gap-2">
+                        {' '.join(f'<span class="badge bg-primary">{html.escape(topic)}</span>' for topic in analysis.get('topics', []))}
+                    </div>
+                </div>
+
+                <div class="detail-item">
+                    <h4>Key Arguments</h4>
+                    <ul class="list-unstyled">
+                        {''.join(f'<li>{html.escape(arg)}</li>' for arg in analysis.get('key_arguments', []))}
+                    </ul>
+                </div>
+
+                <div class="detail-item">
+                    <h4>Potential Biases Identified</h4>
+                    <ul class="list-unstyled">
+                        {''.join(f'<li>{html.escape(bias)}</li>' for bias in analysis.get('potential_biases_identified', []))}
+                    </ul>
+                </div>
+            </div>
+            """
+        }
+        return output
+    except Exception as e:
+        logger.error(f"Error formatting analysis results: {str(e)}")
+        return {"error": "Error formatting analysis results"}
+
 @app.route('/')
 def home():
     """Home page"""
@@ -575,6 +733,9 @@ def analyze():
             logger.error(f"Failed to fetch similar articles: {str(e)}")
             same_topic_html = '<p>Could not fetch similar articles at this time.</p>'
 
+        # Get source credibility data
+        source_credibility_data = get_source_credibility_data()
+
         # Prepare response
         response = {
             'status': 'success',
@@ -582,7 +743,16 @@ def analyze():
             'credibility': credibility,
             'title': title,
             'source': source,
-            'same_topic_html': same_topic_html
+            'scores_for_chart': {
+                'news_integrity': analysis.get('news_integrity', 0.0),
+                'fact_check_needed_score': analysis.get('fact_check_needed_score', 1.0),
+                'sentiment_score': analysis.get('sentiment_score', 0.5),
+                'bias_score': analysis.get('bias_score', 1.0),
+                'index_of_credibility': analysis.get('index_of_credibility', 0.0)
+            },
+            'source_credibility_data': source_credibility_data,
+            'same_topic_html': same_topic_html,
+            'output': format_analysis_results(title, source, analysis, credibility)
         }
 
         return jsonify(response), 200
