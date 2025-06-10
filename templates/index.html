@@ -403,70 +403,7 @@
                 <div id="analysisResults" class="analysis-results" style="display: none;">
                     <div class="analysis-section">
                         <h2 class="analysis-title">Analysis Results</h2>
-
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="detail-item">
-                                    <h4 class="detail-title">Article Information</h4>
-                                    <p><strong>Title:</strong> <span id="articleTitle"></span></p>
-                                    <p><strong>Source:</strong> <span id="articleSource"></span></p>
-                                    <p><strong>Credibility Level:</strong> <span id="credibilityLevel"></span></p>
-                                </div>
-
-                                <div class="detail-item">
-                                    <h4 class="detail-title">Author Purpose</h4>
-                                    <p id="authorPurpose"></p>
-                                </div>
-                            </div>
-
-                            <div class="col-md-6">
-                                <div class="detail-item">
-                                    <h4 class="detail-title">Short Summary</h4>
-                                    <p id="shortSummary"></p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="score-container">
-                            <div class="score-item">
-                                <div class="score-name">News Integrity</div>
-                                <div class="score-value" id="newsIntegrity">0.0</div>
-                                <div class="score-description">Overall integrity and trustworthiness</div>
-                            </div>
-
-                            <div class="score-item">
-                                <div class="score-name">Fact Check Needed</div>
-                                <div class="score-value" id="factCheckNeeded">0.0</div>
-                                <div class="score-description">Likelihood that claims need fact-checking</div>
-                            </div>
-
-                            <div class="score-item">
-                                <div class="score-name">Sentiment</div>
-                                <div class="score-value" id="sentimentScore">0.0</div>
-                                <div class="score-description">Emotional tone (0.0 negative, 0.5 neutral, 1.0 positive)</div>
-                            </div>
-
-                            <div class="score-item">
-                                <div class="score-name">Bias</div>
-                                <div class="score-value" id="biasScore">0.0</div>
-                                <div class="score-description">Degree of perceived bias</div>
-                            </div>
-                        </div>
-
-                        <div class="detail-item">
-                            <h4 class="detail-title">Topics</h4>
-                            <div id="topicsList" class="d-flex flex-wrap gap-2"></div>
-                        </div>
-
-                        <div class="detail-item">
-                            <h4 class="detail-title">Key Arguments</h4>
-                            <ul id="keyArgumentsList" class="list-unstyled"></ul>
-                        </div>
-
-                        <div class="detail-item">
-                            <h4 class="detail-title">Potential Biases Identified</h4>
-                            <ul id="potentialBiasesList" class="list-unstyled"></ul>
-                        </div>
+                        <div id="analysisOutput"></div>
                     </div>
 
                     <div class="analysis-section">
@@ -510,18 +447,9 @@
             sourceName: document.getElementById('sourceName'),
             loadingIndicator: document.getElementById('loadingIndicator'),
             analysisResults: document.getElementById('analysisResults'),
-            articleTitle: document.getElementById('articleTitle'),
-            articleSource: document.getElementById('articleSource'),
-            credibilityLevel: document.getElementById('credibilityLevel'),
-            authorPurpose: document.getElementById('authorPurpose'),
-            shortSummary: document.getElementById('shortSummary'),
-            newsIntegrity: document.getElementById('newsIntegrity'),
-            factCheckNeeded: document.getElementById('factCheckNeeded'),
-            sentimentScore: document.getElementById('sentimentScore'),
-            biasScore: document.getElementById('biasScore'),
-            topicsList: document.getElementById('topicsList'),
-            keyArgumentsList: document.getElementById('keyArgumentsList'),
-            potentialBiasesList: document.getElementById('potentialBiasesList'),
+            analysisOutput: document.getElementById('analysisOutput'),
+            articleCredibilityChart: document.getElementById('articleCredibilityChart'),
+            sourceCredibilityChart: document.getElementById('sourceCredibilityChart'),
             sameTopicArticles: document.getElementById('sameTopicArticles'),
             showMoreBtn: document.getElementById('showMoreBtn')
         };
@@ -585,7 +513,7 @@
                 elements.showMoreBtn.style.display = 'block';
 
                 // Display analysis results
-                displayAnalysisResults(data);
+                elements.analysisOutput.innerHTML = data.output.output_md;
 
                 // Render charts
                 if (data.scores_for_chart) {
@@ -610,77 +538,6 @@
                 console.error('Error:', error);
                 showAlert(`An error occurred during analysis: ${error.message}`, 'danger');
             });
-        }
-
-        // Function to display analysis results
-        function displayAnalysisResults(data) {
-            // Set basic article information
-            elements.articleTitle.textContent = data.title || 'No title';
-            elements.articleSource.textContent = data.source || 'Unknown source';
-            elements.credibilityLevel.textContent = data.credibility || 'Unknown';
-
-            // Set scores
-            elements.newsIntegrity.textContent = (data.analysis.news_integrity || 0).toFixed(2);
-            elements.factCheckNeeded.textContent = (data.analysis.fact_check_needed_score || 1).toFixed(2);
-            elements.sentimentScore.textContent = (data.analysis.sentiment_score || 0.5).toFixed(2);
-            elements.biasScore.textContent = (data.analysis.bias_score || 1).toFixed(2);
-
-            // Set author purpose and summary
-            elements.authorPurpose.textContent = data.analysis.author_purpose || 'Not specified';
-            elements.shortSummary.textContent = data.analysis.short_summary || 'No summary available';
-
-            // Display topics
-            displayListItems(data.analysis.topics || [], elements.topicsList, 'badge bg-primary me-1');
-
-            // Display key arguments
-            displayListItems(data.analysis.key_arguments || [], elements.keyArgumentsList, 'list-item');
-
-            // Display potential biases
-            displayListItems(data.analysis.potential_biases_identified || [], elements.potentialBiasesList, 'list-item');
-
-            // Set credibility indicator
-            setCredibilityIndicator(data.credibility);
-        }
-
-        // Function to display list items
-        function displayListItems(items, container, className) {
-            container.innerHTML = '';
-
-            if (items.length === 0) {
-                container.innerHTML = '<p>None identified</p>';
-                return;
-            }
-
-            items.forEach(item => {
-                const element = document.createElement('span');
-                element.className = className;
-                element.textContent = item;
-                container.appendChild(element);
-            });
-        }
-
-        // Function to set credibility indicator
-        function setCredibilityIndicator(level) {
-            const container = document.createElement('div');
-            container.className = 'credibility-indicator mt-3';
-
-            const fill = document.createElement('div');
-            fill.className = 'credibility-fill';
-
-            if (level === 'High') {
-                fill.classList.add('high-credibility-fill');
-            } else if (level === 'Medium') {
-                fill.classList.add('medium-credibility-fill');
-            } else {
-                fill.classList.add('low-credibility-fill');
-            }
-
-            container.appendChild(fill);
-
-            const credibilitySection = document.querySelector('.detail-item:first-child');
-            if (credibilitySection) {
-                credibilitySection.appendChild(container);
-            }
         }
 
         // Function to load more articles
@@ -811,18 +668,24 @@
                 return;
             }
 
+            if (!data || !data.sources || !data.credibility_scores) {
+                console.error('Invalid source credibility data:', data);
+                showAlert('Invalid data for source credibility chart', 'danger');
+                return;
+            }
+
             const chartData = [{
                 x: data.sources,
-                y: data.credibility_indices_for_plot,
+                y: data.credibility_scores,
                 type: 'bar',
                 marker: {
-                    color: data.credibility_indices_for_plot.map(score => {
+                    color: data.credibility_scores.map(score => {
                         if (score >= 0.75) return 'rgba(40, 167, 69, 0.8)';
                         if (score >= 0.5) return 'rgba(255, 193, 7, 0.8)';
                         return 'rgba(220, 53, 69, 0.8)';
                     })
                 },
-                text: data.credibility_indices_for_plot.map(score => (score * 100).toFixed(0) + '%'),
+                text: data.credibility_scores.map(score => (score * 100).toFixed(0) + '%'),
                 textposition: 'auto'
             }];
 
