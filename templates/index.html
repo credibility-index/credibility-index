@@ -35,30 +35,6 @@
             padding: 15px 0;
         }
 
-        .navbar-brand {
-            display: flex;
-            align-items: center;
-            width: 100%;
-        }
-
-        .logo-container {
-            display: flex;
-            align-items: center;
-            margin-right: auto;
-        }
-
-        .logo {
-            width: 40px;
-            height: 40px;
-            margin-right: 10px;
-        }
-
-        .navbar-text {
-            font-size: 1.2rem;
-            font-weight: 700;
-            color: var(--accent-color);
-        }
-
         .main-container {
             min-height: calc(100vh - 120px);
             padding: 30px 0;
@@ -76,12 +52,6 @@
             margin-bottom: 10px;
         }
 
-        .subheading {
-            font-size: 1rem;
-            color: var(--secondary-color);
-            font-weight: 400;
-        }
-
         .form-container {
             background-color: white;
             padding: 30px;
@@ -95,15 +65,7 @@
             border-color: var(--accent-color);
             padding: 10px 20px;
             font-weight: 500;
-            transition: all 0.3s ease;
             border-radius: 5px;
-        }
-
-        .btn-analyze:hover {
-            background-color: #2980b9;
-            border-color: #2980b9;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
 
         .loading-container {
@@ -116,20 +78,6 @@
             box-shadow: 0 2px 15px rgba(0,0,0,0.1);
         }
 
-        .spinner {
-            width: 5rem;
-            height: 5rem;
-            margin: 0 auto 20px;
-            color: var(--primary-color);
-        }
-
-        .loading-text {
-            font-size: 1.2rem;
-            font-weight: 500;
-            color: var(--primary-color);
-            margin-top: 10px;
-        }
-
         .analysis-results {
             margin-top: 30px;
         }
@@ -140,47 +88,6 @@
             background-color: white;
             border-radius: 8px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        }
-
-        .analysis-title {
-            color: var(--primary-color);
-            border-bottom: 2px solid var(--accent-color);
-            padding-bottom: 10px;
-            margin-bottom: 20px;
-        }
-
-        .score-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-
-        .score-item {
-            flex: 1 1 200px;
-            background-color: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-            text-align: center;
-        }
-
-        .score-name {
-            font-weight: 600;
-            color: var(--secondary-color);
-            margin-bottom: 5px;
-            font-size: 0.9rem;
-        }
-
-        .score-value {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--primary-color);
-        }
-
-        .score-description {
-            font-size: 0.8rem;
-            color: var(--secondary-color);
-            margin-top: 5px;
         }
 
         .chart-container {
@@ -210,62 +117,6 @@
             box-shadow: 0 1px 5px rgba(0,0,0,0.05);
             margin-bottom: 20px;
             border-left: 4px solid var(--primary-color);
-            transition: transform 0.3s ease;
-        }
-
-        .same-topic-article:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-        }
-
-        .article-title {
-            color: var(--primary-color);
-            font-weight: 600;
-            margin-bottom: 5px;
-        }
-
-        .article-title a {
-            color: inherit;
-            text-decoration: none;
-        }
-
-        .article-title a:hover {
-            color: var(--accent-color);
-        }
-
-        .article-meta {
-            color: var(--secondary-color);
-            font-size: 0.9rem;
-            margin-bottom: 10px;
-        }
-
-        .article-content {
-            color: var(--text-color);
-            line-height: 1.5;
-        }
-
-        .credibility-badge {
-            display: inline-block;
-            padding: 3px 8px;
-            border-radius: 12px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            margin-left: 10px;
-        }
-
-        .high-credibility {
-            background-color: rgba(40, 167, 69, 0.2);
-            color: var(--success-color);
-        }
-
-        .medium-credibility {
-            background-color: rgba(255, 193, 7, 0.2);
-            color: var(--warning-color);
-        }
-
-        .low-credibility {
-            background-color: rgba(220, 53, 69, 0.2);
-            color: var(--danger-color);
         }
 
         .show-more-btn {
@@ -277,13 +128,6 @@
             border: none;
             border-radius: 5px;
             cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .show-more-btn:hover {
-            background-color: #2980b9;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
 
         .feedback-btn {
@@ -300,17 +144,6 @@
             justify-content: center;
             box-shadow: 0 2px 10px rgba(0,0,0,0.2);
             z-index: 1000;
-            transition: all 0.3s ease;
-        }
-
-        .feedback-btn:hover {
-            background-color: #2980b9;
-            transform: scale(1.1);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-        }
-
-        .feedback-btn i {
-            font-size: 24px;
         }
 
         .footer {
@@ -318,34 +151,6 @@
             padding: 20px 0;
             margin-top: 50px;
             box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
-        }
-
-        .credibility-indicator {
-            height: 20px;
-            margin-top: 10px;
-            border-radius: 10px;
-            overflow: hidden;
-            background-color: #e9ecef;
-        }
-
-        .credibility-fill {
-            height: 100%;
-            border-radius: 10px;
-        }
-
-        .high-credibility-fill {
-            background-color: var(--success-color);
-            width: 100%;
-        }
-
-        .medium-credibility-fill {
-            background-color: var(--warning-color);
-            width: 66%;
-        }
-
-        .low-credibility-fill {
-            background-color: var(--danger-color);
-            width: 33%;
         }
     </style>
 </head>
@@ -356,10 +161,6 @@
                 <i class="bi bi-newspaper me-2"></i>
                 Media Credibility Index
             </a>
-            <div class="d-flex">
-                <a href="/faq" class="btn btn-outline-secondary me-2">FAQ</a>
-                <a href="/feedback" class="btn btn-outline-primary">Feedback</a>
-            </div>
         </div>
     </nav>
 
@@ -370,7 +171,7 @@
     <div class="container main-container">
         <div class="page-title">
             <h1 class="main-heading">Article Credibility Analyzer</h1>
-            <p class="subheading">Setting the Standard for Media Trust</p>
+            <p class="subheading">Analyze news articles for credibility, bias, and factual accuracy</p>
         </div>
 
         <div class="row justify-content-center">
@@ -421,7 +222,7 @@
                     </div>
 
                     <div class="analysis-section">
-                        <h2 class="analysis-title">Same Topic Articles</h2>
+                        <h2 class="analysis-title">Similar Articles</h2>
                         <div id="sameTopicArticles"></div>
                         <button id="showMoreBtn" class="show-more-btn" style="display: none;">
                             Show More Articles
@@ -434,7 +235,7 @@
 
     <footer class="footer">
         <div class="container text-center">
-            <p class="mb-0">&copy; 2025 Media Credibility Index. All rights reserved.</p>
+            <p class="mb-0">&copy; 2023 Media Credibility Index. All rights reserved.</p>
         </div>
     </footer>
 
@@ -487,20 +288,26 @@
             elements.loadingIndicator.style.display = 'block';
             elements.analysisResults.style.display = 'none';
 
+            // Prepare request data
+            const requestData = {
+                input_text: inputText,
+                source_name_manual: sourceName
+            };
+
             // Send request to server for analysis
             fetch('/analyze', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Accept': 'application/json'
                 },
-                body: JSON.stringify({
-                    input_text: inputText,
-                    source_name_manual: sourceName
-                })
+                body: JSON.stringify(requestData)
             })
             .then(response => {
                 if (!response.ok) {
-                    throw new Error('Network response was not ok');
+                    return response.json().then(err => {
+                        throw new Error(err.error || 'Network response was not ok');
+                    });
                 }
                 return response.json();
             })
@@ -536,7 +343,7 @@
             .catch(error => {
                 elements.loadingIndicator.style.display = 'none';
                 console.error('Error:', error);
-                showAlert(`An error occurred during analysis: ${error.message}`, 'danger');
+                showAlert(`An error occurred: ${error.message}`, 'danger');
             });
         }
 
@@ -549,7 +356,9 @@
             fetch(`/same_topic_articles?page=${currentPage}`)
             .then(response => {
                 if (!response.ok) {
-                    throw new Error('Network response was not ok');
+                    return response.json().then(err => {
+                        throw new Error(err.error || 'Network response was not ok');
+                    });
                 }
                 return response.json();
             })
@@ -565,7 +374,7 @@
             })
             .catch(error => {
                 console.error('Error loading more articles:', error);
-                showAlert(`An error occurred while loading more articles: ${error.message}`, 'danger');
+                showAlert(`An error occurred: ${error.message}`, 'danger');
                 elements.showMoreBtn.disabled = false;
                 elements.showMoreBtn.textContent = 'Show More Articles';
             });
@@ -629,32 +438,11 @@
                     radialaxis: {
                         visible: true,
                         range: [0, 100],
-                        tickangle: 45,
-                        tickfont: {
-                            size: 12
-                        }
-                    },
-                    angularaxis: {
-                        direction: "clockwise",
-                        rotation: 90
+                        tickangle: 45
                     }
                 },
-                title: {
-                    text: 'Article Credibility Radar Chart',
-                    font: {
-                        size: 18
-                    }
-                },
-                showlegend: false,
-                margin: {
-                    l: 50,
-                    r: 50,
-                    t: 80,
-                    b: 50,
-                    pad: 10
-                },
-                paper_bgcolor: 'rgba(0,0,0,0)',
-                plot_bgcolor: 'rgba(0,0,0,0)'
+                title: 'Article Credibility Radar Chart',
+                showlegend: false
             };
 
             Plotly.newPlot('articleCredibilityChart', chartData, layout);
@@ -670,7 +458,7 @@
 
             if (!data || !data.sources || !data.credibility_scores) {
                 console.error('Invalid source credibility data:', data);
-                showAlert('Invalid data for source credibility chart', 'danger');
+                showAlert('No source credibility data available', 'warning');
                 return;
             }
 
@@ -698,13 +486,6 @@
                 yaxis: {
                     title: 'Credibility Score',
                     range: [0, 1]
-                },
-                margin: {
-                    l: 50,
-                    r: 50,
-                    b: 100,
-                    t: 50,
-                    pad: 4
                 }
             };
 
