@@ -29,7 +29,7 @@
             margin: 0;
         }
 
-        /* Навигационное меню */
+        /* Navigation menu */
         .navbar {
             background-color: white;
             box-shadow: 0 2px 10px rgba(0,0,0,0.05);
@@ -39,7 +39,6 @@
         .navbar-brand {
             display: flex;
             align-items: center;
-            width: 100%;
         }
 
         .logo-container {
@@ -60,7 +59,27 @@
             color: var(--accent-color);
         }
 
-        /* Основной контейнер */
+        /* Navigation buttons */
+        .nav-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .nav-btn {
+            padding: 8px 15px;
+            border-radius: 5px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            color: var(--text-color);
+        }
+
+        .nav-btn:hover {
+            color: var(--accent-color);
+            background-color: rgba(52, 152, 219, 0.1);
+        }
+
+        /* Main container */
         .main-container {
             min-height: calc(100vh - 120px);
             padding: 30px 0;
@@ -84,7 +103,7 @@
             font-weight: 400;
         }
 
-        /* Стили для формы анализа */
+        /* Form container */
         .form-container {
             background-color: white;
             padding: 30px;
@@ -93,7 +112,7 @@
             margin-bottom: 30px;
         }
 
-        /* Стили для кнопки анализа */
+        /* Analyze button */
         .btn-analyze {
             background-color: var(--accent-color);
             border-color: var(--accent-color);
@@ -110,7 +129,7 @@
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
 
-        /* Стили для индикатора загрузки */
+        /* Loading indicator */
         .loading-container {
             display: none;
             text-align: center;
@@ -135,7 +154,7 @@
             margin-top: 10px;
         }
 
-        /* Стили для результатов анализа */
+        /* Analysis results container */
         .analysis-container {
             background-color: white;
             border-radius: 10px;
@@ -144,7 +163,7 @@
             margin-top: 20px;
         }
 
-        /* Стили для чартов */
+        /* Chart container */
         .chart-container {
             width: 100%;
             height: 500px;
@@ -155,7 +174,7 @@
             padding: 20px;
         }
 
-        /* Стили для статей по той же теме */
+        /* Same topic articles */
         .same-topic-article {
             background-color: white;
             border-radius: 8px;
@@ -221,7 +240,7 @@
             color: var(--danger-color);
         }
 
-        /* Стили для кнопки "Показать больше" */
+        /* Show more button */
         .show-more-btn {
             display: block;
             margin: 20px auto;
@@ -240,17 +259,45 @@
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
 
-        /* Стили для футера */
+        /* Footer */
         .footer {
             background-color: white;
             padding: 20px 0;
             margin-top: 50px;
             box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
         }
+
+        /* Feedback button */
+        .feedback-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background-color: var(--accent-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 1000;
+            transition: all 0.3s ease;
+        }
+
+        .feedback-btn:hover {
+            background-color: #2980b9;
+            transform: scale(1.1);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        .feedback-btn i {
+            font-size: 24px;
+        }
     </style>
 </head>
 <body>
-    <!-- Навигационное меню -->
+    <!-- Navigation menu -->
     <nav class="navbar navbar-expand-lg navbar-light bg-white">
         <div class="container">
             <div class="logo-container">
@@ -262,18 +309,29 @@
                 </svg>
                 <span class="navbar-text">Media Credibility Index</span>
             </div>
+
+            <!-- Navigation buttons -->
+            <div class="nav-buttons">
+                <a href="/faq" class="nav-btn">FAQ</a>
+                <a href="/feedback" class="nav-btn">Feedback</a>
+            </div>
         </div>
     </nav>
 
-    <!-- Основной контейнер -->
+    <!-- Feedback button -->
+    <a href="/feedback" class="feedback-btn">
+        <i class="bi bi-chat-dots"></i>
+    </a>
+
+    <!-- Main container -->
     <div class="container main-container">
-        <!-- Заголовок страницы -->
+        <!-- Page title -->
         <div class="page-title">
             <h1 class="main-heading">Check Credibility Index of the article:</h1>
             <p class="subheading">Setting the Standard for Media Trust</p>
         </div>
 
-        <!-- Форма для анализа статьи -->
+        <!-- Article analysis form -->
         <div class="row justify-content-center">
             <div class="col-lg-10">
                 <div class="form-container">
@@ -293,8 +351,8 @@
                     </form>
                 </div>
 
-                <!-- Индикатор загрузки -->
-                <div class="loading-container text-center" id="loadingIndicator" style="display: none;">
+                <!-- Loading indicator -->
+                <div class="loading-container text-center" id="loadingIndicator">
                     <div class="spinner-border spinner" role="status">
                         <span class="visually-hidden">Loading...</span>
                     </div>
@@ -302,17 +360,17 @@
                     <p class="text-muted">This may take a moment as we perform deep analysis</p>
                 </div>
 
-                <!-- Контейнер для результатов анализа -->
+                <!-- Analysis results container -->
                 <div id="analysisResults" style="display: none;">
                     <div id="analysisOutput"></div>
 
-                    <!-- Контейнер для чартов -->
+                    <!-- Chart container -->
                     <div class="chart-container">
                         <h3 class="mb-4">Credibility Scores</h3>
                         <div id="credibilityChart"></div>
                     </div>
 
-                    <!-- Контейнер для статей по той же теме -->
+                    <!-- Same topic articles container -->
                     <div class="search-results">
                         <div class="search-results-header">
                             <h2 class="search-results-title">Same Topic Articles</h2>
@@ -327,7 +385,7 @@
         </div>
     </div>
 
-    <!-- Футер -->
+    <!-- Footer -->
     <footer class="footer">
         <div class="container">
             <div class="row">
@@ -340,7 +398,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Кэшируем элементы DOM
+        // DOM elements cache
         const elements = {
             analysisForm: document.getElementById('analysisForm'),
             articleInput: document.getElementById('articleInput'),
@@ -353,7 +411,7 @@
             showMoreBtn: document.getElementById('showMoreBtn')
         };
 
-        // Инициализация при загрузке страницы
+        // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
             if (elements.analysisForm) {
                 elements.analysisForm.addEventListener('submit', function(e) {
@@ -369,7 +427,10 @@
             }
         });
 
-        // Функция для анализа статьи
+        // Current page for pagination
+        let currentPage = 1;
+
+        // Function to analyze article
         function analyzeArticle() {
             const inputText = elements.articleInput.value.trim();
             const sourceName = elements.sourceName ? elements.sourceName.value.trim() : '';
@@ -379,11 +440,11 @@
                 return;
             }
 
-            // Показываем индикатор загрузки
+            // Show loading indicator
             elements.loadingIndicator.style.display = 'block';
             elements.analysisResults.style.display = 'none';
 
-            // Отправляем запрос на сервер для анализа
+            // Send request to server for analysis
             fetch('/analyze', {
                 method: 'POST',
                 headers: {
@@ -401,28 +462,28 @@
                 return response.json();
             })
             .then(data => {
-                // Скрываем индикатор загрузки
+                // Hide loading indicator
                 elements.loadingIndicator.style.display = 'none';
 
-                // Показываем результаты анализа
+                // Show analysis results
                 elements.analysisResults.style.display = 'block';
                 elements.showMoreBtn.style.display = 'block';
 
-                // Отображаем результаты анализа
+                // Display analysis results
                 elements.analysisOutput.innerHTML = marked.parse(data.output_md || '');
 
-                // Визуализируем графики
+                // Render charts
                 if (data.scores_for_chart) {
                     renderCredibilityChart(data.scores_for_chart);
                 }
 
-                // Отображаем статьи по той же теме
+                // Display same topic articles
                 if (data.same_topic_html) {
                     elements.sameTopicArticles.innerHTML = data.same_topic_html;
                     currentPage = 1;
                 }
 
-                // Прокручиваем страницу к результатам
+                // Scroll to results
                 elements.analysisResults.scrollIntoView({ behavior: 'smooth' });
             })
             .catch(error => {
@@ -432,10 +493,7 @@
             });
         }
 
-        // Переменная для отслеживания текущей страницы
-        let currentPage = 1;
-
-        // Функция для загрузки дополнительных статей
+        // Function to load more articles
         function loadMoreArticles() {
             currentPage++;
             elements.showMoreBtn.disabled = true;
@@ -471,7 +529,7 @@
             });
         }
 
-        // Функция для отображения уведомлений
+        // Function to show alerts
         function showAlert(message, type) {
             const alertContainer = document.createElement('div');
             alertContainer.className = `alert alert-${type} alert-dismissible fade show`;
@@ -489,17 +547,17 @@
             }, 5000);
         }
 
-        // Функция для визуализации графика достоверности
+        // Function to render credibility chart
         function renderCredibilityChart(scores) {
             if (typeof Plotly === 'undefined') {
-                console.error('Plotly не загружен!');
+                console.error('Plotly is not loaded!');
                 showAlert('Error loading visualization library', 'danger');
                 return;
             }
 
             const chartContainer = document.getElementById('credibilityChart');
             if (!chartContainer) {
-                console.error('Контейнер для чартов не найден!');
+                console.error('Chart container not found!');
                 return;
             }
 
@@ -509,11 +567,11 @@
             const chartData = [{
                 type: 'scatterpolar',
                 r: [
-                    scores.Integrity || 0,
-                    scores.Factuality || 0,
-                    scores['Neutral Sentiment'] || 0,
-                    scores['Low Bias'] || 0,
-                    scores['Overall Credibility Index'] || 0
+                    scores.integrity * 100 || 0,
+                    (1 - scores.fact_check) * 100 || 0,
+                    scores.sentiment * 100 || 0,
+                    (1 - scores.bias) * 100 || 0,
+                    scores.index_of_credibility * 100 || 0
                 ],
                 theta: [
                     'Integrity',
@@ -572,7 +630,7 @@
                     displayModeBar: true
                 });
             } catch (error) {
-                console.error('Ошибка при инициализации чартов:', error);
+                console.error('Error initializing charts:', error);
                 showAlert('Error rendering charts', 'danger');
             }
         }
