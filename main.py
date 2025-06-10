@@ -4,9 +4,10 @@ import sqlite3
 import re
 import json
 import requests
+import html
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
-from flask import Flask, request, jsonify, render_template, session, redirect, url_for
+from flask import Flask, request, jsonify, render_template, session, make_response
 from werkzeug.middleware.proxy_fix import ProxyFix
 import anthropic
 from newspaper import Article
@@ -171,12 +172,22 @@ def internal_server_error(e):
 class ClaudeNewsAnalyzer:
     """Class for interacting with Anthropic Claude API"""
     def __init__(self):
+        if not ANTHROPIC_API_KEY:
+            raise ValueError("Anthropic API key is not configured")
+
         self.client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
         self.model_name = MODEL_NAME
 
     def analyze_article_text(self, article_text_content, source_name_for_context):
         """Analyze article text using Claude API"""
         try:
+            # Limit the article length to avoid API errors
+            max_chars = 10000
+            if len(article_text_content) > max_chars:
+                article_text_content = article_text_content[:max_chars]
+                logger.warning(f"Article content truncated to {max_chars} characters")
+
+            # Create prompt for analysis
             prompt = f"""Analyze this news article and provide a JSON response with these fields:
 - news_integrity (0.0-1.0)
 - fact_check_needed_score (0.0-1.0)
@@ -190,17 +201,21 @@ class ClaudeNewsAnalyzer:
 - short_summary (string)
 - index_of_credibility (0.0-1.0)
 
-Article: {article_text_content[:5000]}..."""
+Article content:
+{article_text_content[:5000]}..."""
 
+            # Make API request
             response = self.client.messages.create(
                 model=self.model_name,
                 max_tokens=2000,
                 messages=[{"role": "user", "content": prompt}]
             )
 
+            # Extract and parse JSON response
             response_text = response.content[0].text.strip()
-            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
 
+            # Try to find JSON in the response
+            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
             if json_match:
                 try:
                     return json.loads(json_match.group(0))
@@ -208,15 +223,19 @@ Article: {article_text_content[:5000]}..."""
                     logger.error(f"Failed to parse JSON: {str(e)}. Response was: {response_text}")
                     raise ValueError("Invalid JSON in response")
 
+            # If no JSON found, try to parse the whole response
             try:
                 return json.loads(response_text)
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to parse response as JSON: {str(e)}. Response was: {response_text}")
                 raise ValueError("Response is not valid JSON")
 
+        except anthropic.APIError as e:
+            logger.error(f"Anthropic API error: {str(e)}")
+            raise ValueError(f"API Error: {str(e)}")
         except Exception as e:
-            logger.error(f'Claude analysis error: {str(e)}')
-            raise ValueError(f'AI analysis error: {str(e)}')
+            logger.error(f"Analysis error: {str(e)}")
+            raise ValueError(f"Analysis failed: {str(e)}")
 
 def extract_text_from_url(url):
     """Extract text from URL"""
@@ -237,27 +256,34 @@ def extract_text_from_url(url):
                 urlparse(clean_url).netloc.replace('www.', ''),
                 article.title.strip())
     except Exception as e:
-        logger.error(f'Error extracting article from {url}: {str(e)}')
+        logger.error(f"Error extracting article from {url}: {str(e)}")
         return None, None, None
 
 def calculate_credibility(integrity, fact_check, sentiment, bias):
     """Calculate credibility level"""
-    fact_check_score = 1.0 - fact_check
-    sentiment_score = 1.0 - abs(sentiment - 0.5) * 2
-    bias_score = 1.0 - bias
+    try:
+        fact_check_score = 1.0 - fact_check
+        sentiment_score = 1.0 - abs(sentiment - 0.5) * 2
+        bias_score = 1.0 - bias
 
-    score = (integrity * 0.45) + (fact_check_score * 0.35) + (sentiment_score * 0.10) + (bias_score * 0.10)
+        score = (integrity * 0.45) + (fact_check_score * 0.35) + (sentiment_score * 0.10) + (bias_score * 0.10)
 
-    if score >= 0.75:
-        return 'High'
-    if score >= 0.5:
-        return 'Medium'
-    return 'Low'
+        if score >= 0.75:
+            return 'High'
+        if score >= 0.5:
+            return 'Medium'
+        return 'Low'
+    except Exception as e:
+        logger.error(f"Error calculating credibility: {str(e)}")
+        raise ValueError("Error calculating credibility score")
 
 def save_analysis(url, title, source, content, analysis):
     """Save analysis to database"""
     try:
         with get_db_connection() as conn:
+            cursor = conn.cursor()
+
+            # Extract analysis data
             integrity = analysis.get('news_integrity', 0.0)
             fact_check = analysis.get('fact_check_needed_score', 1.0)
             sentiment = analysis.get('sentiment_score', 0.5)
@@ -265,10 +291,14 @@ def save_analysis(url, title, source, content, analysis):
             summary = analysis.get('short_summary', 'No summary')
             credibility = analysis.get('index_of_credibility', 0.0)
 
+            # Calculate credibility level
             level = calculate_credibility(integrity, fact_check, sentiment, bias)
+
+            # Generate unique URL for text input
             db_url = url if url else f'text_{datetime.now(timezone.utc).timestamp()}'
 
-            conn.execute('''
+            # Save to database
+            cursor.execute('''
                 INSERT INTO news
                 (url, title, source, content, integrity, fact_check, sentiment, bias,
                 credibility_level, short_summary, index_of_credibility)
@@ -286,9 +316,12 @@ def save_analysis(url, title, source, content, analysis):
 
             conn.commit()
             return level
+    except sqlite3.Error as e:
+        logger.error(f"Database error: {str(e)}")
+        raise ValueError("Database operation failed")
     except Exception as e:
-        logger.error(f'Database error: {str(e)}')
-        raise
+        logger.error(f"Error saving analysis: {str(e)}")
+        raise ValueError("Failed to save analysis")
 
 def generate_query(analysis_result):
     """Generate query for finding similar articles"""
@@ -428,7 +461,6 @@ def render_same_topic_articles_html(articles):
 
     return '<div class="same-topic-articles-container">' + ''.join(html_items) + '</div>'
 
-# Routes
 @app.route('/')
 def home():
     """Home page"""
@@ -474,7 +506,11 @@ def feedback():
 def analyze():
     """Analyze article endpoint"""
     if request.method == 'OPTIONS':
-        return jsonify({}), 200
+        response = make_response()
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+        return response
 
     try:
         if not request.is_json:
@@ -504,24 +540,40 @@ def analyze():
             return jsonify({'error': 'Content too short (min 100 chars)'}), 400
 
         # Analyze with Claude
-        analyzer = ClaudeNewsAnalyzer()
-        analysis = analyzer.analyze_article_text(content, source)
+        try:
+            analyzer = ClaudeNewsAnalyzer()
+            analysis = analyzer.analyze_article_text(content, source)
+        except ValueError as e:
+            return jsonify({'error': str(e)}), 400
+        except Exception as e:
+            logger.error(f"Analysis failed: {str(e)}")
+            return jsonify({'error': 'Analysis failed'}), 500
 
         # Save to database
-        credibility = save_analysis(
-            input_text if input_text.startswith('http') else None,
-            title,
-            source,
-            content,
-            analysis
-        )
+        try:
+            credibility = save_analysis(
+                input_text if input_text.startswith('http') else None,
+                title,
+                source,
+                content,
+                analysis
+            )
+        except ValueError as e:
+            return jsonify({'error': str(e)}), 500
+        except Exception as e:
+            logger.error(f"Failed to save analysis: {str(e)}")
+            return jsonify({'error': 'Failed to save analysis'}), 500
 
         # Store analysis result in session
         session['last_analysis_result'] = analysis
 
         # Get similar articles
-        same_topic_articles = fetch_same_topic_articles(analysis)
-        same_topic_html = render_same_topic_articles_html(same_topic_articles)
+        try:
+            same_topic_articles = fetch_same_topic_articles(analysis)
+            same_topic_html = render_same_topic_articles_html(same_topic_articles)
+        except Exception as e:
+            logger.error(f"Failed to fetch similar articles: {str(e)}")
+            same_topic_html = '<p>Could not fetch similar articles at this time.</p>'
 
         # Prepare response
         response = {
@@ -530,17 +582,14 @@ def analyze():
             'credibility': credibility,
             'title': title,
             'source': source,
-            'same_topic_articles': same_topic_html
+            'same_topic_html': same_topic_html
         }
 
         return jsonify(response), 200
 
-    except ValueError as e:
-        logger.error(f'Analysis error: {str(e)}')
-        return jsonify({'status': 'error', 'message': str(e)}), 400
     except Exception as e:
-        logger.error(f'Unexpected error: {str(e)}')
-        return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
+        logger.error(f"Unexpected error in analyze endpoint: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/same_topic_articles', methods=['GET'])
 def get_same_topic_articles():
