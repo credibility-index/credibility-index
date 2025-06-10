@@ -6,7 +6,6 @@
     <title>Media Credibility Index</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <!-- Подключаем Plotly с локального CDN -->
     <script src="https://cdn.plot.ly/plotly-2.20.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
@@ -187,6 +186,38 @@
             box-shadow: 0 1px 5px rgba(0,0,0,0.05);
             margin-bottom: 20px;
             border-left: 4px solid var(--primary-color);
+            transition: transform 0.3s ease;
+        }
+
+        .similar-article:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .article-title {
+            color: var(--primary-color);
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .article-title a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        .article-title a:hover {
+            color: var(--accent-color);
+        }
+
+        .article-meta {
+            color: var(--secondary-color);
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+        }
+
+        .article-content {
+            color: var(--text-color);
+            line-height: 1.5;
         }
 
         /* Стили для футера */
@@ -291,8 +322,61 @@
 
                     <!-- Контейнер для похожих статей -->
                     <div class="similar-articles-container">
-                        <h3 class="mb-4">Same Topic Articles</h3>
-                        <div id="similarArticles"></div>
+                        <h3 class="mb-4">Similar Articles</h3>
+
+                        <!-- Первая похожая статья -->
+                        <div class="similar-article">
+                            <h4 class="article-title">
+                                <a href="https://www.bbc.com/news/world-us-canada-65555555" target="_blank">
+                                    US inflation shows signs of cooling as price rises slow
+                                </a>
+                            </h4>
+                            <p class="article-meta">
+                                <strong>Source:</strong> BBC News |
+                                <strong>Published:</strong> 2023-05-15 |
+                                <strong>Credibility:</strong> 92%
+                            </p>
+                            <p class="article-content">
+                                The latest US inflation figures show prices rose by 4% in the year to May, down from 4.9% in April.
+                                The slowdown was driven by falling energy prices, though food costs continued to climb.
+                            </p>
+                        </div>
+
+                        <!-- Вторая похожая статья -->
+                        <div class="similar-article">
+                            <h4 class="article-title">
+                                <a href="https://www.reuters.com/business/us-inflation-cools-more-than-expected-2023-05-15/" target="_blank">
+                                    US inflation cools more than expected, raising hopes for Fed rate pause
+                                </a>
+                            </h4>
+                            <p class="article-meta">
+                                <strong>Source:</strong> Reuters |
+                                <strong>Published:</strong> 2023-05-15 |
+                                <strong>Credibility:</strong> 95%
+                            </p>
+                            <p class="article-content">
+                                U.S. consumer prices increased less than expected in May and underlying inflation pressures
+                                moderated, which could allow the Federal Reserve to skip an interest rate hike next week.
+                            </p>
+                        </div>
+
+                        <!-- Третья похожая статья -->
+                        <div class="similar-article">
+                            <h4 class="article-title">
+                                <a href="https://www.theguardian.com/business/2023/may/15/us-inflation-rate-falls" target="_blank">
+                                    US inflation falls to lowest level in two years as price rises ease
+                                </a>
+                            </h4>
+                            <p class="article-meta">
+                                <strong>Source:</strong> The Guardian |
+                                <strong>Published:</strong> 2023-05-15 |
+                                <strong>Credibility:</strong> 89%
+                            </p>
+                            <p class="article-content">
+                                Inflation in the US has fallen to its lowest level in two years as the cost of living crisis eases.
+                                The consumer price index rose by 4% in the year to May, down from 4.9% in April.
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -357,7 +441,60 @@
                     elements.articleInput.focus();
                 });
             }
+
+            // Инициализация чартов при загрузке
+            initializeCharts();
         });
+
+        // Функция для инициализации чартов
+        function initializeCharts() {
+            const chartData = [{
+                type: 'scatterpolar',
+                r: [85, 90, 70, 80, 82.5],
+                theta: [
+                    'Integrity',
+                    'Factuality',
+                    'Neutral Sentiment',
+                    'Low Bias',
+                    'Overall Credibility'
+                ],
+                fill: 'toself',
+                name: 'Credibility Scores',
+                marker: {
+                    color: 'rgb(78, 115, 223)',
+                    line: {
+                        color: 'rgb(46, 65, 235)',
+                        width: 2
+                    }
+                }
+            }];
+
+            const layout = {
+                polar: {
+                    radialaxis: {
+                        visible: true,
+                        range: [0, 100]
+                    }
+                },
+                title: 'Article Credibility Radar Chart',
+                showlegend: false,
+                margin: {
+                    l: 50,
+                    r: 50,
+                    t: 80,
+                    b: 50
+                }
+            };
+
+            try {
+                Plotly.newPlot('credibilityChart', chartData, layout, {
+                    responsive: true,
+                    displayModeBar: true
+                });
+            } catch (error) {
+                console.error('Ошибка при инициализации чартов:', error);
+            }
+        }
 
         // Функция для анализа статьи
         function analyzeArticle() {
@@ -431,35 +568,9 @@ The media owner, Example Media Corporation, may influence source credibility.
 
                 elements.analysisOutput.innerHTML = marked.parse(sampleAnalysis);
 
-                // Визуализируем графики
-                renderCredibilityChart({
-                    Integrity: 85,
-                    Factuality: 90,
-                    'Neutral Sentiment': 70,
-                    'Low Bias': 80,
-                    'Overall Credibility Index': 82.5
-                });
-
-                // Отображаем похожие статьи
-                const sampleArticles = `
-<div class="similar-article">
-    <h4><a href="#" target="_blank">Similar Article 1</a></h4>
-    <p><strong>Source:</strong> BBC News | <strong>Published:</strong> 2023-05-15</p>
-    <p>This article covers similar topics and provides additional context to the original piece.</p>
-</div>
-<hr>
-<div class="similar-article">
-    <h4><a href="#" target="_blank">Similar Article 2</a></h4>
-    <p><strong>Source:</strong> Reuters | <strong>Published:</strong> 2023-05-14</p>
-    <p>Another perspective on the same event with different emphasis on certain aspects.</p>
-</div>
-`;
-
-                elements.similarArticles.innerHTML = sampleArticles;
-
                 // Прокручиваем страницу к результатам
                 elements.analysisResults.scrollIntoView({ behavior: 'smooth' });
-            }, 2000); // Имитация задержки сервера
+            }, 2000);
         }
 
         // Функция для отображения уведомлений
@@ -478,85 +589,6 @@ The media owner, Example Media Corporation, may influence source credibility.
                 const alert = bootstrap.Alert.getOrCreateInstance(alertContainer);
                 alert.close();
             }, 5000);
-        }
-
-        // Функция для визуализации графика достоверности
-        function renderCredibilityChart(scores) {
-            // Проверяем, что Plotly загружен
-            if (typeof Plotly === 'undefined') {
-                console.error('Plotly не загружен!');
-                showAlert('Error loading visualization library', 'danger');
-                return;
-            }
-
-            // Проверяем, что контейнер существует
-            const chartContainer = document.getElementById('credibilityChart');
-            if (!chartContainer) {
-                console.error('Контейнер для чартов не найден!');
-                return;
-            }
-
-            // Устанавливаем размеры контейнера
-            chartContainer.style.width = '100%';
-            chartContainer.style.height = '500px';
-
-            // Данные для чартов
-            const chartData = [{
-                type: 'scatterpolar',
-                r: [
-                    scores.Integrity || 0,
-                    scores.Factuality || 0,
-                    scores['Neutral Sentiment'] || 0,
-                    scores['Low Bias'] || 0,
-                    scores['Overall Credibility Index'] || 0
-                ],
-                theta: [
-                    'Integrity',
-                    'Factuality',
-                    'Neutral Sentiment',
-                    'Low Bias',
-                    'Overall Credibility'
-                ],
-                fill: 'toself',
-                name: 'Credibility Scores',
-                marker: {
-                    color: 'rgb(78, 115, 223)',
-                    line: {
-                        color: 'rgb(46, 65, 235)',
-                        width: 2
-                    }
-                }
-            }];
-
-            // Конфигурация чартов
-            const layout = {
-                polar: {
-                    radialaxis: {
-                        visible: true,
-                        range: [0, 100]
-                    }
-                },
-                title: 'Article Credibility Radar Chart',
-                showlegend: false,
-                margin: {
-                    l: 50,
-                    r: 50,
-                    t: 80,
-                    b: 50
-                }
-            };
-
-            // Инициализация чартов
-            try {
-                Plotly.newPlot('credibilityChart', chartData, layout, {
-                    responsive: true,
-                    displayModeBar: true
-                });
-                console.log('Чарты успешно инициализированы');
-            } catch (error) {
-                console.error('Ошибка при инициализации чартов:', error);
-                showAlert('Error rendering charts', 'danger');
-            }
         }
     </script>
 </body>
