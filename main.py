@@ -6,7 +6,7 @@ import json
 import requests
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
-from flask import Flask, request, jsonify, render_template, session
+from flask import Flask, request, jsonify, render_template, session, redirect, url_for
 from werkzeug.middleware.proxy_fix import ProxyFix
 import anthropic
 from newspaper import Article
@@ -65,6 +65,16 @@ def initialize_database():
                 medium INTEGER DEFAULT 0,
                 low INTEGER DEFAULT 0,
                 total_analyzed INTEGER DEFAULT 0
+            )
+        ''')
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS feedback (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                email TEXT NOT NULL,
+                type TEXT NOT NULL,
+                message TEXT NOT NULL,
+                date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
         conn.commit()
@@ -145,7 +155,7 @@ def add_security_headers(response):
 @app.errorhandler(404)
 def page_not_found(e):
     """404 error handler"""
-    return jsonify({'error': 'Not found'}), 404
+    return render_template('404.html'), 404
 
 @app.errorhandler(400)
 def bad_request(e):
@@ -155,7 +165,7 @@ def bad_request(e):
 @app.errorhandler(500)
 def internal_server_error(e):
     """500 error handler"""
-    return jsonify({'error': 'Internal server error'}), 500
+    return render_template('500.html'), 500
 
 # Claude API class
 class ClaudeNewsAnalyzer:
@@ -418,10 +428,47 @@ def render_same_topic_articles_html(articles):
 
     return '<div class="same-topic-articles-container">' + ''.join(html_items) + '</div>'
 
+# Routes
 @app.route('/')
 def home():
     """Home page"""
     return render_template('index.html')
+
+@app.route('/faq')
+def faq():
+    """FAQ page"""
+    return render_template('faq.html')
+
+@app.route('/feedback', methods=['GET', 'POST'])
+def feedback():
+    """Feedback page and form handler"""
+    if request.method == 'POST':
+        try:
+            name = request.form.get('name')
+            email = request.form.get('email')
+            feedback_type = request.form.get('type')
+            message = request.form.get('message')
+
+            if not all([name, email, feedback_type, message]):
+                return render_template('feedback.html', error="All fields are required")
+
+            if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
+                return render_template('feedback.html', error="Invalid email address")
+
+            with get_db_connection() as conn:
+                conn.execute('''
+                    INSERT INTO feedback (name, email, type, message, date)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (name, email, feedback_type, message, datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')))
+                conn.commit()
+
+            return render_template('feedback_success.html')
+
+        except Exception as e:
+            logger.error(f'Error saving feedback: {str(e)}')
+            return render_template('feedback.html', error="Error saving feedback")
+
+    return render_template('feedback.html')
 
 @app.route('/analyze', methods=['POST', 'OPTIONS'])
 def analyze():
@@ -519,4 +566,3 @@ def get_same_topic_articles():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
-
