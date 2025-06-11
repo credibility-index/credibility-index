@@ -7,7 +7,7 @@ import requests
 import html
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse, urlunparse
-from flask import Flask, request, jsonify, render_template, session, make_response
+from flask import Flask, request, jsonify, render_template, session, make_response, redirect, url_for
 from werkzeug.middleware.proxy_fix import ProxyFix
 import anthropic
 from newspaper import Article, Config
@@ -52,11 +52,6 @@ def get_db_connection():
 def initialize_database():
     """Initialize database schema and populate with test data if empty"""
     try:
-        # Check if database directory exists, create if not
-        db_dir = os.path.dirname(DB_NAME)
-        if db_dir and not os.path.exists(db_dir):
-            os.makedirs(db_dir)
-
         with get_db_connection() as conn:
             cursor = conn.cursor()
 
@@ -154,7 +149,7 @@ def populate_test_data():
                     0.92, 0.15, 0.65, 0.20,
                     "High", 0.88,
                     "https://bbc.com/climate-summit",
-                    "2023-11-15 10:30:00",
+                    datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
                     "Global leaders gather to discuss climate change solutions"
                 ),
                 (
@@ -164,7 +159,7 @@ def populate_test_data():
                     0.95, 0.10, 0.70, 0.15,
                     "High", 0.91,
                     "https://reuters.com/stock-markets",
-                    "2023-11-14 15:45:00",
+                    datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
                     "Global stock markets reached new record highs"
                 ),
                 (
@@ -174,7 +169,7 @@ def populate_test_data():
                     0.65, 0.55, 0.35, 0.60,
                     "Medium", 0.58,
                     "https://foxnews.com/policy-debate",
-                    "2023-11-13 12:20:00",
+                    datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
                     "Ongoing debate about controversial new policy"
                 )
             ]
@@ -194,8 +189,8 @@ def populate_test_data():
         logger.error(f"Error populating test data: {str(e)}")
         raise
 
-def get_source_credibility_chart_data():
-    """Get data for source credibility chart"""
+def get_source_credibility_data():
+    """Get source credibility data from database"""
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor()
@@ -236,7 +231,7 @@ def get_source_credibility_chart_data():
                 'total_counts': total_counts
             }
     except Exception as e:
-        logger.error(f"Error getting source credibility chart data: {str(e)}")
+        logger.error(f"Error getting source credibility data: {str(e)}")
         return {
             'sources': [],
             'credibility_scores': [],
@@ -343,57 +338,239 @@ def add_security_headers(response):
     response.headers['X-XSS-Protection'] = '1; mode=block'
     return response
 
-def get_source_credibility_data():
-    """Get source credibility data from database"""
+@app.route('/')
+def home():
+    """Home page"""
+    return render_template('index.html')
+
+@app.route('/faq')
+def faq():
+    """FAQ page"""
+    return render_template('faq.html')
+
+@app.route('/feedback', methods=['GET', 'POST'])
+def feedback():
+    """Feedback page and form handler"""
+    if request.method == 'POST':
+        try:
+            name = request.form.get('name')
+            email = request.form.get('email')
+            feedback_type = request.form.get('type')
+            message = request.form.get('message')
+
+            if not all([name, email, feedback_type, message]):
+                return render_template('feedback.html', error="All fields are required")
+
+            if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
+                return render_template('feedback.html', error="Invalid email address")
+
+            with get_db_connection() as conn:
+                conn.execute('''
+                    INSERT INTO feedback (name, email, type, message, date)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (name, email, feedback_type, message, datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')))
+                conn.commit()
+
+            return render_template('feedback_success.html')
+
+        except Exception as e:
+            logger.error(f'Error saving feedback: {str(e)}')
+            return render_template('feedback.html', error="Error saving feedback")
+
+    return render_template('feedback.html')
+
+@app.route('/source-credibility-chart', methods=['GET'])
+def source_credibility_chart():
+    """Endpoint for getting source credibility chart data"""
     try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                SELECT source, high, medium, low, total_analyzed
-                FROM source_stats
-                ORDER BY total_analyzed DESC, source ASC
-            ''')
+        chart_data = get_source_credibility_data()
 
-            data = cursor.fetchall()
-            sources = []
-            credibility_indices_for_plot = []
-            high_counts = []
-            medium_counts = []
-            low_counts = []
-            total_analyzed_counts = []
+        if not chart_data['sources']:
+            populate_test_data()
+            chart_data = get_source_credibility_data()
 
-            for source, high, medium, low, total in data:
-                total_current = high + medium + low
-                if total_current > 0:
-                    score = (high * 1.0 + medium * 0.5 + low * 0.0) / total_current
-                else:
-                    score = 0.5
+        return jsonify({
+            'status': 'success',
+            'data': chart_data
+        })
 
-                sources.append(source)
-                credibility_indices_for_plot.append(round(score, 2))
-                high_counts.append(high)
-                medium_counts.append(medium)
-                low_counts.append(low)
-                total_analyzed_counts.append(total_current)
-
-            return {
-                'sources': sources,
-                'credibility_indices_for_plot': credibility_indices_for_plot,
-                'high_counts': high_counts,
-                'medium_counts': medium_counts,
-                'low_counts': low_counts,
-                'total_analyzed_counts': total_analyzed_counts
-            }
     except Exception as e:
-        logger.error(f"Error getting source credibility data: {str(e)}")
-        return {
-            'sources': [],
-            'credibility_indices_for_plot': [],
-            'high_counts': [],
-            'medium_counts': [],
-            'low_counts': [],
-            'total_analyzed_counts': []
+        logger.error(f"Error in source_credibility_chart endpoint: {str(e)}")
+        return jsonify({
+            'error': 'An error occurred while fetching chart data',
+            'status': 500,
+            'details': str(e)
+        }), 500
+
+@app.route('/analysis-history', methods=['GET'])
+def analysis_history():
+    """Endpoint for getting analysis history"""
+    try:
+        history = get_analysis_history()
+        return jsonify({
+            'status': 'success',
+            'history': history
+        })
+    except Exception as e:
+        logger.error(f"Error in analysis_history endpoint: {str(e)}")
+        return jsonify({
+            'error': 'An error occurred while fetching analysis history',
+            'status': 500,
+            'details': str(e)
+        }), 500
+
+@app.route('/analyze', methods=['POST', 'OPTIONS'])
+def analyze():
+    """Analyze article endpoint with comprehensive error handling"""
+    if request.method == 'OPTIONS':
+        response = make_response()
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+        return response
+
+    try:
+        # Validate request content type
+        if not request.is_json:
+            return jsonify({
+                'error': 'Request must be JSON',
+                'status': 400,
+                'details': 'Content-Type header must be application/json'
+            }), 400
+
+        # Get and validate data
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'error': 'Empty request body',
+                'status': 400
+            }), 400
+
+        if 'input_text' not in data:
+            return jsonify({
+                'error': 'Missing input text',
+                'status': 400,
+                'details': 'input_text field is required'
+            }), 400
+
+        input_text = data['input_text'].strip()
+        source_name = data.get('source_name_manual', 'Direct Input').strip()
+
+        if not input_text:
+            return jsonify({
+                'error': 'Empty input text',
+                'status': 400,
+                'details': 'Input text cannot be empty'
+            }), 400
+
+        # Process article
+        if input_text.startswith(('http://', 'https://')):
+            try:
+                content, source, title = extract_text_from_url(input_text)
+                if not content:
+                    return jsonify({
+                        'error': 'Could not extract article content',
+                        'status': 400,
+                        'details': 'Failed to download or parse the article from the provided URL'
+                    }), 400
+            except Exception as e:
+                logger.error(f"Error processing URL: {str(e)}")
+                return jsonify({
+                    'error': 'Error processing URL',
+                    'status': 400,
+                    'details': str(e)
+                }), 400
+        else:
+            if len(input_text) < 100:
+                return jsonify({
+                    'error': 'Content too short',
+                    'status': 400,
+                    'details': 'Minimum 100 characters required'
+                }), 400
+            content = input_text
+            title = 'User-provided Text'
+            source = source_name
+
+        # Analyze with Claude
+        try:
+            analyzer = ClaudeNewsAnalyzer()
+            analysis = analyzer.analyze_article_text(content, source)
+        except ValueError as e:
+            return jsonify({
+                'error': str(e),
+                'status': 400
+            }), 400
+        except Exception as e:
+            logger.error(f"Analysis failed: {str(e)}")
+            return jsonify({
+                'error': 'Analysis failed',
+                'status': 500,
+                'details': str(e)
+            }), 500
+
+        # Save to database
+        try:
+            credibility = save_analysis(
+                input_text if input_text.startswith(('http://', 'https://')) else None,
+                title,
+                source,
+                content,
+                analysis
+            )
+        except Exception as e:
+            logger.error(f"Failed to save analysis: {str(e)}")
+            return jsonify({
+                'error': 'Failed to save analysis',
+                'status': 500,
+                'details': str(e)
+            }), 500
+
+        # Store analysis result in session
+        session['last_analysis_result'] = analysis
+
+        # Get similar articles
+        try:
+            same_topic_articles = fetch_same_topic_articles(analysis)
+            same_topic_html = render_same_topic_articles_html(same_topic_articles)
+        except Exception as e:
+            logger.error(f"Failed to fetch similar articles: {str(e)}")
+            same_topic_html = '<p>Could not fetch similar articles at this time.</p>'
+
+        # Get source credibility data
+        source_credibility_data = get_source_credibility_data()
+
+        # Get analysis history
+        analysis_history = get_analysis_history()
+
+        # Prepare response
+        response_data = {
+            'status': 'success',
+            'analysis': analysis,
+            'credibility': credibility,
+            'title': title,
+            'source': source,
+            'scores_for_chart': {
+                'Integrity': analysis.get('news_integrity', 0.0),
+                'Factuality': 1 - analysis.get('fact_check_needed_score', 1.0),
+                'Sentiment': analysis.get('sentiment_score', 0.5),
+                'Bias': 1 - analysis.get('bias_score', 1.0),
+                'Overall Credibility Index': analysis.get('index_of_credibility', 0.0)
+            },
+            'source_credibility_data': source_credibility_data,
+            'analysis_history': analysis_history,
+            'same_topic_html': same_topic_html,
+            'output': format_analysis_results(title, source, analysis, credibility)
         }
+
+        return jsonify(response_data)
+
+    except Exception as e:
+        logger.error(f"Unexpected error in analyze endpoint: {str(e)}")
+        return jsonify({
+            'error': 'Internal server error',
+            'status': 500,
+            'details': str(e)
+        }), 500
 
 def extract_text_from_url(url):
     """Extract text from URL with improved error handling"""
@@ -690,7 +867,7 @@ def fetch_same_topic_articles(analysis_result, page=1, per_page=3):
 def render_same_topic_articles_html(articles):
     """Render HTML for similar articles"""
     if not articles:
-        return '<p>No similar articles found.</p>'
+        return '<div class="alert alert-info">No similar articles found</div>'
 
     html_items = []
     for art in articles:
@@ -705,15 +882,20 @@ def render_same_topic_articles_html(articles):
         trust_display = f' (Credibility: {int(trust_score*100)}%)'
 
         html_items.append(
-            f'<div class="same-topic-article">'
-            f'<h4><a href="{article_url}" target="_blank">{title}</a></h4>'
-            f'<p><strong>Source:</strong> {source_api_name}{trust_display} | '
-            f'<strong>Published:</strong> {published_at}</p>'
-            f'<p>{description}</p>'
-            f'</div>'
+            f'''
+            <div class="similar-article">
+                <h4><a href="{article_url}" target="_blank" rel="noopener noreferrer">{title}</a></h4>
+                <div class="article-meta">
+                    <span class="article-source"><i class="bi bi-newspaper"></i> {source_api_name}</span>
+                    <span class="article-date"><i class="bi bi-calendar"></i> {published_at}</span>
+                    <span class="article-credibility">Credibility: {int(trust_score*100)}%</span>
+                </div>
+                <p class="article-description">{description}</p>
+            </div>
+            '''
         )
 
-    return '<div class="same-topic-articles-container">' + ''.join(html_items) + '</div>'
+    return '<div class="similar-articles-container">' + ''.join(html_items) + '</div>'
 
 def format_analysis_results(title, source, analysis, credibility):
     """Format analysis results for display"""
@@ -724,18 +906,18 @@ def format_analysis_results(title, source, analysis, credibility):
             'credibility': credibility,
             'analysis': analysis,
             'scores': {
-                'news_integrity': analysis.get('news_integrity', 0.0),
-                'fact_check_needed_score': analysis.get('fact_check_needed_score', 1.0),
-                'sentiment_score': analysis.get('sentiment_score', 0.5),
-                'bias_score': analysis.get('bias_score', 1.0),
-                'index_of_credibility': analysis.get('index_of_credibility', 0.0)
+                'Integrity': analysis.get('news_integrity', 0.0),
+                'Factuality': 1 - analysis.get('fact_check_needed_score', 1.0),
+                'Sentiment': analysis.get('sentiment_score', 0.5),
+                'Bias': 1 - analysis.get('bias_score', 1.0),
+                'Overall Credibility Index': analysis.get('index_of_credibility', 0.0)
             },
             'output_md': f"""
             <div class="analysis-section">
                 <h2>Article Information</h2>
                 <p><strong>Title:</strong> {html.escape(title)}</p>
                 <p><strong>Source:</strong> {html.escape(source)}</p>
-                <p><strong>Credibility Level:</strong> {html.escape(credibility)}</p>
+                <p><strong>Credibility Level:</strong> <span class="credibility-badge {credibility.lower()}">{credibility}</span></p>
             </div>
 
             <div class="analysis-section">
@@ -743,16 +925,16 @@ def format_analysis_results(title, source, analysis, credibility):
                 <div class="row">
                     <div class="col-md-3">
                         <div class="score-item">
-                            <div class="score-name">News Integrity</div>
+                            <div class="score-name">Integrity</div>
                             <div class="score-value">{analysis.get('news_integrity', 0.0):.2f}</div>
                             <div class="score-description">Overall integrity and trustworthiness</div>
                         </div>
                     </div>
                     <div class="col-md-3">
                         <div class="score-item">
-                            <div class="score-name">Fact Check Needed</div>
-                            <div class="score-value">{analysis.get('fact_check_needed_score', 1.0):.2f}</div>
-                            <div class="score-description">Likelihood that claims need fact-checking</div>
+                            <div class="score-name">Factuality</div>
+                            <div class="score-value">{1 - analysis.get('fact_check_needed_score', 1.0):.2f}</div>
+                            <div class="score-description">Likelihood that claims are factual</div>
                         </div>
                     </div>
                     <div class="col-md-3">
@@ -765,8 +947,8 @@ def format_analysis_results(title, source, analysis, credibility):
                     <div class="col-md-3">
                         <div class="score-item">
                             <div class="score-name">Bias</div>
-                            <div class="score-value">{analysis.get('bias_score', 1.0):.2f}</div>
-                            <div class="score-description">Degree of perceived bias</div>
+                            <div class="score-value">{1 - analysis.get('bias_score', 1.0):.2f}</div>
+                            <div class="score-description">Degree of perceived bias (1.0 low bias, 0.0 high bias)</div>
                         </div>
                     </div>
                 </div>
@@ -812,281 +994,5 @@ def format_analysis_results(title, source, analysis, credibility):
         logger.error(f"Error formatting analysis results: {str(e)}")
         return {"error": "Error formatting analysis results"}
 
-@app.route('/')
-def home():
-    """Home page"""
-    return render_template('index.html')
-
-@app.route('/faq')
-def faq():
-    """FAQ page"""
-    return render_template('faq.html')
-
-@app.route('/feedback', methods=['GET', 'POST'])
-def feedback():
-    """Feedback page and form handler"""
-    if request.method == 'POST':
-        try:
-            name = request.form.get('name')
-            email = request.form.get('email')
-            feedback_type = request.form.get('type')
-            message = request.form.get('message')
-
-            if not all([name, email, feedback_type, message]):
-                return render_template('feedback.html', error="All fields are required")
-
-            if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
-                return render_template('feedback.html', error="Invalid email address")
-
-            with get_db_connection() as conn:
-                conn.execute('''
-                    INSERT INTO feedback (name, email, type, message, date)
-                    VALUES (?, ?, ?, ?, ?)
-                ''', (name, email, feedback_type, message, datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')))
-                conn.commit()
-
-            return render_template('feedback_success.html')
-
-        except Exception as e:
-            logger.error(f'Error saving feedback: {str(e)}')
-            return render_template('feedback.html', error="Error saving feedback")
-
-    return render_template('feedback.html')
-
-@app.route('/analyze', methods=['POST', 'OPTIONS'])
-def analyze():
-    """Analyze article endpoint with comprehensive error handling"""
-    if request.method == 'OPTIONS':
-        response = make_response()
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
-        return response
-
-    try:
-        # Validate request content type
-        if not request.is_json:
-            return jsonify({
-                'error': 'Request must be JSON',
-                'status': 400,
-                'details': 'Content-Type header must be application/json'
-            }), 400
-
-        # Get and validate data
-        data = request.get_json()
-        if not data:
-            return jsonify({
-                'error': 'Empty request body',
-                'status': 400
-            }), 400
-
-        if 'input_text' not in data:
-            return jsonify({
-                'error': 'Missing input text',
-                'status': 400,
-                'details': 'input_text field is required'
-            }), 400
-
-        input_text = data['input_text'].strip()
-        source_name = data.get('source_name_manual', 'Direct Input').strip()
-
-        if not input_text:
-            return jsonify({
-                'error': 'Empty input text',
-                'status': 400,
-                'details': 'Input text cannot be empty'
-            }), 400
-
-        # Process article
-        if input_text.startswith(('http://', 'https://')):
-            try:
-                content, source, title = extract_text_from_url(input_text)
-                if not content:
-                    return jsonify({
-                        'error': 'Could not extract article content',
-                        'status': 400,
-                        'details': 'Failed to download or parse the article from the provided URL'
-                    }), 400
-            except Exception as e:
-                logger.error(f"Error processing URL: {str(e)}")
-                return jsonify({
-                    'error': 'Error processing URL',
-                    'status': 400,
-                    'details': str(e)
-                }), 400
-        else:
-            if len(input_text) < 100:
-                return jsonify({
-                    'error': 'Content too short',
-                    'status': 400,
-                    'details': 'Minimum 100 characters required'
-                }), 400
-            content = input_text
-            title = 'User-provided Text'
-            source = source_name
-
-        # Analyze with Claude
-        try:
-            analyzer = ClaudeNewsAnalyzer()
-            analysis = analyzer.analyze_article_text(content, source)
-        except ValueError as e:
-            return jsonify({
-                'error': str(e),
-                'status': 400
-            }), 400
-        except Exception as e:
-            logger.error(f"Analysis failed: {str(e)}")
-            return jsonify({
-                'error': 'Analysis failed',
-                'status': 500,
-                'details': str(e)
-            }), 500
-
-        # Save to database
-        try:
-            credibility = save_analysis(
-                input_text if input_text.startswith(('http://', 'https://')) else None,
-                title,
-                source,
-                content,
-                analysis
-            )
-        except Exception as e:
-            logger.error(f"Failed to save analysis: {str(e)}")
-            return jsonify({
-                'error': 'Failed to save analysis',
-                'status': 500,
-                'details': str(e)
-            }), 500
-
-        # Store analysis result in session
-        session['last_analysis_result'] = analysis
-
-        # Get similar articles
-        try:
-            same_topic_articles = fetch_same_topic_articles(analysis)
-            same_topic_html = render_same_topic_articles_html(same_topic_articles)
-        except Exception as e:
-            logger.error(f"Failed to fetch similar articles: {str(e)}")
-            same_topic_html = '<p>Could not fetch similar articles at this time.</p>'
-
-        # Get source credibility data
-        source_credibility_data = get_source_credibility_data()
-
-        # Get analysis history
-        analysis_history = get_analysis_history()
-
-        # Prepare response
-        response_data = {
-            'status': 'success',
-            'analysis': analysis,
-            'credibility': credibility,
-            'title': title,
-            'source': source,
-            'scores_for_chart': {
-                'news_integrity': analysis.get('news_integrity', 0.0),
-                'fact_check_needed_score': analysis.get('fact_check_needed_score', 1.0),
-                'sentiment_score': analysis.get('sentiment_score', 0.5),
-                'bias_score': analysis.get('bias_score', 1.0),
-                'index_of_credibility': analysis.get('index_of_credibility', 0.0)
-            },
-            'source_credibility_data': source_credibility_data,
-            'analysis_history': analysis_history,
-            'same_topic_html': same_topic_html,
-            'output': format_analysis_results(title, source, analysis, credibility)
-        }
-
-        response = jsonify(response_data)
-        response.headers['Content-Type'] = 'application/json'
-        return response, 200
-
-    except Exception as e:
-        logger.error(f"Unexpected error in analyze endpoint: {str(e)}")
-        return jsonify({
-            'error': 'Internal server error',
-            'status': 500,
-            'details': str(e)
-        }), 500
-
-@app.route('/same_topic_articles', methods=['GET'])
-def get_same_topic_articles():
-    """Endpoint for getting more articles on the same topic"""
-    try:
-        page = int(request.args.get('page', 1))
-        per_page = 3
-
-        analysis_result = session.get('last_analysis_result')
-        if not analysis_result:
-            return jsonify({
-                'error': 'No analysis result found. Please analyze an article first.',
-                'status': 400
-            }), 400
-
-        same_topic_articles = fetch_same_topic_articles(analysis_result, page=page, per_page=per_page)
-        same_topic_html = render_same_topic_articles_html(same_topic_articles)
-
-        response = jsonify({
-            'same_topic_html': same_topic_html,
-            'status': 'success'
-        })
-        response.headers['Content-Type'] = 'application/json'
-        return response
-
-    except Exception as e:
-        logger.error(f"Error in get_same_topic_articles endpoint: {str(e)}")
-        return jsonify({
-            'error': 'An error occurred while fetching same topic articles',
-            'status': 500,
-            'details': str(e)
-        }), 500
-
-@app.route('/source-credibility-chart', methods=['GET'])
-def source_credibility_chart():
-    """Endpoint for getting source credibility chart data"""
-    try:
-        chart_data = get_source_credibility_data()
-
-        # Если данных нет, добавляем тестовые данные
-        if not chart_data['sources']:
-            populate_test_data()
-            chart_data = get_source_credibility_data()
-
-        response = jsonify({
-            'status': 'success',
-            'data': chart_data
-        })
-        response.headers['Content-Type'] = 'application/json'
-        return response
-
-    except Exception as e:
-        logger.error(f"Error in source_credibility_chart endpoint: {str(e)}")
-        return jsonify({
-            'error': 'An error occurred while fetching chart data',
-            'status': 500,
-            'details': str(e)
-        }), 500
-
-@app.route('/analysis-history', methods=['GET'])
-def analysis_history():
-    """Endpoint for getting analysis history"""
-    try:
-        history = get_analysis_history()
-
-        response = jsonify({
-            'status': 'success',
-            'history': history
-        })
-        response.headers['Content-Type'] = 'application/json'
-        return response
-
-    except Exception as e:
-        logger.error(f"Error in analysis_history endpoint: {str(e)}")
-        return jsonify({
-            'error': 'An error occurred while fetching analysis history',
-            'status': 500,
-            'details': str(e)
-        }), 500
-
 if __name__ == '__main__':
-    # For Railway deployment
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
