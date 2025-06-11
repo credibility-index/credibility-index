@@ -411,7 +411,7 @@ def analyze():
         return response
 
     try:
-        # Validate request content type
+        # Проверяем формат запроса
         if not request.is_json:
             return jsonify({
                 'error': 'Request must be JSON',
@@ -419,7 +419,7 @@ def analyze():
                 'details': 'Content-Type header must be application/json'
             }), 400
 
-        # Get and validate data
+        # Получаем данные
         data = request.get_json()
         if not data:
             return jsonify({
@@ -444,7 +444,7 @@ def analyze():
                 'details': 'Input text cannot be empty'
             }), 400
 
-        # Process article
+        # Обрабатываем URL или текст
         if input_text.startswith(('http://', 'https://')):
             try:
                 content, source, title = extract_text_from_url(input_text)
@@ -452,14 +452,25 @@ def analyze():
                     return jsonify({
                         'error': 'Could not extract article content',
                         'status': 400,
-                        'details': 'Failed to download or parse the article from the provided URL'
+                        'details': 'Failed to download or parse the article from the provided URL',
+                        'suggestions': [
+                            'Check if the URL is correct and accessible',
+                            'Try a different URL',
+                            'Make sure the website allows scraping',
+                            'Alternatively, you can paste the article text directly'
+                        ]
                     }), 400
             except Exception as e:
                 logger.error(f"Error processing URL: {str(e)}")
                 return jsonify({
                     'error': 'Error processing URL',
                     'status': 400,
-                    'details': str(e)
+                    'details': str(e),
+                    'suggestions': [
+                        'The website might be blocking our requests',
+                        'Try a different URL',
+                        'You can paste the article text directly instead of using URL'
+                    ]
                 }), 400
         else:
             if len(input_text) < 100:
@@ -472,7 +483,7 @@ def analyze():
             title = 'User-provided Text'
             source = source_name
 
-        # Analyze with mock data
+        # Анализируем статью
         try:
             analysis = {
                 'news_integrity': 0.85,
@@ -495,7 +506,7 @@ def analyze():
                 'details': str(e)
             }), 500
 
-        # Save to database
+        # Сохраняем анализ в базу данных
         try:
             credibility = save_analysis(
                 input_text if input_text.startswith(('http://', 'https://')) else None,
@@ -511,6 +522,63 @@ def analyze():
                 'status': 500,
                 'details': str(e)
             }), 500
+
+        # Сохраняем результат анализа в сессии
+        session['last_analysis_result'] = analysis
+
+        # Получаем похожие статьи
+        same_topic_articles = [
+            {
+                'title': 'Similar Article 1',
+                'url': 'https://example.com/article1',
+                'source': {'name': 'Example News'},
+                'publishedAt': '2023-01-01T00:00:00Z',
+                'description': 'This is a similar article about the same topic.'
+            }
+        ]
+        same_topic_html = render_same_topic_articles_html(same_topic_articles)
+
+        # Получаем данные о надежности источников
+        source_credibility_data = get_source_credibility_data()
+
+        # Получаем историю анализа
+        analysis_history = get_analysis_history()
+
+        # Подготавливаем ответ
+        response_data = {
+            'status': 'success',
+            'analysis': analysis,
+            'credibility': credibility,
+            'title': title,
+            'source': source,
+            'scores_for_chart': {
+                'news_integrity': analysis.get('news_integrity', 0.0),
+                'fact_check_needed_score': analysis.get('fact_check_needed_score', 1.0),
+                'sentiment_score': analysis.get('sentiment_score', 0.5),
+                'bias_score': analysis.get('bias_score', 1.0),
+                'index_of_credibility': analysis.get('index_of_credibility', 0.0)
+            },
+            'source_credibility_data': source_credibility_data,
+            'analysis_history': analysis_history,
+            'same_topic_html': same_topic_html,
+            'output': format_analysis_results(title, source, analysis, credibility)
+        }
+
+        return jsonify(response_data)
+
+    except Exception as e:
+        logger.error(f"Unexpected error in analyze endpoint: {str(e)}", exc_info=True)
+        return jsonify({
+            'error': 'Internal server error',
+            'status': 500,
+            'details': str(e),
+            'suggestions': [
+                'Please try again later',
+                'Check your internet connection',
+                'If the problem persists, contact support'
+            ]
+        }), 500
+
 
         # Store analysis result in session
         session['last_analysis_result'] = analysis
@@ -568,34 +636,65 @@ def extract_text_from_url(url):
     try:
         logger.info(f"Processing URL: {url}")
 
-        # Normalize URL
-        parsed = urlparse(url)
-        clean_url = urlunparse(parsed._replace(scheme=parsed.scheme.lower(), netloc=parsed.netloc.lower()))
+        # Проверяем корректность URL
+        try:
+            parsed = urlparse(url)
+            if not all([parsed.scheme, parsed.netloc]):
+                logger.error(f"Invalid URL format: {url}")
+                return None, None, None
+        except Exception as e:
+            logger.error(f"URL parsing error: {str(e)}")
+            return None, None, None
 
-        # Check for video content
-        if any(domain in url for domain in ['youtube.com', 'vimeo.com']):
+        # Нормализуем URL
+        clean_url = urlunparse(parsed._replace(
+            scheme=parsed.scheme.lower(),
+            netloc=parsed.netloc.lower()
+        ))
+
+        # Проверяем на видео контент
+        if any(domain in clean_url for domain in ['youtube.com', 'vimeo.com', 'twitch.tv']):
             logger.info("Video content detected")
-            return "Video content detected", parsed.netloc.replace('www.', ''), "Video: " + url
+            return "Video content detected", parsed.netloc.replace('www.', ''), "Video: " + clean_url
 
-        # Configure article with timeout and user agent
+        # Проверяем доступность URL
+        try:
+            response = requests.head(clean_url, timeout=10, allow_redirects=True)
+            if response.status_code != 200:
+                logger.error(f"URL returned status code: {response.status_code}")
+                return None, None, None
+        except requests.RequestException as e:
+            logger.error(f"URL accessibility check failed: {str(e)}")
+            return None, None, None
+
+        # Настраиваем статью с таймаутом и user agent
         article = Article(clean_url, config=config)
 
-        # Download and parse article
-        article.download()
-        if article.download_state != 2:
-            logger.error(f"Failed to download article from {url}")
+        # Загружаем статью
+        try:
+            article.download()
+            if article.download_state != 2:
+                logger.error(f"Failed to download article from {clean_url}")
+                return None, None, None
+        except Exception as e:
+            logger.error(f"Article download failed: {str(e)}")
             return None, None, None
 
-        article.parse()
-        if not article.text or len(article.text.strip()) < 100:
-            logger.warning(f"Short or empty content from {url}")
+        # Парсим статью
+        try:
+            article.parse()
+            if not article.text or len(article.text.strip()) < 100:
+                logger.warning(f"Short or empty content from {clean_url}")
+                return None, None, None
+        except Exception as e:
+            logger.error(f"Article parsing failed: {str(e)}")
             return None, None, None
 
-        # Extract domain and title
+        # Извлекаем домен и заголовок
         domain = parsed.netloc.replace('www.', '')
         title = article.title.strip() if article.title else "No title"
 
-        logger.info(f"Successfully extracted content from {url}")
+        logger.info(f"Successfully extracted content from {clean_url}")
         return article.text.strip(), domain, title
 
     except Exception as e:
