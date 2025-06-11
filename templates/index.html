@@ -314,6 +314,11 @@
             transform: translateY(-2px);
         }
 
+        .show-more-btn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
         /* Feedback Button */
         .feedback-btn {
             position: fixed;
@@ -473,8 +478,8 @@
 
     <div class="container main-container">
         <div class="page-title">
-            <h1 class="main-heading">Media Credibility Index Tool</h1>
-            <p class="subheading">Setting the Standard for Media Trust</p>
+            <h1 class="main-heading">Article Credibility Analyzer</h1>
+            <p class="subheading">Analyze news articles for credibility, bias, and factual accuracy</p>
         </div>
 
         <div class="row justify-content-center">
@@ -575,21 +580,39 @@
             }
 
             if (elements.showMoreBtn) {
-                elements.showMoreBtn.addEventListener('click', function() {
-                    loadMoreArticles();
-                });
+                elements.showMoreBtn.addEventListener('click', loadMoreArticles);
             }
         });
 
         // Function to analyze article
-        Setting the Standard for Media Trust
-        // Function to load more articles
-        function loadMoreArticles() {
-            currentPage++;
-            elements.showMoreBtn.disabled = true;
-            elements.showMoreBtn.textContent = 'Loading...';
+        function analyzeArticle() {
+            const inputText = elements.articleInput.value.trim();
+            const sourceName = elements.sourceName ? elements.sourceName.value.trim() : '';
 
-            fetch(`/same_topic_articles?page=${currentPage}`)
+            if (!inputText) {
+                showAlert('Please enter article text or URL', 'danger');
+                return;
+            }
+
+            // Show loading indicator
+            elements.loadingIndicator.style.display = 'block';
+            elements.analysisResults.style.display = 'none';
+
+            // Prepare request data
+            const requestData = {
+                input_text: inputText,
+                source_name_manual: sourceName
+            };
+
+            // Send request to server for analysis
+            fetch('/analyze', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(requestData)
+            })
             .then(response => {
                 if (!response.ok) {
                     return response.json().then(err => {
@@ -599,20 +622,93 @@
                 return response.json();
             })
             .then(data => {
-                if (data.same_topic_html) {
-                    elements.sameTopicArticles.innerHTML += data.same_topic_html;
+                // Hide loading indicator
+                elements.loadingIndicator.style.display = 'none';
+
+                // Show analysis results
+                elements.analysisResults.style.display = 'block';
+
+                // Display analysis results
+                if (data.output && data.output.output_md) {
+                    elements.analysisOutput.innerHTML = data.output.output_md;
                 } else {
+                    elements.analysisOutput.innerHTML = '<div class="alert alert-warning">No analysis results available</div>';
+                }
+
+                // Render charts if data is available
+                if (data.scores_for_chart && typeof Plotly !== 'undefined') {
+                    renderArticleCredibilityChart(data.scores_for_chart);
+                }
+
+                if (data.source_credibility_data && typeof Plotly !== 'undefined') {
+                    renderSourceCredibilityChart(data.source_credibility_data);
+                }
+
+                // Display same topic articles
+                if (data.same_topic_html) {
+                    elements.sameTopicArticles.innerHTML = data.same_topic_html;
+                    currentPage = 1;
+
+                    // Show or hide the show more button
+                    if (data.show_more_button) {
+                        elements.showMoreBtn.style.display = 'block';
+                    } else {
+                        elements.showMoreBtn.style.display = 'none';
+                    }
+                } else {
+                    elements.sameTopicArticles.innerHTML = '<div class="alert alert-info">No similar articles found</div>';
                     elements.showMoreBtn.style.display = 'none';
                 }
 
-                elements.showMoreBtn.disabled = false;
-                elements.showMoreBtn.textContent = 'Show More Articles';
+                // Scroll to results
+                elements.analysisResults.scrollIntoView({ behavior: 'smooth' });
             })
             .catch(error => {
-                console.error('Error loading more articles:', error);
-                showAlert(`An error occurred: ${error.message}`, 'danger');
-                elements.showMoreBtn.disabled = false;
-                elements.showMoreBtn.textContent = 'Show More Articles';
+                elements.loadingIndicator.style.display = 'none';
+                console.error('Error:', error);
+                showAlert(`Analysis failed: ${error.message}`, 'danger');
+            });
+        }
+
+        // Function to load more articles
+        function loadMoreArticles() {
+            currentPage++;
+            const showMoreBtn = elements.showMoreBtn;
+
+            if (!showMoreBtn) return;
+
+            showMoreBtn.disabled = true;
+            showMoreBtn.textContent = 'Loading...';
+
+            fetch(`/same_topic_articles?page=${currentPage}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.status === 'success') {
+                    if (data.same_topic_html) {
+                        elements.sameTopicArticles.insertAdjacentHTML('beforeend', data.same_topic_html);
+                    }
+
+                    // Update the show more button visibility
+                    if (!data.show_more_button) {
+                        showMoreBtn.style.display = 'none';
+                    }
+                } else {
+                    console.error('Error loading more articles:', data.error);
+                    showAlert(data.error || 'Error loading more articles', 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('Error loading more articles: ' + error.message, 'danger');
+            })
+            .finally(() => {
+                showMoreBtn.disabled = false;
+                showMoreBtn.textContent = 'Show More Articles';
             });
         }
 
@@ -628,6 +724,7 @@
 
             document.querySelector('.container').prepend(alertContainer);
 
+            // Auto-close after 5 seconds
             setTimeout(() => {
                 const alert = bootstrap.Alert.getOrCreateInstance(alertContainer);
                 alert.close();
@@ -645,11 +742,11 @@
             const chartData = [{
                 type: 'scatterpolar',
                 r: [
-                    scores.Integrity * 100 || 0,
-                    scores.Factuality * 100 || 0,
-                    scores.Sentiment * 100 || 0,
-                    scores.Bias * 100 || 0,
-                    scores['Overall Credibility Index'] * 100 || 0
+                    scores.news_integrity * 100 || 0,
+                    (1 - scores.fact_check_needed_score) * 100 || 0,
+                    Math.abs(scores.sentiment_score - 0.5) * 200 || 0,
+                    (1 - scores.bias_score) * 100 || 0,
+                    scores.index_of_credibility * 100 || 0
                 ],
                 theta: [
                     'Integrity',
