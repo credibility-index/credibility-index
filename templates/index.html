@@ -7,7 +7,6 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <script src="https://cdn.plot.ly/plotly-2.20.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         :root {
             --primary-color: #2c3e50;
@@ -18,7 +17,7 @@
             --danger-color: #dc3545;
             --light-color: #ecf0f1;
             --dark-color: #2c3e50;
-            --text-color: #333333;
+            --text-color: #ecf0f1;
             --border-radius: 10px;
             --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             --transition: all 0.3s ease;
@@ -28,7 +27,7 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             line-height: 1.6;
             color: var(--text-color);
-            background-color: var(--light-color);
+            background-color: var(--dark-color);
             padding: 0;
             margin: 0;
             min-height: 100vh;
@@ -38,7 +37,7 @@
 
         /* Navigation */
         .navbar {
-            background-color: white;
+            background-color: var(--secondary-color);
             box-shadow: var(--box-shadow);
             padding: 15px 0;
             position: sticky;
@@ -48,7 +47,7 @@
 
         .navbar-brand {
             font-weight: 600;
-            color: var(--primary-color);
+            color: var(--light-color);
             display: flex;
             align-items: center;
             font-size: 1.2rem;
@@ -57,6 +56,15 @@
         .navbar-brand i {
             margin-right: 8px;
             font-size: 1.3rem;
+        }
+
+        .nav-link {
+            color: var(--light-color);
+            margin-left: 15px;
+        }
+
+        .nav-link:hover {
+            color: var(--accent-color);
         }
 
         /* Main Container */
@@ -75,13 +83,13 @@
         .main-heading {
             font-size: 2.2rem;
             font-weight: 700;
-            color: var(--primary-color);
+            color: var(--light-color);
             margin-bottom: 15px;
         }
 
         .subheading {
             font-size: 1.1rem;
-            color: var(--text-color);
+            color: var(--light-color);
             opacity: 0.8;
             max-width: 800px;
             margin: 0 auto 30px;
@@ -89,7 +97,7 @@
 
         /* Form Container */
         .form-container {
-            background-color: white;
+            background-color: var(--secondary-color);
             padding: 30px;
             border-radius: var(--border-radius);
             box-shadow: var(--box-shadow);
@@ -98,13 +106,15 @@
         }
 
         .form-container:hover {
-            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
         }
 
         .form-control {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: var(--light-color);
             border-radius: 6px;
             padding: 12px 15px;
-            border: 1px solid #ddd;
+            border: 1px solid rgba(255, 255, 255, 0.2);
             transition: var(--transition);
             margin-bottom: 15px;
         }
@@ -112,6 +122,11 @@
         .form-control:focus {
             border-color: var(--accent-color);
             box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+            background-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .form-control::placeholder {
+            color: rgba(255, 255, 255, 0.5);
         }
 
         .btn-analyze {
@@ -144,7 +159,7 @@
             text-align: center;
             margin: 30px auto;
             padding: 30px;
-            background-color: rgba(255, 255, 255, 0.9);
+            background-color: var(--secondary-color);
             border-radius: var(--border-radius);
             box-shadow: var(--box-shadow);
             max-width: 600px;
@@ -160,7 +175,7 @@
         .loading-text {
             font-size: 1.1rem;
             margin-bottom: 5px;
-            color: var(--primary-color);
+            color: var(--light-color);
         }
 
         /* Analysis Results */
@@ -172,16 +187,16 @@
         .analysis-section {
             margin-bottom: 30px;
             padding: 25px;
-            background-color: white;
+            background-color: var(--secondary-color);
             border-radius: var(--border-radius);
             box-shadow: var(--box-shadow);
         }
 
         .analysis-title {
-            color: var(--primary-color);
+            color: var(--light-color);
             margin-bottom: 20px;
             padding-bottom: 10px;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         /* Chart Containers */
@@ -190,17 +205,7 @@
             height: 500px;
             margin: 20px 0;
             border-radius: var(--border-radius);
-            background-color: white;
-            box-shadow: var(--box-shadow);
-            padding: 20px;
-        }
-
-        .source-chart-container {
-            width: 100%;
-            height: 450px;
-            margin: 20px 0;
-            border-radius: var(--border-radius);
-            background-color: white;
+            background-color: var(--secondary-color);
             box-shadow: var(--box-shadow);
             padding: 20px;
         }
@@ -211,7 +216,7 @@
         }
 
         .similar-article {
-            background-color: white;
+            background-color: var(--secondary-color);
             border-radius: 8px;
             padding: 20px;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
@@ -226,7 +231,7 @@
         }
 
         .similar-article h4 {
-            color: var(--primary-color);
+            color: var(--light-color);
             margin-bottom: 8px;
         }
 
@@ -243,29 +248,11 @@
 
         .article-meta {
             font-size: 0.9rem;
-            color: #6c757d;
+            color: rgba(255, 255, 255, 0.7);
             margin-bottom: 10px;
             display: flex;
             flex-wrap: wrap;
             gap: 10px;
-        }
-
-        .article-meta span {
-            display: flex;
-            align-items: center;
-        }
-
-        .article-meta i {
-            margin-right: 5px;
-            font-size: 0.9rem;
-        }
-
-        .article-source {
-            font-weight: 500;
-        }
-
-        .article-date {
-            color: #6c757d;
         }
 
         .article-credibility {
@@ -275,24 +262,10 @@
             font-weight: 500;
         }
 
-        .article-credibility.high {
-            background-color: rgba(40, 167, 69, 0.2);
-            color: var(--success-color);
-        }
-
-        .article-credibility.medium {
-            background-color: rgba(255, 193, 7, 0.2);
-            color: var(--warning-color);
-        }
-
-        .article-credibility.low {
-            background-color: rgba(220, 53, 69, 0.2);
-            color: var(--danger-color);
-        }
-
         .article-description {
             margin-top: 10px;
             line-height: 1.5;
+            color: rgba(255, 255, 255, 0.9);
         }
 
         /* Show More Button */
@@ -312,11 +285,6 @@
         .show-more-btn:hover {
             background-color: #2980b9;
             transform: translateY(-2px);
-        }
-
-        .show-more-btn:disabled {
-            background-color: #cccccc;
-            cursor: not-allowed;
         }
 
         /* Feedback Button */
@@ -376,14 +344,14 @@
             text-align: center;
             padding: 15px;
             margin-bottom: 15px;
-            background-color: rgba(52, 152, 219, 0.05);
+            background-color: rgba(52, 152, 219, 0.1);
             border-radius: 8px;
         }
 
         .score-name {
             font-weight: 600;
             margin-bottom: 5px;
-            color: var(--primary-color);
+            color: var(--light-color);
         }
 
         .score-value {
@@ -395,16 +363,16 @@
 
         .score-description {
             font-size: 0.9rem;
-            color: #6c757d;
+            color: rgba(255, 255, 255, 0.7);
         }
 
         /* Footer */
         .footer {
-            background-color: white;
+            background-color: var(--secondary-color);
             padding: 20px 0;
             margin-top: 50px;
-            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
             text-align: center;
+            color: var(--light-color);
         }
 
         /* Responsive Design */
@@ -419,10 +387,6 @@
 
             .main-heading {
                 font-size: 2rem;
-            }
-
-            .chart-container, .source-chart-container {
-                height: 400px;
             }
         }
 
@@ -439,10 +403,6 @@
                 font-size: 1.8rem;
             }
 
-            .chart-container, .source-chart-container {
-                height: 350px;
-            }
-
             .btn-analyze {
                 width: 100%;
             }
@@ -450,7 +410,7 @@
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-light bg-white">
+    <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container">
             <a class="navbar-brand" href="/">
                 <i class="bi bi-newspaper"></i>
@@ -478,8 +438,8 @@
 
     <div class="container main-container">
         <div class="page-title">
-            <h1 class="main-heading">Media Credibility Index Tool</h1>
-            <p class="subheading">Setting the Standard for Media Trust</p>
+            <h1 class="main-heading">Article Credibility Analyzer</h1>
+            <p class="subheading">Analyze news articles for credibility, bias, and factual accuracy</p>
         </div>
 
         <div class="row justify-content-center">
@@ -490,12 +450,12 @@
                         <div class="mb-4">
                             <label for="articleInput" class="form-label">Article URL or Text</label>
                             <textarea class="form-control" id="articleInput" rows="6"
-                                    placeholder="Paste article text or URL here..."></textarea>
+                                      placeholder="Paste article text or URL here..."></textarea>
                         </div>
                         <div class="mb-4">
                             <label for="sourceName" class="form-label">Source Name (optional)</label>
                             <input type="text" class="form-control" id="sourceName"
-                                    placeholder="e.g., bbc.com, reuters.com">
+                                   placeholder="e.g., bbc.com, reuters.com">
                         </div>
                         <button type="submit" class="btn btn-analyze">
                             <i class="bi bi-search"></i> Analyze Article
@@ -526,13 +486,13 @@
 
                     <div class="analysis-section">
                         <h2 class="analysis-title">Source Credibility Comparison</h2>
-                        <div class="source-chart-container">
+                        <div class="chart-container">
                             <div id="sourceCredibilityChart"></div>
                         </div>
                     </div>
 
                     <div class="analysis-section">
-                        <h2 class="analysis-title">Same Topic Articles</h2>
+                        <h2 class="analysis-title">Similar Articles</h2>
                         <div class="similar-articles-container" id="sameTopicArticles">
                             <!-- Similar articles will be inserted here by JavaScript -->
                         </div>
@@ -547,7 +507,7 @@
 
     <footer class="footer">
         <div class="container">
-            <p class="mb-0">&copy; 2025 Media Credibility Index. All rights reserved.</p>
+            <p class="mb-0">&copy; 2023 Media Credibility Index. All rights reserved.</p>
         </div>
     </footer>
 
@@ -773,15 +733,24 @@
                         range: [0, 100],
                         tickangle: 45,
                         tickfont: {
-                            size: 12
-                        }
+                            size: 12,
+                            color: 'white'
+                        },
+                        gridcolor: 'rgba(255, 255, 255, 0.3)'
                     },
                     angularaxis: {
                         direction: 'clockwise',
-                        rotation: 90
+                        rotation: 90,
+                        color: 'white'
+                    },
+                    bgcolor: 'rgba(0, 0, 0, 0)'
+                },
+                title: {
+                    text: 'Article Credibility Radar Chart',
+                    font: {
+                        color: 'white'
                     }
                 },
-                title: 'Article Credibility Radar Chart',
                 showlegend: false,
                 margin: {
                     l: 50,
@@ -816,8 +785,8 @@
                 type: 'bar',
                 marker: {
                     color: data.credibility_scores.map(score => {
-                        if (score >= 0.75) return 'rgba(40, 167, 69, 0.8)';
-                        if (score >= 0.5) return 'rgba(255, 193, 7, 0.8)';
+                        if (score >= 0.8) return 'rgba(40, 167, 69, 0.8)';
+                        if (score >= 0.6) return 'rgba(255, 193, 7, 0.8)';
                         return 'rgba(220, 53, 69, 0.8)';
                     })
                 },
@@ -828,20 +797,38 @@
             }];
 
             const layout = {
-                title: 'Source Credibility Comparison',
+                title: {
+                    text: 'Source Credibility Comparison',
+                    font: {
+                        color: 'white'
+                    }
+                },
                 xaxis: {
-                    title: 'News Sources',
+                    title: {
+                        text: 'News Sources',
+                        font: {
+                            color: 'white'
+                        }
+                    },
                     tickangle: 45,
                     tickfont: {
-                        size: 12
+                        size: 12,
+                        color: 'white'
                     }
                 },
                 yaxis: {
-                    title: 'Credibility Score',
+                    title: {
+                        text: 'Credibility Score',
+                        font: {
+                            color: 'white'
+                        }
+                    },
                     range: [0, 1],
                     tickfont: {
-                        size: 12
-                    }
+                        size: 12,
+                        color: 'white'
+                    },
+                    gridcolor: 'rgba(255, 255, 255, 0.2)'
                 },
                 margin: {
                     l: 50,
