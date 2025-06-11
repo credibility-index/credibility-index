@@ -310,638 +310,10 @@ def add_security_headers(response):
     response.headers['X-Frame-Options'] = 'SAMEORIGIN'
     response.headers['X-XSS-Protection'] = '1; mode=block'
     return response
+
 # Основные маршруты приложения
 @app.route('/')
-def home():
-    """Home page route"""
-    return render_template('index.html')
-
-@app.route('/faq')
-def faq():
-    """FAQ page route"""
-    return render_template('faq.html')
-
-@app.route('/feedback', methods=['GET', 'POST'])
-def feedback():
-    """Feedback page and form handler"""
-    if request.method == 'POST':
-        try:
-            # Получаем данные из формы
-            name = request.form.get('name')
-            email = request.form.get('email')
-            feedback_type = request.form.get('type')
-            message = request.form.get('message')
-
-            # Проверяем заполненность всех полей
-            if not all([name, email, feedback_type, message]):
-                return render_template('feedback.html', error="All fields are required")
-
-            # Проверяем корректность email
-            if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
-                return render_template('feedback.html', error="Invalid email address")
-
-            # Сохраняем feedback в базу данных
-            with get_db_connection() as conn:
-                conn.execute('''
-                    INSERT INTO feedback (name, email, type, message, date)
-                    VALUES (?, ?, ?, ?, ?)
-                ''', (name, email, feedback_type, message, datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')))
-                conn.commit()
-
-            # Перенаправляем на страницу успешной отправки
-            return render_template('feedback_success.html')
-
-        except Exception as e:
-            logger.error(f'Error saving feedback: {str(e)}')
-            return render_template('feedback.html', error="Error saving feedback")
-
-    # Если GET запрос - просто показываем форму
-    return render_template('feedback.html')
-
-# Маршрут для получения данных чарта надежности источников
-@app.route('/source-credibility-chart', methods=['GET'])
-def source_credibility_chart():
-    """Endpoint for getting source credibility chart data"""
-    try:
-        # Получаем данные из базы
-        chart_data = get_source_credibility_data()
-
-        # Если данных нет, добавляем тестовые
-        if not chart_data['sources']:
-            populate_test_data()
-            chart_data = get_source_credibility_data()
-
-        # Возвращаем данные в формате JSON
-        return jsonify({
-            'status': 'success',
-            'data': chart_data
-        })
-
-    except Exception as e:
-        logger.error(f"Error in source_credibility_chart endpoint: {str(e)}")
-        return jsonify({
-            'error': 'An error occurred while fetching chart data',
-            'status': 500,
-            'details': str(e)
-        }), 500
-
-# Маршрут для получения истории анализа
-@app.route('/analysis-history', methods=['GET'])
-def analysis_history():
-    """Endpoint for getting analysis history"""
-    try:
-        # Получаем историю из базы данных
-        history = get_analysis_history()
-        return jsonify({
-            'status': 'success',
-            'history': history
-        })
-    except Exception as e:
-        logger.error(f"Error in analysis_history endpoint: {str(e)}")
-        return jsonify({
-            'error': 'An error occurred while fetching analysis history',
-            'status': 500,
-            'details': str(e)
-        }), 500
-
-# Основной маршрут для анализа статьи
-@app.route('/analyze', methods=['POST', 'OPTIONS'])
-def analyze():
-    """Analyze article endpoint with comprehensive error handling"""
-    # Обработка OPTIONS запроса для CORS
-    if request.method == 'OPTIONS':
-        response = make_response()
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Accept'
-        return response
-
-    try:
-        # Проверяем, что запрос в формате JSON
-        if not request.is_json:
-            return jsonify({
-                'error': 'Request must be JSON',
-                'status': 400,
-                'details': 'Content-Type header must be application/json'
-            }), 400
-
-        # Получаем данные из запроса
-        data = request.get_json()
-        if not data:
-            return jsonify({
-                'error': 'Empty request body',
-                'status': 400
-            }), 400
-
-        # Проверяем наличие обязательного поля
-        if 'input_text' not in data:
-            return jsonify({
-                'error': 'Missing input text',
-                'status': 400,
-                'details': 'input_text field is required'
-            }), 400
-
-        # Очищаем входные данные
-        input_text = data['input_text'].strip()
-        source_name = data.get('source_name_manual', 'Direct Input').strip()
-
-        # Проверяем, что текст не пустой
-        if not input_text:
-            return jsonify({
-                'error': 'Empty input text',
-                'status': 400,
-                'details': 'Input text cannot be empty'
-            }), 400
-
-        # Обрабатываем URL или текст
-        if input_text.startswith(('http://', 'https://')):
-            try:
-                # Извлекаем контент из URL
-                content, source, title = extract_text_from_url(input_text)
-                if not content:
-                    return jsonify({
-                        'error': 'Could not extract article content',
-                        'status': 400,
-                        'details': 'Failed to download or parse the article from the provided URL'
-                    }), 400
-            except Exception as e:
-                logger.error(f"Error processing URL: {str(e)}")
-                return jsonify({
-                    'error': 'Error processing URL',
-                    'status': 400,
-                    'details': str(e)
-                }), 400
-        else:
-            # Проверяем минимальную длину текста
-            if len(input_text) < 100:
-                return jsonify({
-                    'error': 'Content too short',
-                    'status': 400,
-                    'details': 'Minimum 100 characters required'
-                }), 400
-            content = input_text
-            title = 'User-provided Text'
-            source = source_name
-
-        # Анализируем статью (используем mock данные, так как нет реального API ключа)
-        try:
-            analysis = {
-                'news_integrity': 0.85,
-                'fact_check_needed_score': 0.2,
-                'sentiment_score': 0.6,
-                'bias_score': 0.3,
-                'topics': ['politics', 'economy'],
-                'key_arguments': ['Argument 1', 'Argument 2'],
-                'mentioned_facts': ['Fact 1', 'Fact 2'],
-                'author_purpose': 'To inform',
-                'potential_biases_identified': ['Bias 1'],
-                'short_summary': 'This is a test summary',
-                'index_of_credibility': 0.75
-            }
-        except Exception as e:
-            logger.error(f"Analysis failed: {str(e)}")
-            return jsonify({
-                'error': 'Analysis failed',
-                'status': 500,
-                'details': str(e)
-            }), 500
-
-        # Сохраняем анализ в базу данных
-        try:
-            credibility = save_analysis(
-                input_text if input_text.startswith(('http://', 'https://')) else None,
-                title,
-                source,
-                content,
-                analysis
-            )
-        except Exception as e:
-            logger.error(f"Failed to save analysis: {str(e)}")
-            return jsonify({
-                'error': 'Failed to save analysis',
-                'status': 500,
-                'details': str(e)
-            }), 500
-
-        # Сохраняем результат анализа в сессии
-        session['last_analysis_result'] = analysis
-
-        # Получаем похожие статьи (используем mock данные)
-        same_topic_articles = [
-            {
-                'title': 'Similar Article 1',
-                'url': 'https://example.com/article1',
-                'source': {'name': 'Example News'},
-                'publishedAt': '2023-01-01T00:00:00Z',
-                'description': 'This is a similar article about the same topic.'
-            }
-        ]
-        same_topic_html = render_same_topic_articles_html(same_topic_articles)
-
-        # Получаем данные о надежности источников
-        source_credibility_data = get_source_credibility_data()
-
-        # Получаем историю анализа
-        analysis_history = get_analysis_history()
-
-        # Подготавливаем ответ
-        response_data = {
-            'status': 'success',
-            'analysis': analysis,
-            'credibility': credibility,
-            'title': title,
-            'source': source,
-            'scores_for_chart': {
-                'Integrity': analysis.get('news_integrity', 0.0),
-                'Factuality': 1 - analysis.get('fact_check_needed_score', 1.0),
-                'Sentiment': analysis.get('sentiment_score', 0.5),
-                'Bias': 1 - analysis.get('bias_score', 1.0),
-                'Overall Credibility Index': analysis.get('index_of_credibility', 0.0)
-            },
-            'source_credibility_data': source_credibility_data,
-            'analysis_history': analysis_history,
-            'same_topic_html': same_topic_html,
-            'output': format_analysis_results(title, source, analysis, credibility)
-        }
-
-        return jsonify(response_data)
-
-    except Exception as e:
-        logger.error(f"Unexpected error in analyze endpoint: {str(e)}", exc_info=True)
-        return jsonify({
-            'error': 'Internal server error',
-            'status': 500,
-            'details': str(e)
-        }), 500
-
-# Вспомогательные функции для анализа
-
-def extract_text_from_url(url):
-    """Extract text from URL with improved error handling"""
-    try:
-        logger.info(f"Processing URL: {url}")
-
-        # Нормализуем URL
-        parsed = urlparse(url)
-        clean_url = urlunparse(parsed._replace(scheme=parsed.scheme.lower(), netloc=parsed.netloc.lower()))
-
-        # Проверяем на видео контент
-        if any(domain in url for domain in ['youtube.com', 'vimeo.com']):
-            logger.info("Video content detected")
-            return "Video content detected", parsed.netloc.replace('www.', ''), "Video: " + url
-
-        # Настраиваем статью с таймаутом и user agent
-        article = Article(clean_url, config=config)
-
-        # Загружаем и парсим статью
-        article.download()
-        if article.download_state != 2:
-            logger.error(f"Failed to download article from {url}")
-            return None, None, None
-
-        article.parse()
-        if not article.text or len(article.text.strip()) < 100:
-            logger.warning(f"Short or empty content from {url}")
-            return None, None, None
-
-        # Извлекаем домен и заголовок
-        domain = parsed.netloc.replace('www.', '')
-        title = article.title.strip() if article.title else "No title"
-
-        logger.info(f"Successfully extracted content from {url}")
-        return article.text.strip(), domain, title
-
-    except Exception as e:
-        logger.error(f"Error extracting article from {url}: {str(e)}")
-        return None, None, None
-
-def calculate_credibility(integrity, fact_check, sentiment, bias):
-    """Calculate credibility level"""
-    fact_check_score = 1.0 - fact_check
-    sentiment_score = 1.0 - abs(sentiment - 0.5) * 2
-    bias_score = 1.0 - bias
-
-    score = (integrity * 0.45) + (fact_check_score * 0.35) + (sentiment_score * 0.10) + (bias_score * 0.10)
-
-    if score >= 0.75:
-        return 'High'
-    if score >= 0.5:
-        return 'Medium'
-    return 'Low'
-
-def save_analysis(url, title, source, content, analysis):
-    """Save analysis to database"""
-    try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-
-            # Извлекаем данные из анализа
-            integrity = analysis.get('news_integrity', 0.0)
-            fact_check = analysis.get('fact_check_needed_score', 1.0)
-            sentiment = analysis.get('sentiment_score', 0.5)
-            bias = analysis.get('bias_score', 1.0)
-            summary = analysis.get('short_summary', 'No summary')
-            credibility = analysis.get('index_of_credibility', 0.0)
-
-            # Рассчитываем уровень достоверности
-            level = calculate_credibility(integrity, fact_check, sentiment, bias)
-            db_url = url if url else f'text_{datetime.now(timezone.utc).timestamp()}'
-
-            # Сохраняем анализ в базу данных
-            cursor.execute('''
-                INSERT INTO news
-                (url, title, source, content, integrity, fact_check, sentiment, bias,
-                credibility_level, short_summary, index_of_credibility)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(url) DO UPDATE SET
-                title=excluded.title, source=excluded.source, content=excluded.content,
-                integrity=excluded.integrity, fact_check=excluded.fact_check,
-                sentiment=excluded.sentiment, bias=excluded.bias,
-                credibility_level=excluded.credibility_level,
-                short_summary=excluded.short_summary,
-                index_of_credibility=excluded.index_of_credibility,
-                analysis_date=CURRENT_TIMESTAMP
-            ''', (db_url, title, source, content, integrity, fact_check,
-                  sentiment, bias, level, summary, credibility))
-
-            # Обновляем статистику источников
-            cursor.execute('SELECT high, medium, low, total_analyzed FROM source_stats WHERE source = ?', (source,))
-            row = cursor.fetchone()
-
-            if row:
-                high, medium, low, total = row
-                if level == 'High': high += 1
-                elif level == 'Medium': medium += 1
-                else: low += 1
-                total += 1
-                cursor.execute('''
-                    UPDATE source_stats SET high=?, medium=?, low=?, total_analyzed=?
-                    WHERE source=?
-                ''', (high, medium, low, total, source))
-            else:
-                counts = {'High': 1, 'Medium': 0, 'Low': 0}
-                counts[level] = 1
-                cursor.execute('''
-                    INSERT INTO source_stats
-                    (source, high, medium, low, total_analyzed)
-                    VALUES (?, ?, ?, ?, ?)
-                ''', (source, counts['High'], counts['Medium'], counts['Low'], 1))
-
-            conn.commit()
-            return level
-    except Exception as e:
-        logger.error(f"Error saving analysis: {str(e)}")
-        raise ValueError("Failed to save analysis")
-
-def generate_query(analysis_result):
-    """Generate query for finding similar articles"""
-    topics = analysis_result.get('topics', [])
-    key_arguments = analysis_result.get('key_arguments', [])
-    mentioned_facts = analysis_result.get('mentioned_facts', [])
-
-    all_terms = []
-    for phrase_list in [topics, key_arguments]:
-        for phrase in phrase_list:
-            if not phrase.strip():
-                continue
-            if ' ' in phrase.strip() and len(phrase.strip().split()) > 1:
-                all_terms.append('"' + phrase.strip() + '"')
-            else:
-                all_terms.append(phrase.strip())
-
-    for fact in mentioned_facts:
-        if not fact.strip():
-            continue
-        words = [word for word in fact.lower().split() if word not in stop_words_en and len(word) > 2]
-        all_terms.extend(words)
-
-    unique_terms = list(set(all_terms))
-
-    if len(unique_terms) >= 3:
-        query = ' AND '.join(unique_terms)
-    elif unique_terms:
-        query = ' OR '.join(unique_terms)
-    else:
-        query = 'current events OR news'
-
-    return query
-
-def make_newsapi_request(params):
-    """Make request to NewsAPI"""
-    url = 'https://newsapi.org/v2/everything'
-    try:
-        response = requests.get(url, params=params, timeout=15)
-        response.raise_for_status()
-        return response.json().get('articles', [])
-    except Exception as e:
-        logger.error(f'NewsAPI Request Error: {str(e)}')
-        return []
-
-def fetch_same_topic_articles(analysis_result, page=1, per_page=3):
-    """Fetch similar articles by topic with pagination"""
-    global predefined_trust_scores
-
-    if not NEWS_API_KEY:
-        logger.warning('NEWS_API_KEY is not configured. Skipping similar news search.')
-        return []
-
-    try:
-        query = generate_query(analysis_result)
-        end_date = datetime.now(timezone.utc).date()
-        start_date = end_date - timedelta(days=7)
-
-        params = {
-            'q': query,
-            'apiKey': NEWS_API_KEY,
-            'language': 'en',
-            'pageSize': per_page,
-            'page': page,
-            'sortBy': 'relevancy',
-            'from': start_date.strftime('%Y-%m-%d'),
-            'to': end_date.strftime('%Y-%m-%d'),
-        }
-
-        if TRUSTED_NEWS_SOURCES_IDS:
-            params['sources'] = ','.join(TRUSTED_NEWS_SOURCES_IDS)
-
-        articles = make_newsapi_request(params)
-
-        if not articles and query != 'current events OR news':
-            broader_query = ' OR '.join([f'"{term}"' if ' ' in term else term
-                                      for term in analysis_result.get('topics', [])[:3]
-                                      if term and term not in stop_words_en])
-            if not broader_query:
-                broader_query = 'current events OR news'
-
-            params['q'] = broader_query
-            additional_articles = make_newsapi_request(params)
-            articles.extend(additional_articles)
-
-        unique_articles = {}
-        for article in articles:
-            if article.get('url'):
-                unique_articles[article['url']] = article
-
-        articles = list(unique_articles.values())
-
-        if not articles:
-            return []
-
-        all_query_terms = []
-        all_query_terms.extend([t.lower().replace('"', '') for t in query.split(' AND ') if t.strip()])
-        if 'broader_query' in locals():
-            all_query_terms.extend([t.lower().replace('"', '') for t in broader_query.split(' OR ') if t.strip()])
-        all_query_terms = list(set([t for t in all_query_terms if t and t not in stop_words_en]))
-
-        ranked_articles = []
-        for article in articles:
-            source_domain = urlparse(article.get('url', '')).netloc.replace('www.', '')
-            trust_score = predefined_trust_scores.get(source_domain, 0.5)
-
-            article_text = (article.get('title', '') + ' ' + article.get('description', '')).lower()
-            relevance_score = sum(1 for term in all_query_terms if term in article_text)
-            final_score = (relevance_score * 10) + (trust_score * 5)
-            ranked_articles.append((article, final_score))
-
-        ranked_articles.sort(key=lambda item: item[1], reverse=True)
-        return [item[0] for item in ranked_articles[:per_page]]
-
-    except Exception as e:
-        logger.error(f"Error in fetch_same_topic_articles: {str(e)}")
-        return []
-
-def render_same_topic_articles_html(articles):
-    """Render HTML for similar articles"""
-    if not articles:
-        return '<div class="alert alert-info">No similar articles found</div>'
-
-    html_items = []
-    for art in articles:
-        title = html.escape(art.get('title', 'No Title'))
-        article_url = html.escape(art.get('url', '#'))
-        source_api_name = html.escape(art.get('source', {}).get('name', 'Unknown Source'))
-        published_at = html.escape(art.get('publishedAt', 'N/A').split('T')[0])
-        description = html.escape(art.get('description', 'No description available.'))
-
-        domain = urlparse(art.get('url', '#')).netloc.replace('www.', '')
-        trust_score = predefined_trust_scores.get(domain, 0.5)
-        trust_display = f' (Credibility: {int(trust_score*100)}%)'
-
-        html_items.append(
-            f'''
-            <div class="similar-article">
-                <h4><a href="{article_url}" target="_blank" rel="noopener noreferrer">{title}</a></h4>
-                <div class="article-meta">
-                    <span class="article-source"><i class="bi bi-newspaper"></i> {source_api_name}</span>
-                    <span class="article-date"><i class="bi bi-calendar"></i> {published_at}</span>
-                    <span class="article-credibility">Credibility: {int(trust_score*100)}%</span>
-                </div>
-                <p class="article-description">{description}</p>
-            </div>
-            '''
-        )
-
-    return '<div class="similar-articles-container">' + ''.join(html_items) + '</div>'
-
-def format_analysis_results(title, source, analysis, credibility):
-    """Format analysis results for display"""
-    try:
-        output = {
-            'title': title,
-            'source': source,
-            'credibility': credibility,
-            'analysis': analysis,
-            'scores': {
-                'Integrity': analysis.get('news_integrity', 0.0),
-                'Factuality': 1 - analysis.get('fact_check_needed_score', 1.0),
-                'Sentiment': analysis.get('sentiment_score', 0.5),
-                'Bias': 1 - analysis.get('bias_score', 1.0),
-                'Overall Credibility Index': analysis.get('index_of_credibility', 0.0)
-            },
-            'output_md': f"""
-            <div class="analysis-section">
-                <h2>Article Information</h2>
-                <p><strong>Title:</strong> {html.escape(title)}</p>
-                <p><strong>Source:</strong> {html.escape(source)}</p>
-                <p><strong>Credibility Level:</strong> <span class="credibility-badge {credibility.lower()}">{credibility}</span></p>
-            </div>
-
-            <div class="analysis-section">
-                <h2>Analysis Scores</h2>
-                <div class="row">
-                    <div class="col-md-3">
-                        <div class="score-item">
-                            <div class="score-name">Integrity</div>
-                            <div class="score-value">{analysis.get('news_integrity', 0.0):.2f}</div>
-                            <div class="score-description">Overall integrity and trustworthiness</div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="score-item">
-                            <div class="score-name">Factuality</div>
-                            <div class="score-value">{1 - analysis.get('fact_check_needed_score', 1.0):.2f}</div>
-                            <div class="score-description">Likelihood that claims are factual</div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="score-item">
-                            <div class="score-name">Sentiment</div>
-                            <div class="score-value">{analysis.get('sentiment_score', 0.5):.2f}</div>
-                            <div class="score-description">Emotional tone (0.0 negative, 0.5 neutral, 1.0 positive)</div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="score-item">
-                            <div class="score-name">Bias</div>
-                            <div class="score-value">{1 - analysis.get('bias_score', 1.0):.2f}</div>
-                            <div class="score-description">Degree of perceived bias (1.0 low bias, 0.0 high bias)</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="analysis-section">
-                <h2>Additional Information</h2>
-                <div class="detail-item">
-                    <h4>Author Purpose</h4>
-                    <p>{html.escape(analysis.get('author_purpose', 'Not specified'))}</p>
-                </div>
-
-                <div class="detail-item">
-                    <h4>Short Summary</h4>
-                    <p>{html.escape(analysis.get('short_summary', 'No summary available'))}</p>
-                </div>
-
-                <div class="detail-item">
-                    <h4>Topics</h4>
-                    <div class="d-flex flex-wrap gap-2">
-                        {' '.join(f'<span class="badge bg-primary">{html.escape(topic)}</span>' for topic in analysis.get('topics', []))}
-                    </div>
-                </div>
-
-                <div class="detail-item">
-                    <h4>Key Arguments</h4>
-                    <ul class="list-unstyled">
-                        {''.join(f'<li>{html.escape(arg)}</li>' for arg in analysis.get('key_arguments', []))}
-                    </ul>
-                </div>
-
-                <div class="detail-item">
-                    <h4>Potential Biases Identified</h4>
-                    <ul class="list-unstyled">
-                        {''.join(f'<li>{html.escape(bias)}</li>' for bias in analysis.get('potential_biases_identified', []))}
-                    </ul>
-                </div>
-            </div>
-            """
-        }
-        return output
-    except Exception as e:
-        logger.error(f"Error formatting analysis results: {str(e)}")
-        return {"error": "Error formatting analysis results"}
-# Основные маршруты приложения
-@app.route('/')
-def home():
+def index():
     """Home page route"""
     return render_template('index.html')
 
@@ -1100,7 +472,7 @@ def analyze():
             title = 'User-provided Text'
             source = source_name
 
-        # Analyze with mock data (since we don't have real API key)
+        # Analyze with mock data
         try:
             analysis = {
                 'news_integrity': 0.85,
@@ -1161,7 +533,7 @@ def analyze():
         # Get analysis history
         analysis_history = get_analysis_history()
 
-        # Prepare response with structure matching your index.html expectations
+        # Prepare response matching your index.html expectations
         response_data = {
             'status': 'success',
             'analysis': analysis,
@@ -1178,62 +550,7 @@ def analyze():
             'source_credibility_data': source_credibility_data,
             'analysis_history': analysis_history,
             'same_topic_html': same_topic_html,
-            'output': {
-                'output_md': f"""
-                <div class="analysis-section">
-                    <h2>Article Information</h2>
-                    <p><strong>Title:</strong> {html.escape(title)}</p>
-                    <p><strong>Source:</strong> {html.escape(source)}</p>
-                    <p><strong>Credibility Level:</strong> {credibility}</p>
-                </div>
-
-                <div class="analysis-section">
-                    <h2>Analysis Scores</h2>
-                    <div class="row">
-                        <div class="col-md-3">
-                            <div class="score-item">
-                                <div class="score-name">News Integrity</div>
-                                <div class="score-value">{analysis.get('news_integrity', 0.0):.2f}</div>
-                                <div class="score-description">Overall integrity and trustworthiness</div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="score-item">
-                                <div class="score-name">Fact Check Needed</div>
-                                <div class="score-value">{analysis.get('fact_check_needed_score', 1.0):.2f}</div>
-                                <div class="score-description">Likelihood that claims need fact-checking</div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="score-item">
-                                <div class="score-name">Sentiment</div>
-                                <div class="score-value">{analysis.get('sentiment_score', 0.5):.2f}</div>
-                                <div class="score-description">Emotional tone (0.0 negative, 0.5 neutral, 1.0 positive)</div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="score-item">
-                                <div class="score-name">Bias</div>
-                                <div class="score-value">{analysis.get('bias_score', 1.0):.2f}</div>
-                                <div class="score-description">Degree of perceived bias</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="analysis-section">
-                    <h2>Additional Information</h2>
-                    <div class="detail-item">
-                        <h4>Author Purpose</h4>
-                        <p>{html.escape(analysis.get('author_purpose', 'Not specified'))}</p>
-                    </div>
-                    <div class="detail-item">
-                        <h4>Short Summary</h4>
-                        <p>{html.escape(analysis.get('short_summary', 'No summary available'))}</p>
-                    </div>
-                </div>
-                """
-            }
+            'output': format_analysis_results(title, source, analysis, credibility)
         }
 
         return jsonify(response_data)
@@ -1245,8 +562,6 @@ def analyze():
             'status': 500,
             'details': str(e)
         }), 500
-
-# Вспомогательные функции
 
 def extract_text_from_url(url):
     """Extract text from URL with improved error handling"""
@@ -1511,6 +826,103 @@ def render_same_topic_articles_html(articles):
         )
 
     return '<div class="similar-articles-container">' + ''.join(html_items) + '</div>'
+
+def format_analysis_results(title, source, analysis, credibility):
+    """Format analysis results for display"""
+    try:
+        output = {
+            'title': title,
+            'source': source,
+            'credibility': credibility,
+            'analysis': analysis,
+            'scores': {
+                'news_integrity': analysis.get('news_integrity', 0.0),
+                'fact_check_needed_score': analysis.get('fact_check_needed_score', 1.0),
+                'sentiment_score': analysis.get('sentiment_score', 0.5),
+                'bias_score': analysis.get('bias_score', 1.0),
+                'index_of_credibility': analysis.get('index_of_credibility', 0.0)
+            },
+            'output_md': f"""
+            <div class="analysis-section">
+                <h2>Article Information</h2>
+                <p><strong>Title:</strong> {html.escape(title)}</p>
+                <p><strong>Source:</strong> {html.escape(source)}</p>
+                <p><strong>Credibility Level:</strong> <span class="credibility-badge {credibility.lower()}">{credibility}</span></p>
+            </div>
+
+            <div class="analysis-section">
+                <h2>Analysis Scores</h2>
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="score-item">
+                            <div class="score-name">News Integrity</div>
+                            <div class="score-value">{analysis.get('news_integrity', 0.0):.2f}</div>
+                            <div class="score-description">Overall integrity and trustworthiness</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="score-item">
+                            <div class="score-name">Fact Check Needed</div>
+                            <div class="score-value">{analysis.get('fact_check_needed_score', 1.0):.2f}</div>
+                            <div class="score-description">Likelihood that claims need fact-checking</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="score-item">
+                            <div class="score-name">Sentiment</div>
+                            <div class="score-value">{analysis.get('sentiment_score', 0.5):.2f}</div>
+                            <div class="score-description">Emotional tone (0.0 negative, 0.5 neutral, 1.0 positive)</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="score-item">
+                            <div class="score-name">Bias</div>
+                            <div class="score-value">{analysis.get('bias_score', 1.0):.2f}</div>
+                            <div class="score-description">Degree of perceived bias</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="analysis-section">
+                <h2>Additional Information</h2>
+                <div class="detail-item">
+                    <h4>Author Purpose</h4>
+                    <p>{html.escape(analysis.get('author_purpose', 'Not specified'))}</p>
+                </div>
+
+                <div class="detail-item">
+                    <h4>Short Summary</h4>
+                    <p>{html.escape(analysis.get('short_summary', 'No summary available'))}</p>
+                </div>
+
+                <div class="detail-item">
+                    <h4>Topics</h4>
+                    <div class="d-flex flex-wrap gap-2">
+                        {' '.join(f'<span class="badge bg-primary">{html.escape(topic)}</span>' for topic in analysis.get('topics', []))}
+                    </div>
+                </div>
+
+                <div class="detail-item">
+                    <h4>Key Arguments</h4>
+                    <ul class="list-unstyled">
+                        {''.join(f'<li>{html.escape(arg)}</li>' for arg in analysis.get('key_arguments', []))}
+                    </ul>
+                </div>
+
+                <div class="detail-item">
+                    <h4>Potential Biases Identified</h4>
+                    <ul class="list-unstyled">
+                        {''.join(f'<li>{html.escape(bias)}</li>' for bias in analysis.get('potential_biases_identified', []))}
+                    </ul>
+                </div>
+            </div>
+            """
+        }
+        return output
+    except Exception as e:
+        logger.error(f"Error formatting analysis results: {str(e)}")
+        return {"error": "Error formatting analysis results"}
 
 if __name__ == '__main__':
     # Initialize database
