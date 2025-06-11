@@ -135,26 +135,18 @@ config = Config()
 config.browser_user_agent = user_agent
 config.request_timeout = 30
 
-# WordPress scanner protection
-WORDPRESS_PATHS = [
-    re.compile(r'wp-admin', re.IGNORECASE),
-    re.compile(r'wp-includes', re.IGNORECASE),
-    re.compile(r'wp-content', re.IGNORECASE),
-    re.compile(r'xmlrpc\.php', re.IGNORECASE),
-    re.compile(r'wp-login\.php', re.IGNORECASE),
-    re.compile(r'wp-config\.php', re.IGNORECASE),
-    re.compile(r'readme\.html', re.IGNORECASE),
-    re.compile(r'license\.txt', re.IGNORECASE),
-    re.compile(r'wp-json', re.IGNORECASE),
-]
-
 @app.before_request
-def block_wordpress_scanners():
-    """Block WordPress scanner requests"""
-    path = request.path.lower()
-    if any(pattern.search(path) for pattern in WORDPRESS_PATHS):
-        logger.warning(f'Blocked WordPress scanner request from {request.remote_addr}')
-        return jsonify({'error': 'Not found'}), 404
+def before_request():
+    """Set up before each request"""
+    if request.path.startswith('/static/'):
+        return
+
+    if request.method == 'OPTIONS':
+        response = make_response()
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        return response
 
 @app.after_request
 def add_security_headers(response):
@@ -163,28 +155,6 @@ def add_security_headers(response):
     response.headers['X-Frame-Options'] = 'SAMEORIGIN'
     response.headers['X-XSS-Protection'] = '1; mode=block'
     return response
-
-# Error handlers
-@app.errorhandler(404)
-def page_not_found(e):
-    """404 error handler"""
-    return render_template('404.html'), 404
-
-@app.errorhandler(400)
-def bad_request(e):
-    """400 error handler"""
-    return jsonify({
-        'error': 'Bad request',
-        'message': str(e)
-    }), 400
-
-@app.errorhandler(500)
-def internal_server_error(e):
-    """500 error handler"""
-    return jsonify({
-        'error': 'Internal server error',
-        'message': str(e)
-    }), 500
 
 def get_source_credibility_data():
     """Get source credibility data from database"""
@@ -200,6 +170,10 @@ def get_source_credibility_data():
             data = cursor.fetchall()
             sources = []
             credibility_scores = []
+            high_counts = []
+            medium_counts = []
+            low_counts = []
+            total_counts = []
 
             for source, high, medium, low, total in data:
                 total_current = high + medium + low
@@ -210,16 +184,28 @@ def get_source_credibility_data():
 
                 sources.append(source)
                 credibility_scores.append(round(score, 2))
+                high_counts.append(high)
+                medium_counts.append(medium)
+                low_counts.append(low)
+                total_counts.append(total_current)
 
             return {
                 'sources': sources,
-                'credibility_scores': credibility_scores
+                'credibility_scores': credibility_scores,
+                'high_counts': high_counts,
+                'medium_counts': medium_counts,
+                'low_counts': low_counts,
+                'total_counts': total_counts
             }
     except Exception as e:
         logger.error(f"Error getting source credibility data: {str(e)}")
         return {
             'sources': [],
-            'credibility_scores': []
+            'credibility_scores': [],
+            'high_counts': [],
+            'medium_counts': [],
+            'low_counts': [],
+            'total_counts': []
         }
 
 def extract_text_from_url(url):
@@ -374,6 +360,29 @@ def save_analysis(url, title, source, content, analysis):
                 analysis_date=CURRENT_TIMESTAMP
             ''', (db_url, title, source, content, integrity, fact_check,
                   sentiment, bias, level, summary, credibility))
+
+            # Update source stats
+            cursor.execute('SELECT high, medium, low, total_analyzed FROM source_stats WHERE source = ?', (source,))
+            row = cursor.fetchone()
+
+            if row:
+                high, medium, low, total = row
+                if level == 'High': high += 1
+                elif level == 'Medium': medium += 1
+                else: low += 1
+                total += 1
+                cursor.execute('''
+                    UPDATE source_stats SET high=?, medium=?, low=?, total_analyzed=?
+                    WHERE source=?
+                ''', (high, medium, low, total, source))
+            else:
+                counts = {'High': 1, 'Medium': 0, 'Low': 0}
+                counts[level] = 1
+                cursor.execute('''
+                    INSERT INTO source_stats
+                    (source, high, medium, low, total_analyzed)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (source, counts['High'], counts['Medium'], counts['Low'], 1))
 
             conn.commit()
             return level
