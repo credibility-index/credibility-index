@@ -567,7 +567,7 @@ def analyze():
 def extract_text_from_url(url):
     """Extract text from URL with improved error handling"""
     try:
-        logger.info(f"Processing URL: {url}")
+        logger.info(f"Attempting to process URL: {url}")
 
         # Validate URL format
         try:
@@ -576,7 +576,7 @@ def extract_text_from_url(url):
                 logger.error(f"Invalid URL format: {url}")
                 return None, None, None
         except Exception as e:
-            logger.error(f"URL parsing error: {str(e)}")
+            logger.error(f"URL parsing error for {url}: {str(e)}")
             return None, None, None
 
         # Normalize URL
@@ -587,17 +587,22 @@ def extract_text_from_url(url):
 
         # Check for video content
         if any(domain in clean_url for domain in ['youtube.com', 'vimeo.com', 'twitch.tv']):
-            logger.info("Video content detected")
+            logger.info(f"Video content detected at {clean_url}")
             return "Video content detected", parsed.netloc.replace('www.', ''), "Video: " + clean_url
 
-        # Check URL accessibility
+        # Check URL accessibility with more robust headers
         try:
-            response = requests.head(clean_url, timeout=10, allow_redirects=True, headers={'User-Agent': user_agent})
-            if response.status_code != 200:
-                logger.error(f"URL returned status code: {response.status_code}")
-                return None, None, None
+            headers = {
+                'User-Agent': user_agent,
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1'
+            }
+            response = requests.head(clean_url, timeout=10, allow_redirects=True, headers=headers)
+            response.raise_for_status()
         except requests.RequestException as e:
-            logger.error(f"URL accessibility check failed: {str(e)}")
+            logger.error(f"URL accessibility check failed for {clean_url}: {str(e)}")
             return None, None, None
 
         # Configure article with timeout and user agent
@@ -610,7 +615,7 @@ def extract_text_from_url(url):
                 logger.error(f"Failed to download article from {clean_url}")
                 return None, None, None
         except Exception as e:
-            logger.error(f"Article download failed: {str(e)}")
+            logger.error(f"Article download failed from {clean_url}: {str(e)}")
             return None, None, None
 
         # Parse article
@@ -620,7 +625,7 @@ def extract_text_from_url(url):
                 logger.warning(f"Short or empty content from {clean_url}")
                 return None, None, None
         except Exception as e:
-            logger.error(f"Article parsing failed: {str(e)}")
+            logger.error(f"Article parsing failed for {clean_url}: {str(e)}")
             return None, None, None
 
         # Extract domain and title
@@ -631,63 +636,9 @@ def extract_text_from_url(url):
         return article.text.strip(), domain, title
 
     except Exception as e:
-        logger.error(f"Error extracting article from {url}: {str(e)}")
+        logger.error(f"Unexpected error extracting article from {url}: {str(e)}", exc_info=True)
         return None, None, None
 
-        # Нормализуем URL
-        clean_url = urlunparse(parsed._replace(
-            scheme=parsed.scheme.lower(),
-            netloc=parsed.netloc.lower()
-        ))
-
-        # Проверяем на видео контент
-        if any(domain in clean_url for domain in ['youtube.com', 'vimeo.com', 'twitch.tv']):
-            logger.info("Video content detected")
-            return "Video content detected", parsed.netloc.replace('www.', ''), "Video: " + clean_url
-
-        # Проверяем доступность URL
-        try:
-            response = requests.head(clean_url, timeout=10, allow_redirects=True, headers={'User-Agent': user_agent})
-            if response.status_code != 200:
-                logger.error(f"URL returned status code: {response.status_code}")
-                return None, None, None
-        except requests.RequestException as e:
-            logger.error(f"URL accessibility check failed: {str(e)}")
-            return None, None, None
-
-        # Настраиваем статью с таймаутом и user agent
-        article = Article(clean_url, config=config)
-
-        # Загружаем статью
-        try:
-            article.download()
-            if article.download_state != 2:
-                logger.error(f"Failed to download article from {clean_url}")
-                return None, None, None
-        except Exception as e:
-            logger.error(f"Article download failed: {str(e)}")
-            return None, None, None
-
-        # Парсим статью
-        try:
-            article.parse()
-            if not article.text or len(article.text.strip()) < 100:
-                logger.warning(f"Short or empty content from {clean_url}")
-                return None, None, None
-        except Exception as e:
-            logger.error(f"Article parsing failed: {str(e)}")
-            return None, None, None
-
-        # Извлекаем домен и заголовок
-        domain = parsed.netloc.replace('www.', '')
-        title = article.title.strip() if article.title else "No title"
-
-        logger.info(f"Successfully extracted content from {clean_url}")
-        return article.text.strip(), domain, title
-
-    except Exception as e:
-        logger.error(f"Error extracting article from {url}: {str(e)}")
-        return None, None, None
 
 def analyze_with_claude(content, source):
     """Analyze article text using Claude API"""
