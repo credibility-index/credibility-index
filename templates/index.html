@@ -4,9 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Media Credibility Index</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <script src="https://cdn.plot.ly/plotly-2.20.0.min.js"></script>
     <style>
         :root {
             --primary-color: #2c3e50;
@@ -23,6 +20,7 @@
             --transition: all 0.3s ease;
         }
 
+        /* Base styles */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             line-height: 1.6;
@@ -39,7 +37,7 @@
         .navbar {
             background-color: var(--secondary-color);
             box-shadow: var(--box-shadow);
-            padding: 15px 0;
+            padding: 15px 20px;
             position: sticky;
             top: 0;
             z-index: 1000;
@@ -51,6 +49,7 @@
             display: flex;
             align-items: center;
             font-size: 1.2rem;
+            text-decoration: none;
         }
 
         .navbar-brand i {
@@ -61,7 +60,10 @@
         /* Main Container */
         .main-container {
             flex: 1;
-            padding: 40px 0;
+            padding: 40px 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
         }
 
         /* Page Title */
@@ -76,10 +78,6 @@
             font-weight: 700;
             color: var(--light-color);
             margin-bottom: 15px;
-            background: linear-gradient(90deg, var(--accent-color), var(--primary-color));
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
         }
 
         .subheading {
@@ -94,9 +92,6 @@
             display: flex;
             flex-direction: column;
             gap: 30px;
-            max-width: 1200px;
-            margin: 0 auto;
-            width: 100%;
         }
 
         /* Form Container */
@@ -106,19 +101,14 @@
             border-radius: var(--border-radius);
             box-shadow: var(--box-shadow);
             margin-bottom: 30px;
-            transition: var(--transition);
             border: 1px solid rgba(255, 255, 255, 0.1);
-            width: 100%;
-        }
-
-        .form-container:hover {
-            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
         }
 
         .form-label {
             color: var(--light-color);
             margin-bottom: 8px;
             font-weight: 500;
+            display: block;
         }
 
         .form-control {
@@ -127,14 +117,17 @@
             border-radius: 6px;
             padding: 12px 15px;
             border: 1px solid rgba(255, 255, 255, 0.1);
-            transition: var(--transition);
             margin-bottom: 15px;
+            width: 100%;
+            display: block;
+            resize: vertical;
+            min-height: 100px;
         }
 
         .form-control:focus {
+            outline: none;
             border-color: var(--accent-color);
-            box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
-            background-color: rgba(255, 255, 255, 0.1);
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.25);
         }
 
         .form-control::placeholder {
@@ -143,17 +136,16 @@
 
         .btn-analyze {
             background-color: var(--accent-color);
-            border-color: var(--accent-color);
             color: white;
             padding: 12px 24px;
             font-weight: 500;
             border-radius: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto;
-            transition: var(--transition);
+            display: block;
+            width: fit-content;
+            margin: 20px auto 0;
             border: none;
+            cursor: pointer;
+            transition: var(--transition);
             font-size: 1rem;
         }
 
@@ -161,10 +153,6 @@
             background-color: #2980b9;
             transform: translateY(-2px);
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-        }
-
-        .btn-analyze i {
-            margin-right: 8px;
         }
 
         /* Loading Indicator */
@@ -180,11 +168,31 @@
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
+        .spinner {
+            width: 50px;
+            height: 50px;
+            margin: 0 auto 20px;
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top: 4px solid var(--accent-color);
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            font-size: 1.1rem;
+            margin-bottom: 5px;
+            color: var(--light-color);
+        }
+
         /* Analysis Results */
         .analysis-results {
             display: none;
             margin-top: 30px;
-            width: 100%;
         }
 
         .analysis-section {
@@ -229,15 +237,12 @@
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
             margin-bottom: 20px;
             border-left: 4px solid var(--accent-color);
-            transition: var(--transition);
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .similar-article:hover {
             transform: translateY(-3px);
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            border-left: 4px solid var(--accent-color);
-            background-color: rgba(255, 255, 255, 0.1);
         }
 
         .similar-article h4 {
@@ -248,11 +253,11 @@
         .similar-article h4 a {
             color: inherit;
             text-decoration: none;
-            transition: var(--transition);
         }
 
         .similar-article h4 a:hover {
             color: var(--accent-color);
+            text-decoration: underline;
         }
 
         .article-meta {
@@ -307,12 +312,45 @@
             transition: var(--transition);
             font-weight: 500;
             border: 1px solid rgba(255, 255, 255, 0.2);
+            width: fit-content;
         }
 
         .show-more-btn:hover {
             background-color: #2980b9;
             transform: translateY(-2px);
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Sidebar */
+        .sidebar {
+            position: fixed;
+            right: 20px;
+            top: 100px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            z-index: 100;
+        }
+
+        .sidebar-link {
+            background-color: var(--accent-color);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            transition: var(--transition);
+            width: fit-content;
+        }
+
+        .sidebar-link:hover {
+            background-color: #2980b9;
+            transform: translateY(-2px);
+        }
+
+        .sidebar-link i {
+            margin-right: 8px;
         }
 
         /* Footer */
@@ -325,28 +363,37 @@
             border-top: 1px solid rgba(255, 255, 255, 0.1);
         }
 
+        /* Alerts */
+        .alert {
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+
+        .alert-danger {
+            background-color: rgba(220, 53, 69, 0.1);
+            border: 1px solid rgba(220, 53, 69, 0.3);
+            color: var(--danger-color);
+        }
+
         /* Responsive Design */
         @media (max-width: 1200px) {
-            .main-container {
-                padding: 30px 0;
+            .sidebar {
+                position: static;
+                flex-direction: row;
+                justify-content: center;
+                margin-top: 20px;
+                gap: 20px;
             }
 
-            .form-container, .analysis-section {
-                padding: 25px;
-            }
-
-            .main-heading {
-                font-size: 2.2rem;
-            }
-
-            .chart-container {
-                height: 450px;
+            .main-content {
+                margin-bottom: 80px;
             }
         }
 
         @media (max-width: 992px) {
             .main-container {
-                padding: 25px 0;
+                padding: 30px 15px;
             }
 
             .form-container, .analysis-section {
@@ -354,7 +401,7 @@
             }
 
             .main-heading {
-                font-size: 2rem;
+                font-size: 2.2rem;
             }
 
             .chart-container {
@@ -364,7 +411,7 @@
 
         @media (max-width: 768px) {
             .main-container {
-                padding: 20px 0;
+                padding: 20px 10px;
             }
 
             .form-container, .analysis-section {
@@ -382,29 +429,21 @@
             .btn-analyze {
                 width: 100%;
             }
+
+            .sidebar {
+                flex-direction: column;
+                align-items: center;
+            }
         }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark">
+    <nav class="navbar">
         <div class="container">
             <a class="navbar-brand" href="/">
                 <i class="bi bi-newspaper"></i>
-                Media Credibility Index
+                <span>Media Credibility Index</span>
             </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="/faq">FAQ</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/feedback">Feedback</a>
-                    </li>
-                </ul>
-            </div>
         </div>
     </nav>
 
@@ -426,18 +465,16 @@
                         <label for="sourceName" class="form-label">Source Name (optional)</label>
                         <input type="text" class="form-control" id="sourceName" placeholder="e.g., bbc.com, reuters.com">
                     </div>
-                    <button type="submit" class="btn btn-analyze">
+                    <button type="submit" class="btn-analyze">
                         <i class="bi bi-search"></i> Analyze Article
                     </button>
                 </form>
             </div>
 
-            <div class="loading-container text-center" id="loadingIndicator">
-                <div class="spinner-border spinner" role="status">
-                    <span class="visually-hidden">Loading...</span>
-                </div>
+            <div class="loading-container" id="loadingIndicator">
+                <div class="spinner"></div>
                 <p class="loading-text">Analyzing article content...</p>
-                <p class="text-muted">This may take a moment as we perform deep analysis</p>
+                <p>This may take a moment as we perform deep analysis</p>
             </div>
 
             <div id="analysisResults" class="analysis-results">
@@ -465,11 +502,18 @@
                     <div class="similar-articles-container" id="sameTopicArticles">
                         <!-- Similar articles will be inserted here by JavaScript -->
                     </div>
-                    <button id="showMoreBtn" class="show-more-btn" style="display: none;">
-                        Show More Articles
-                    </button>
+                    <button id="showMoreBtn" class="show-more-btn" style="display: none;">Show More Articles</button>
                 </div>
             </div>
+        </div>
+
+        <div class="sidebar">
+            <a href="/faq" class="sidebar-link">
+                <i class="bi bi-question-circle"></i> FAQ
+            </a>
+            <a href="/feedback" class="sidebar-link">
+                <i class="bi bi-chat-dots"></i> Feedback
+            </a>
         </div>
     </div>
 
@@ -479,27 +523,68 @@
         </div>
     </footer>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // DOM elements cache
-        const elements = {
-            analysisForm: document.getElementById('analysisForm'),
-            articleInput: document.getElementById('articleInput'),
-            sourceName: document.getElementById('sourceName'),
-            loadingIndicator: document.getElementById('loadingIndicator'),
-            analysisResults: document.getElementById('analysisResults'),
-            analysisOutput: document.getElementById('analysisOutput'),
-            articleCredibilityChart: document.getElementById('articleCredibilityChart'),
-            sourceCredibilityChart: document.getElementById('sourceCredibilityChart'),
-            sameTopicArticles: document.getElementById('sameTopicArticles'),
-            showMoreBtn: document.getElementById('showMoreBtn')
-        };
+        // Динамическая загрузка внешних ресурсов
+        function loadScript(url, callback) {
+            const script = document.createElement('script');
+            script.src = url;
+            script.onload = callback;
+            script.onerror = function() {
+                console.error(`Failed to load script: ${url}`);
+            };
+            document.head.appendChild(script);
+        }
 
-        // Current page for pagination
-        let currentPage = 1;
-
-        // Initialize on page load
+        // Загрузка всех необходимых ресурсов
         document.addEventListener('DOMContentLoaded', function() {
+            // Загрузка Plotly
+            loadScript('https://cdn.plot.ly/plotly-2.20.0.min.js', function() {
+                console.log('Plotly loaded');
+                initPage();
+            });
+
+            // Загрузка Bootstrap Icons (если нужно)
+            const style = document.createElement('style');
+            style.textContent = `
+                @font-face {
+                    font-family: 'bootstrap-icons';
+                    src: url('https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/fonts/bootstrap-icons.woff2') format('woff2'),
+                         url('https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/fonts/bootstrap-icons.woff') format('woff');
+                    font-weight: normal;
+                    font-style: normal;
+                    font-display: block;
+                }
+
+                .bi {
+                    font-family: 'bootstrap-icons' !important;
+                    speak: none;
+                    font-style: normal;
+                    font-weight: normal;
+                    font-variant: normal;
+                    text-transform: none;
+                    line-height: 1;
+                    -webkit-font-smoothing: antialiased;
+                    -moz-osx-font-smoothing: grayscale;
+                }
+            `;
+            document.head.appendChild(style);
+        });
+
+        function initPage() {
+            // DOM elements cache
+            const elements = {
+                analysisForm: document.getElementById('analysisForm'),
+                articleInput: document.getElementById('articleInput'),
+                sourceName: document.getElementById('sourceName'),
+                loadingIndicator: document.getElementById('loadingIndicator'),
+                analysisResults: document.getElementById('analysisResults'),
+                analysisOutput: document.getElementById('analysisOutput'),
+                sameTopicArticles: document.getElementById('sameTopicArticles'),
+                showMoreBtn: document.getElementById('showMoreBtn')
+            };
+
+            let currentPage = 1;
+
             if (elements.analysisForm) {
                 elements.analysisForm.addEventListener('submit', function(e) {
                     e.preventDefault();
@@ -510,312 +595,308 @@
             if (elements.showMoreBtn) {
                 elements.showMoreBtn.addEventListener('click', loadMoreArticles);
             }
-        });
 
-        // Function to analyze article
-        function analyzeArticle() {
-            const inputText = elements.articleInput.value.trim();
-            const sourceName = elements.sourceName ? elements.sourceName.value.trim() : '';
+            // Function to show alerts
+            function showAlert(message, type) {
+                const alertContainer = document.createElement('div');
+                alertContainer.className = `alert alert-${type}`;
+                alertContainer.role = 'alert';
+                alertContainer.innerHTML = message;
 
-            if (!inputText) {
-                showAlert('Please enter article text or URL', 'danger');
-                return;
+                const container = document.querySelector('.main-container');
+                if (container) {
+                    container.prepend(alertContainer);
+                }
+
+                // Auto-close after 5 seconds
+                setTimeout(() => {
+                    alertContainer.remove();
+                }, 5000);
             }
 
-            // Show loading indicator
-            elements.loadingIndicator.style.display = 'block';
-            elements.analysisResults.style.display = 'none';
+            // Function to analyze article
+            function analyzeArticle() {
+                const inputText = elements.articleInput.value.trim();
+                const sourceName = elements.sourceName ? elements.sourceName.value.trim() : '';
 
-            // Prepare request data
-            const requestData = {
-                input_text: inputText,
-                source_name_manual: sourceName
-            };
-
-            // Send request to server for analysis
-            fetch('/analyze', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify(requestData)
-            })
-            .then(response => {
-                if (!response.ok) {
-                    return response.json().then(err => {
-                        throw new Error(err.error || 'Network response was not ok');
-                    });
-                }
-                return response.json();
-            })
-            .then(data => {
-                // Hide loading indicator
-                elements.loadingIndicator.style.display = 'none';
-
-                // Show analysis results
-                elements.analysisResults.style.display = 'block';
-
-                // Display analysis results
-                if (data.output && data.output.output_md) {
-                    elements.analysisOutput.innerHTML = data.output.output_md;
-                } else {
-                    elements.analysisOutput.innerHTML = '<div class="alert alert-warning">No analysis results available</div>';
+                if (!inputText) {
+                    showAlert('Please enter article text or URL', 'danger');
+                    return;
                 }
 
-                // Render charts if data is available
-                if (data.scores_for_chart && typeof Plotly !== 'undefined') {
-                    renderArticleCredibilityChart(data.scores_for_chart);
-                }
+                // Show loading indicator
+                elements.loadingIndicator.style.display = 'block';
+                elements.analysisResults.style.display = 'none';
 
-                if (data.source_credibility_data && typeof Plotly !== 'undefined') {
-                    renderSourceCredibilityChart(data.source_credibility_data);
-                }
+                // Prepare request data
+                const requestData = {
+                    input_text: inputText,
+                    source_name_manual: sourceName
+                };
 
-                // Display same topic articles
-                if (data.same_topic_html) {
-                    elements.sameTopicArticles.innerHTML = data.same_topic_html;
-                    currentPage = 1;
+                // Send request to server for analysis
+                fetch('/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(err => {
+                            throw new Error(err.error || 'Network response was not ok');
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Hide loading indicator
+                    elements.loadingIndicator.style.display = 'none';
 
-                    // Show or hide the show more button
-                    if (data.show_more_button) {
-                        elements.showMoreBtn.style.display = 'block';
+                    // Show analysis results
+                    elements.analysisResults.style.display = 'block';
+
+                    // Display analysis results
+                    if (data.output && data.output.output_md) {
+                        elements.analysisOutput.innerHTML = data.output.output_md;
                     } else {
+                        elements.analysisOutput.innerHTML = '<div class="alert alert-warning">No analysis results available</div>';
+                    }
+
+                    // Render charts if data is available
+                    if (data.scores_for_chart && typeof Plotly !== 'undefined') {
+                        renderArticleCredibilityChart(data.scores_for_chart);
+                    }
+
+                    if (data.source_credibility_data && typeof Plotly !== 'undefined') {
+                        renderSourceCredibilityChart(data.source_credibility_data);
+                    }
+
+                    // Display same topic articles
+                    if (data.same_topic_html) {
+                        elements.sameTopicArticles.innerHTML = data.same_topic_html;
+                        currentPage = 1;
+
+                        // Show or hide the show more button
+                        if (data.show_more_button) {
+                            elements.showMoreBtn.style.display = 'block';
+                        } else {
+                            elements.showMoreBtn.style.display = 'none';
+                        }
+                    } else {
+                        elements.sameTopicArticles.innerHTML = '<div class="alert alert-info">No similar articles found</div>';
                         elements.showMoreBtn.style.display = 'none';
                     }
-                } else {
-                    elements.sameTopicArticles.innerHTML = '<div class="alert alert-info">No similar articles found</div>';
-                    elements.showMoreBtn.style.display = 'none';
-                }
 
-                // Scroll to results
-                elements.analysisResults.scrollIntoView({ behavior: 'smooth' });
-            })
-            .catch(error => {
-                elements.loadingIndicator.style.display = 'none';
-                console.error('Error:', error);
-                showAlert(`Analysis failed: ${error.message}`, 'danger');
-            });
-        }
-
-        // Function to load more articles
-        function loadMoreArticles() {
-            currentPage++;
-            const showMoreBtn = elements.showMoreBtn;
-
-            if (!showMoreBtn) return;
-
-            showMoreBtn.disabled = true;
-            showMoreBtn.textContent = 'Loading...';
-
-            fetch(`/same_topic_articles?page=${currentPage}`)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.status === 'success') {
-                    if (data.same_topic_html) {
-                        elements.sameTopicArticles.insertAdjacentHTML('beforeend', data.same_topic_html);
-                    }
-
-                    // Update the show more button visibility
-                    if (!data.show_more_button) {
-                        showMoreBtn.style.display = 'none';
-                    }
-                } else {
-                    console.error('Error loading more articles:', data.error);
-                    showAlert(data.error || 'Error loading more articles', 'danger');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showAlert('Error loading more articles: ' + error.message, 'danger');
-            })
-            .finally(() => {
-                showMoreBtn.disabled = false;
-                showMoreBtn.textContent = 'Show More Articles';
-            });
-        }
-
-        // Function to show alerts
-        function showAlert(message, type) {
-            const alertContainer = document.createElement('div');
-            alertContainer.className = `alert alert-${type} alert-dismissible fade show`;
-            alertContainer.role = 'alert';
-            alertContainer.innerHTML = `
-                ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            `;
-
-            const container = document.querySelector('.content-layout');
-            if (container) {
-                container.prepend(alertContainer);
+                    // Scroll to results
+                    elements.analysisResults.scrollIntoView({ behavior: 'smooth' });
+                })
+                .catch(error => {
+                    elements.loadingIndicator.style.display = 'none';
+                    console.error('Error:', error);
+                    showAlert(`Analysis failed: ${error.message}`, 'danger');
+                });
             }
 
-            // Auto-close after 5 seconds
-            setTimeout(() => {
-                const alert = bootstrap.Alert.getOrCreateInstance(alertContainer);
-                alert.close();
-            }, 5000);
-        }
+            // Function to load more articles
+            function loadMoreArticles() {
+                currentPage++;
+                const showMoreBtn = elements.showMoreBtn;
 
-        // Function to render article credibility chart
-        function renderArticleCredibilityChart(scores) {
-            if (typeof Plotly === 'undefined') {
-                console.error('Plotly is not loaded!');
-                showAlert('Error loading visualization library', 'danger');
-                return;
+                if (!showMoreBtn) return;
+
+                showMoreBtn.disabled = true;
+                showMoreBtn.textContent = 'Loading...';
+
+                fetch(`/same_topic_articles?page=${currentPage}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.status === 'success') {
+                        if (data.same_topic_html) {
+                            elements.sameTopicArticles.insertAdjacentHTML('beforeend', data.same_topic_html);
+                        }
+
+                        // Update the show more button visibility
+                        if (!data.show_more_button) {
+                            showMoreBtn.style.display = 'none';
+                        }
+                    } else {
+                        console.error('Error loading more articles:', data.error);
+                        showAlert(data.error || 'Error loading more articles', 'danger');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showAlert('Error loading more articles: ' + error.message, 'danger');
+                })
+                .finally(() => {
+                    showMoreBtn.disabled = false;
+                    showMoreBtn.textContent = 'Show More Articles';
+                });
             }
 
-            const chartData = [{
-                type: 'scatterpolar',
-                r: [
-                    scores.news_integrity * 100 || 0,
-                    (1 - scores.fact_check_needed_score) * 100 || 0,
-                    Math.abs(scores.sentiment_score - 0.5) * 200 || 0,
-                    (1 - scores.bias_score) * 100 || 0,
-                    scores.index_of_credibility * 100 || 0
-                ],
-                theta: [
-                    'Integrity',
-                    'Factuality',
-                    'Neutral Sentiment',
-                    'Low Bias',
-                    'Overall Credibility'
-                ],
-                fill: 'toself',
-                name: 'Credibility Scores',
-                marker: {
-                    color: 'rgba(52, 152, 219, 0.8)',
-                    line: {
-                        color: 'rgba(46, 65, 235, 0.9)',
-                        width: 2
-                    }
+            // Function to render article credibility chart
+            function renderArticleCredibilityChart(scores) {
+                if (typeof Plotly === 'undefined') {
+                    console.error('Plotly is not loaded!');
+                    showAlert('Error loading visualization library', 'danger');
+                    return;
                 }
-            }];
 
-            const layout = {
-                polar: {
-                    radialaxis: {
-                        visible: true,
-                        range: [0, 100],
+                const chartData = [{
+                    type: 'scatterpolar',
+                    r: [
+                        scores.news_integrity * 100 || 0,
+                        (1 - scores.fact_check_needed_score) * 100 || 0,
+                        Math.abs(scores.sentiment_score - 0.5) * 200 || 0,
+                        (1 - scores.bias_score) * 100 || 0,
+                        scores.index_of_credibility * 100 || 0
+                    ],
+                    theta: [
+                        'Integrity',
+                        'Factuality',
+                        'Neutral Sentiment',
+                        'Low Bias',
+                        'Overall Credibility'
+                    ],
+                    fill: 'toself',
+                    name: 'Credibility Scores',
+                    marker: {
+                        color: 'rgba(52, 152, 219, 0.8)',
+                        line: {
+                            color: 'rgba(46, 65, 235, 0.9)',
+                            width: 2
+                        }
+                    }
+                }];
+
+                const layout = {
+                    polar: {
+                        radialaxis: {
+                            visible: true,
+                            range: [0, 100],
+                            tickangle: 45,
+                            tickfont: {
+                                size: 12,
+                                color: 'white'
+                            },
+                            gridcolor: 'rgba(255, 255, 255, 0.3)'
+                        },
+                        angularaxis: {
+                            direction: 'clockwise',
+                            rotation: 90,
+                            color: 'white'
+                        },
+                        bgcolor: 'rgba(0, 0, 0, 0)'
+                    },
+                    title: {
+                        text: 'Article Credibility Radar Chart',
+                        font: {
+                            color: 'white',
+                            size: 18
+                        }
+                    },
+                    showlegend: false,
+                    margin: {
+                        l: 50,
+                        r: 50,
+                        t: 50,
+                        b: 50
+                    },
+                    paper_bgcolor: 'rgba(0,0,0,0)',
+                    plot_bgcolor: 'rgba(0,0,0,0)'
+                };
+
+                Plotly.newPlot('articleCredibilityChart', chartData, layout);
+            }
+
+            // Function to render source credibility chart
+            function renderSourceCredibilityChart(data) {
+                if (typeof Plotly === 'undefined') {
+                    console.error('Plotly is not loaded!');
+                    showAlert('Error loading visualization library', 'danger');
+                    return;
+                }
+
+                if (!data || !data.sources || !data.credibility_scores) {
+                    console.error('Invalid source credibility data:', data);
+                    showAlert('No source credibility data available', 'warning');
+                    return;
+                }
+
+                const chartData = [{
+                    x: data.sources,
+                    y: data.credibility_scores,
+                    type: 'bar',
+                    marker: {
+                        color: data.credibility_scores.map(score => {
+                            if (score >= 0.8) return 'rgba(40, 167, 69, 0.8)';
+                            if (score >= 0.6) return 'rgba(255, 193, 7, 0.8)';
+                            return 'rgba(220, 53, 69, 0.8)';
+                        })
+                    },
+                    text: data.credibility_scores.map(score => (score * 100).toFixed(0) + '%'),
+                    textposition: 'auto',
+                    hoverinfo: 'text+y',
+                    hovertemplate: '<b>%{x}</b><br>Credibility: %{y:.2f}<br>%{text}<extra></extra>'
+                }];
+
+                const layout = {
+                    title: {
+                        text: 'Source Credibility Comparison',
+                        font: {
+                            color: 'white',
+                            size: 18
+                        }
+                    },
+                    xaxis: {
+                        title: {
+                            text: 'News Sources',
+                            font: {
+                                color: 'white',
+                                size: 14
+                            }
+                        },
                         tickangle: 45,
                         tickfont: {
                             size: 12,
                             color: 'white'
+                        }
+                    },
+                    yaxis: {
+                        title: {
+                            text: 'Credibility Score',
+                            font: {
+                                color: 'white',
+                                size: 14
+                            }
                         },
-                        gridcolor: 'rgba(255, 255, 255, 0.3)'
+                        range: [0, 1],
+                        tickfont: {
+                            size: 12,
+                            color: 'white'
+                        },
+                        gridcolor: 'rgba(255, 255, 255, 0.2)'
                     },
-                    angularaxis: {
-                        direction: 'clockwise',
-                        rotation: 90,
-                        color: 'white'
+                    margin: {
+                        l: 50,
+                        r: 50,
+                        t: 50,
+                        b: 100
                     },
-                    bgcolor: 'rgba(0, 0, 0, 0)'
-                },
-                title: {
-                    text: 'Article Credibility Radar Chart',
-                    font: {
-                        color: 'white',
-                        size: 18
-                    }
-                },
-                showlegend: false,
-                margin: {
-                    l: 50,
-                    r: 50,
-                    t: 50,
-                    b: 50
-                },
-                paper_bgcolor: 'rgba(0,0,0,0)',
-                plot_bgcolor: 'rgba(0,0,0,0)'
-            };
+                    paper_bgcolor: 'rgba(0,0,0,0)',
+                    plot_bgcolor: 'rgba(0,0,0,0)'
+                };
 
-            Plotly.newPlot('articleCredibilityChart', chartData, layout);
-        }
-
-        // Function to render source credibility chart
-        function renderSourceCredibilityChart(data) {
-            if (typeof Plotly === 'undefined') {
-                console.error('Plotly is not loaded!');
-                showAlert('Error loading visualization library', 'danger');
-                return;
+                Plotly.newPlot('sourceCredibilityChart', chartData, layout);
             }
-
-            if (!data || !data.sources || !data.credibility_scores) {
-                console.error('Invalid source credibility data:', data);
-                showAlert('No source credibility data available', 'warning');
-                return;
-            }
-
-            const chartData = [{
-                x: data.sources,
-                y: data.credibility_scores,
-                type: 'bar',
-                marker: {
-                    color: data.credibility_scores.map(score => {
-                        if (score >= 0.8) return 'rgba(40, 167, 69, 0.8)';
-                        if (score >= 0.6) return 'rgba(255, 193, 7, 0.8)';
-                        return 'rgba(220, 53, 69, 0.8)';
-                    })
-                },
-                text: data.credibility_scores.map(score => (score * 100).toFixed(0) + '%'),
-                textposition: 'auto',
-                hoverinfo: 'text+y',
-                hovertemplate: '<b>%{x}</b><br>Credibility: %{y:.2f}<br>%{text}<extra></extra>'
-            }];
-
-            const layout = {
-                title: {
-                    text: 'Source Credibility Comparison',
-                    font: {
-                        color: 'white',
-                        size: 18
-                    }
-                },
-                xaxis: {
-                    title: {
-                        text: 'News Sources',
-                        font: {
-                            color: 'white',
-                            size: 14
-                        }
-                    },
-                    tickangle: 45,
-                    tickfont: {
-                        size: 12,
-                        color: 'white'
-                    }
-                },
-                yaxis: {
-                    title: {
-                        text: 'Credibility Score',
-                        font: {
-                            color: 'white',
-                            size: 14
-                        }
-                    },
-                    range: [0, 1],
-                    tickfont: {
-                        size: 12,
-                        color: 'white'
-                    },
-                    gridcolor: 'rgba(255, 255, 255, 0.2)'
-                },
-                margin: {
-                    l: 50,
-                    r: 50,
-                    t: 50,
-                    b: 100
-                },
-                paper_bgcolor: 'rgba(0,0,0,0)',
-                plot_bgcolor: 'rgba(0,0,0,0)'
-            };
-
-            Plotly.newPlot('sourceCredibilityChart', chartData, layout);
         }
     </script>
 </body>
