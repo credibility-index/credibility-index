@@ -50,45 +50,232 @@ def get_db_connection():
     return conn
 
 def initialize_database():
-    """Initialize database schema"""
-    with get_db_connection() as conn:
-        conn.execute('''
-            CREATE TABLE IF NOT EXISTS news (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                title TEXT,
-                source TEXT,
-                content TEXT,
-                integrity REAL,
-                fact_check REAL,
-                sentiment REAL,
-                bias REAL,
-                credibility_level TEXT,
-                index_of_credibility REAL,
-                url TEXT UNIQUE,
-                analysis_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                short_summary TEXT
-            )
-        ''')
-        conn.execute('''
-            CREATE TABLE IF NOT EXISTS source_stats (
-                source TEXT PRIMARY KEY,
-                high INTEGER DEFAULT 0,
-                medium INTEGER DEFAULT 0,
-                low INTEGER DEFAULT 0,
-                total_analyzed INTEGER DEFAULT 0
-            )
-        ''')
-        conn.execute('''
-            CREATE TABLE IF NOT EXISTS feedback (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                email TEXT NOT NULL,
-                type TEXT NOT NULL,
-                message TEXT NOT NULL,
-                date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-        conn.commit()
+    """Initialize database schema and populate with test data if empty"""
+    try:
+        # Check if database directory exists, create if not
+        db_dir = os.path.dirname(DB_NAME)
+        if db_dir and not os.path.exists(db_dir):
+            os.makedirs(db_dir)
+
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+
+            # Create tables
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS news (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title TEXT,
+                    source TEXT,
+                    content TEXT,
+                    integrity REAL,
+                    fact_check REAL,
+                    sentiment REAL,
+                    bias REAL,
+                    credibility_level TEXT,
+                    index_of_credibility REAL,
+                    url TEXT UNIQUE,
+                    analysis_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    short_summary TEXT
+                )
+            ''')
+
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS source_stats (
+                    source TEXT PRIMARY KEY,
+                    high INTEGER DEFAULT 0,
+                    medium INTEGER DEFAULT 0,
+                    low INTEGER DEFAULT 0,
+                    total_analyzed INTEGER DEFAULT 0
+                )
+            ''')
+
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS feedback (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    email TEXT NOT NULL,
+                    type TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+
+            conn.commit()
+
+            # Populate with test data only if tables are empty
+            cursor.execute("SELECT COUNT(*) FROM source_stats")
+            if cursor.fetchone()[0] == 0:
+                populate_test_data()
+
+            logger.info("Database initialized successfully")
+
+    except Exception as e:
+        logger.error(f"Error initializing database: {str(e)}")
+        raise
+
+def populate_test_data():
+    """Populate database with test data for demonstration"""
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+
+            # Test data for various sources
+            test_sources = [
+                ('bbc.com', 45, 10, 5),
+                ('reuters.com', 50, 5, 2),
+                ('foxnews.com', 15, 20, 30),
+                ('cnn.com', 30, 25, 10),
+                ('nytimes.com', 35, 15, 5),
+                ('theguardian.com', 40, 10, 3),
+                ('apnews.com', 48, 5, 2),
+                ('washingtonpost.com', 38, 12, 5),
+                ('bloomberg.com', 42, 8, 5),
+                ('wsj.com', 37, 15, 8),
+                ('aljazeera.com', 28, 18, 10),
+                ('dailymail.co.uk', 12, 25, 30),
+                ('breitbart.com', 8, 15, 40),
+                ('infowars.com', 5, 10, 50),
+                ('rt.com', 10, 20, 35)
+            ]
+
+            for source, high, medium, low in test_sources:
+                total = high + medium + low
+                cursor.execute('''
+                    INSERT INTO source_stats (source, high, medium, low, total_analyzed)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (source, high, medium, low, total))
+
+            # Test data for news table
+            test_news = [
+                (
+                    "BBC News: Global Climate Summit Begins",
+                    "bbc.com",
+                    "Global leaders gather for climate summit...",
+                    0.92, 0.15, 0.65, 0.20,
+                    "High", 0.88,
+                    "https://bbc.com/climate-summit",
+                    "2023-11-15 10:30:00",
+                    "Global leaders gather to discuss climate change solutions"
+                ),
+                (
+                    "Reuters: Stock Markets Reach Record Highs",
+                    "reuters.com",
+                    "Stock markets worldwide reached record highs...",
+                    0.95, 0.10, 0.70, 0.15,
+                    "High", 0.91,
+                    "https://reuters.com/stock-markets",
+                    "2023-11-14 15:45:00",
+                    "Global stock markets reached new record highs"
+                ),
+                (
+                    "Fox News: Controversial Policy Debate",
+                    "foxnews.com",
+                    "Debate over new policy continues...",
+                    0.65, 0.55, 0.35, 0.60,
+                    "Medium", 0.58,
+                    "https://foxnews.com/policy-debate",
+                    "2023-11-13 12:20:00",
+                    "Ongoing debate about controversial new policy"
+                )
+            ]
+
+            for item in test_news:
+                cursor.execute('''
+                    INSERT INTO news
+                    (title, source, content, integrity, fact_check, sentiment, bias,
+                     credibility_level, index_of_credibility, url, analysis_date, short_summary)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', item)
+
+            conn.commit()
+            logger.info("Test data added to database successfully")
+
+    except Exception as e:
+        logger.error(f"Error populating test data: {str(e)}")
+        raise
+
+def get_source_credibility_chart_data():
+    """Get data for source credibility chart"""
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT source, high, medium, low, total_analyzed
+                FROM source_stats
+                ORDER BY total_analyzed DESC, source ASC
+            ''')
+
+            data = cursor.fetchall()
+            sources = []
+            credibility_scores = []
+            high_counts = []
+            medium_counts = []
+            low_counts = []
+            total_counts = []
+
+            for source, high, medium, low, total in data:
+                total_current = high + medium + low
+                if total_current > 0:
+                    score = (high * 1.0 + medium * 0.5 + low * 0.0) / total_current
+                else:
+                    score = 0.5
+
+                sources.append(source)
+                credibility_scores.append(round(score, 2))
+                high_counts.append(high)
+                medium_counts.append(medium)
+                low_counts.append(low)
+                total_counts.append(total_current)
+
+            return {
+                'sources': sources,
+                'credibility_scores': credibility_scores,
+                'high_counts': high_counts,
+                'medium_counts': medium_counts,
+                'low_counts': low_counts,
+                'total_counts': total_counts
+            }
+    except Exception as e:
+        logger.error(f"Error getting source credibility chart data: {str(e)}")
+        return {
+            'sources': [],
+            'credibility_scores': [],
+            'high_counts': [],
+            'medium_counts': [],
+            'low_counts': [],
+            'total_counts': []
+        }
+
+def get_analysis_history():
+    """Get analysis history from database"""
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT url, title, source, credibility_level, short_summary,
+                       strftime("%Y-%m-%d %H:%M", analysis_date) as formatted_date
+                FROM news
+                ORDER BY analysis_date DESC
+                LIMIT 15
+            ''')
+
+            rows = cursor.fetchall()
+            history = []
+
+            for row in rows:
+                history.append({
+                    'url': row['url'],
+                    'title': row['title'],
+                    'source': row['source'],
+                    'credibility': row['credibility_level'],
+                    'summary': row['short_summary'],
+                    'date': row['formatted_date']
+                })
+
+            return history
+    except Exception as e:
+        logger.error(f"Error getting analysis history: {str(e)}")
+        return []
 
 # Initialize database
 initialize_database()
@@ -169,11 +356,11 @@ def get_source_credibility_data():
 
             data = cursor.fetchall()
             sources = []
-            credibility_scores = []
+            credibility_indices_for_plot = []
             high_counts = []
             medium_counts = []
             low_counts = []
-            total_counts = []
+            total_analyzed_counts = []
 
             for source, high, medium, low, total in data:
                 total_current = high + medium + low
@@ -183,29 +370,29 @@ def get_source_credibility_data():
                     score = 0.5
 
                 sources.append(source)
-                credibility_scores.append(round(score, 2))
+                credibility_indices_for_plot.append(round(score, 2))
                 high_counts.append(high)
                 medium_counts.append(medium)
                 low_counts.append(low)
-                total_counts.append(total_current)
+                total_analyzed_counts.append(total_current)
 
             return {
                 'sources': sources,
-                'credibility_scores': credibility_scores,
+                'credibility_indices_for_plot': credibility_indices_for_plot,
                 'high_counts': high_counts,
                 'medium_counts': medium_counts,
                 'low_counts': low_counts,
-                'total_counts': total_counts
+                'total_analyzed_counts': total_analyzed_counts
             }
     except Exception as e:
         logger.error(f"Error getting source credibility data: {str(e)}")
         return {
             'sources': [],
-            'credibility_scores': [],
+            'credibility_indices_for_plot': [],
             'high_counts': [],
             'medium_counts': [],
             'low_counts': [],
-            'total_counts': []
+            'total_analyzed_counts': []
         }
 
 def extract_text_from_url(url):
@@ -786,6 +973,9 @@ def analyze():
         # Get source credibility data
         source_credibility_data = get_source_credibility_data()
 
+        # Get analysis history
+        analysis_history = get_analysis_history()
+
         # Prepare response
         response_data = {
             'status': 'success',
@@ -801,6 +991,7 @@ def analyze():
                 'index_of_credibility': analysis.get('index_of_credibility', 0.0)
             },
             'source_credibility_data': source_credibility_data,
+            'analysis_history': analysis_history,
             'same_topic_html': same_topic_html,
             'output': format_analysis_results(title, source, analysis, credibility)
         }
@@ -845,6 +1036,53 @@ def get_same_topic_articles():
         logger.error(f"Error in get_same_topic_articles endpoint: {str(e)}")
         return jsonify({
             'error': 'An error occurred while fetching same topic articles',
+            'status': 500,
+            'details': str(e)
+        }), 500
+
+@app.route('/source-credibility-chart', methods=['GET'])
+def source_credibility_chart():
+    """Endpoint for getting source credibility chart data"""
+    try:
+        chart_data = get_source_credibility_data()
+
+        # Если данных нет, добавляем тестовые данные
+        if not chart_data['sources']:
+            populate_test_data()
+            chart_data = get_source_credibility_data()
+
+        response = jsonify({
+            'status': 'success',
+            'data': chart_data
+        })
+        response.headers['Content-Type'] = 'application/json'
+        return response
+
+    except Exception as e:
+        logger.error(f"Error in source_credibility_chart endpoint: {str(e)}")
+        return jsonify({
+            'error': 'An error occurred while fetching chart data',
+            'status': 500,
+            'details': str(e)
+        }), 500
+
+@app.route('/analysis-history', methods=['GET'])
+def analysis_history():
+    """Endpoint for getting analysis history"""
+    try:
+        history = get_analysis_history()
+
+        response = jsonify({
+            'status': 'success',
+            'history': history
+        })
+        response.headers['Content-Type'] = 'application/json'
+        return response
+
+    except Exception as e:
+        logger.error(f"Error in analysis_history endpoint: {str(e)}")
+        return jsonify({
+            'error': 'An error occurred while fetching analysis history',
             'status': 500,
             'details': str(e)
         }), 500
