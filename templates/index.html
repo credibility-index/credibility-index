@@ -3,459 +3,178 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Media Credibility Index</title>
+    <title>News Analysis Tool</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <script src="https://cdn.plot.ly/plotly-2.20.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdn.plot.ly/plotly-latest.min.js">
     <style>
-        :root {
-            --primary-color: #2c3e50;
-            --secondary-color: #34495e;
-            --accent-color: #3498db;
-            --success-color: #28a745;
-            --warning-color: #ffc107;
-            --danger-color: #dc3545;
-            --light-color: #ecf0f1;
-            --dark-color: #2c3e50;
-            --text-color: #333333;
-            --border-radius: 10px;
-            --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            --transition: all 0.3s ease;
-        }
-
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
             line-height: 1.6;
-            color: var(--text-color);
-            background-color: var(--light-color);
-            padding: 0;
-            margin: 0;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
         }
-
-        /* Navigation */
-        .navbar {
-            background-color: white;
-            box-shadow: var(--box-shadow);
-            padding: 15px 0;
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-        }
-
-        .navbar-brand {
-            font-weight: 600;
-            color: var(--primary-color);
-            display: flex;
-            align-items: center;
-            font-size: 1.2rem;
-        }
-
-        .navbar-brand i {
-            margin-right: 8px;
-            font-size: 1.3rem;
-        }
-
-        /* Main Container */
-        .main-container {
-            flex: 1;
-            padding: 40px 0;
-        }
-
-        /* Page Title */
-        .page-title {
-            text-align: center;
-            margin-bottom: 40px;
-            padding: 0 15px;
-        }
-
-        .main-heading {
-            font-size: 2.2rem;
-            font-weight: 700;
-            color: var(--primary-color);
-            margin-bottom: 15px;
-        }
-
-        .subheading {
-            font-size: 1.1rem;
-            color: var(--text-color);
-            opacity: 0.8;
-            max-width: 800px;
-            margin: 0 auto 30px;
-        }
-
-        /* Form Container */
-        .form-container {
-            background-color: white;
-            padding: 30px;
-            border-radius: var(--border-radius);
-            box-shadow: var(--box-shadow);
-            margin-bottom: 30px;
-            transition: var(--transition);
-        }
-
-        .form-container:hover {
-            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
-        }
-
-        .form-control {
-            border-radius: 6px;
-            padding: 12px 15px;
-            border: 1px solid #ddd;
-            transition: var(--transition);
-            margin-bottom: 15px;
-        }
-
-        .form-control:focus {
-            border-color: var(--accent-color);
-            box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
-        }
-
-        .btn-analyze {
-            background-color: var(--accent-color);
-            border-color: var(--accent-color);
-            color: white;
-            padding: 12px 24px;
-            font-weight: 500;
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        .container {
+            max-width: 1200px;
             margin: 0 auto;
-            transition: var(--transition);
+            padding: 20px;
         }
-
-        .btn-analyze:hover {
-            background-color: #2980b9;
-            border-color: #2980b9;
-            transform: translateY(-2px);
-        }
-
-        .btn-analyze i {
-            margin-right: 8px;
-        }
-
-        /* Loading Indicator */
-        .loading-container {
-            display: none;
-            text-align: center;
-            margin: 30px auto;
-            padding: 30px;
-            background-color: rgba(255, 255, 255, 0.9);
-            border-radius: var(--border-radius);
-            box-shadow: var(--box-shadow);
-            max-width: 600px;
-        }
-
-        .spinner {
-            width: 3rem;
-            height: 3rem;
-            margin: 0 auto 15px;
-            color: var(--accent-color);
-        }
-
-        .loading-text {
-            font-size: 1.1rem;
-            margin-bottom: 5px;
-            color: var(--primary-color);
-        }
-
-        /* Analysis Results */
-        .analysis-results {
-            display: none;
-            margin-top: 30px;
-        }
-
-        .analysis-section {
+        .header {
+            background-color: #0d6efd;
+            color: white;
+            padding: 20px 0;
             margin-bottom: 30px;
-            padding: 25px;
-            background-color: white;
-            border-radius: var(--border-radius);
-            box-shadow: var(--box-shadow);
+            border-radius: 5px;
         }
-
-        .analysis-title {
-            color: var(--primary-color);
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-        }
-
-        /* Chart Containers */
-        .chart-container {
-            width: 100%;
-            height: 500px;
-            margin: 20px 0;
-            border-radius: var(--border-radius);
-            background-color: white;
-            box-shadow: var(--box-shadow);
-            padding: 20px;
-        }
-
-        .source-chart-container {
-            width: 100%;
-            height: 450px;
-            margin: 20px 0;
-            border-radius: var(--border-radius);
-            background-color: white;
-            box-shadow: var(--box-shadow);
-            padding: 20px;
-        }
-
-        /* Similar Articles */
-        .similar-articles-container {
-            margin-top: 20px;
-        }
-
-        .similar-article {
+        .analysis-section {
             background-color: white;
             border-radius: 8px;
             padding: 20px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
             margin-bottom: 20px;
-            border-left: 4px solid var(--accent-color);
-            transition: var(--transition);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
         }
-
-        .similar-article:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        }
-
-        .similar-article h4 {
-            color: var(--primary-color);
-            margin-bottom: 8px;
-        }
-
-        .similar-article h4 a {
-            color: inherit;
-            text-decoration: none;
-            transition: var(--transition);
-        }
-
-        .similar-article h4 a:hover {
-            text-decoration: underline;
-            color: var(--accent-color);
-        }
-
-        .article-meta {
-            font-size: 0.9rem;
-            color: #6c757d;
-            margin-bottom: 10px;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-
-        .article-meta span {
-            display: flex;
-            align-items: center;
-        }
-
-        .article-meta i {
-            margin-right: 5px;
-            font-size: 0.9rem;
-        }
-
-        .article-source {
-            font-weight: 500;
-        }
-
-        .article-date {
-            color: #6c757d;
-        }
-
-        .article-credibility {
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 0.8rem;
-            font-weight: 500;
-        }
-
-        .article-credibility.high {
-            background-color: rgba(40, 167, 69, 0.2);
-            color: var(--success-color);
-        }
-
-        .article-credibility.medium {
-            background-color: rgba(255, 193, 7, 0.2);
-            color: var(--warning-color);
-        }
-
-        .article-credibility.low {
-            background-color: rgba(220, 53, 69, 0.2);
-            color: var(--danger-color);
-        }
-
-        .article-description {
-            margin-top: 10px;
-            line-height: 1.5;
-        }
-
-        /* Show More Button */
-        .show-more-btn {
-            display: block;
-            margin: 20px auto;
-            padding: 10px 20px;
-            background-color: var(--accent-color);
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: var(--transition);
-            font-weight: 500;
-        }
-
-        .show-more-btn:hover {
-            background-color: #2980b9;
-            transform: translateY(-2px);
-        }
-
-        /* Feedback Button */
-        .feedback-btn {
-            position: fixed;
-            bottom: 30px;
-            right: 30px;
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            background-color: var(--accent-color);
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-            z-index: 1000;
-            text-decoration: none;
-            transition: var(--transition);
-        }
-
-        .feedback-btn:hover {
-            transform: scale(1.05);
-            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25);
-        }
-
-        .feedback-btn i {
-            font-size: 1.5rem;
-        }
-
-        /* Credibility Badges */
-        .credibility-badge {
-            display: inline-block;
-            padding: 3px 8px;
-            border-radius: 12px;
-            font-size: 0.8rem;
-            font-weight: 500;
-        }
-
-        .credibility-badge.high {
-            background-color: rgba(40, 167, 69, 0.2);
-            color: var(--success-color);
-        }
-
-        .credibility-badge.medium {
-            background-color: rgba(255, 193, 7, 0.2);
-            color: var(--warning-color);
-        }
-
-        .credibility-badge.low {
-            background-color: rgba(220, 53, 69, 0.2);
-            color: var(--danger-color);
-        }
-
-        /* Score Items */
         .score-item {
             text-align: center;
             padding: 15px;
+            border-radius: 5px;
             margin-bottom: 15px;
-            background-color: rgba(52, 152, 219, 0.05);
-            border-radius: 8px;
+            background-color: #f8f9fa;
         }
-
         .score-name {
-            font-weight: 600;
+            font-weight: bold;
             margin-bottom: 5px;
-            color: var(--primary-color);
+            color: #495057;
         }
-
         .score-value {
-            font-size: 1.5rem;
-            font-weight: 700;
+            font-size: 24px;
+            font-weight: bold;
+            color: #0d6efd;
             margin-bottom: 5px;
-            color: var(--accent-color);
         }
-
         .score-description {
-            font-size: 0.9rem;
+            font-size: 12px;
             color: #6c757d;
         }
-
-        /* Footer */
-        .footer {
+        .credibility-badge {
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .credibility-badge.high {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .credibility-badge.medium {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        .credibility-badge.low {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .similar-article {
             background-color: white;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        .article-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 10px 0;
+            font-size: 14px;
+            color: #6c757d;
+        }
+        .article-meta i {
+            margin-right: 3px;
+        }
+        #loadingIndicator {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+        #analysisResults {
+            display: none;
+        }
+        .chart-container {
+            height: 400px;
+            margin-bottom: 30px;
+        }
+        .form-container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 25px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+        .btn-custom {
+            background-color: #0d6efd;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-weight: 500;
+            transition: background-color 0.3s;
+        }
+        .btn-custom:hover {
+            background-color: #0b5ed7;
+            color: white;
+        }
+        .navbar {
+            background-color: #f8f9fa;
+            padding: 15px 0;
+            margin-bottom: 20px;
+        }
+        .nav-link {
+            color: #0d6efd;
+            font-weight: 500;
+            margin: 0 10px;
+        }
+        .nav-link:hover {
+            color: #0b5ed7;
+        }
+        .footer {
+            background-color: #0d6efd;
+            color: white;
+            text-align: center;
             padding: 20px 0;
             margin-top: 50px;
-            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
-            text-align: center;
         }
-
-        /* Responsive Design */
-        @media (max-width: 992px) {
-            .main-container {
-                padding: 30px 0;
-            }
-
-            .form-container, .analysis-section {
-                padding: 20px;
-            }
-
-            .main-heading {
-                font-size: 2rem;
-            }
-
-            .chart-container, .source-chart-container {
-                height: 400px;
-            }
+        textarea.form-control {
+            min-height: 200px;
+            resize: vertical;
         }
-
-        @media (max-width: 768px) {
-            .main-container {
-                padding: 20px 0;
-            }
-
-            .form-container, .analysis-section {
-                padding: 15px;
-            }
-
-            .main-heading {
-                font-size: 1.8rem;
-            }
-
-            .chart-container, .source-chart-container {
-                height: 350px;
-            }
-
-            .btn-analyze {
-                width: 100%;
-            }
+        .detail-item {
+            margin-bottom: 20px;
+        }
+        .detail-item h4 {
+            color: #0d6efd;
+            margin-bottom: 10px;
+        }
+        .badge {
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+        .list-unstyled li {
+            margin-bottom: 5px;
         }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-light bg-white">
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
         <div class="container">
-            <a class="navbar-brand" href="/">
-                <i class="bi bi-newspaper"></i>
-                Media Credibility Index
-            </a>
+            <a class="navbar-brand" href="/">News Analysis Tool</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">Home</a>
+                    </li>
                     <li class="nav-item">
                         <a class="nav-link" href="/faq">FAQ</a>
                     </li>
@@ -467,118 +186,94 @@
         </div>
     </nav>
 
-    <a href="/feedback" class="feedback-btn">
-        <i class="bi bi-chat-dots"></i>
-    </a>
-
-    <div class="container main-container">
-        <div class="page-title">
-            <h1 class="main-heading">Setting the Standard for Media Trust</h1>
-            <p class="subheading">Check info that you are interested in on credibility in our app</p>
+    <div class="container">
+        <div class="header text-center mb-4">
+            <h1>Media Credibility Index Tool</h1>
+            <p class="lead">Setting the Standard for Media Trust</p>
         </div>
 
-        <div class="row justify-content-center">
-            <div class="col-lg-10">
-                <div class="form-container">
-                    <h3 class="mb-4 text-center">Analyze Article</h3>
-                    <form id="analysisForm">
-                        <div class="mb-4">
-                            <label for="articleInput" class="form-label">Article URL or Text</label>
-                            <textarea class="form-control" id="articleInput" rows="6"
-                                    placeholder="Paste article text or URL here..."></textarea>
-                        </div>
-                        <div class="mb-4">
-                            <label for="sourceName" class="form-label">Source Name (optional)</label>
-                            <input type="text" class="form-control" id="sourceName"
-                                    placeholder="e.g., bbc.com, reuters.com">
-                        </div>
-                        <button type="submit" class="btn btn-analyze">
-                            <i class="bi bi-search"></i> Analyze Article
-                        </button>
-                    </form>
+        <div class="form-container">
+            <h2>Enter Article for Analysis</h2>
+            <form id="analysisForm">
+                <div class="mb-3">
+                    <label for="articleInput" class="form-label">Article Text or URL</label>
+                    <textarea class="form-control" id="articleInput" rows="10" placeholder="Paste article text here or enter a URL..."></textarea>
                 </div>
-
-                <div class="loading-container text-center" id="loadingIndicator">
-                    <div class="spinner-border spinner" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                    <p class="loading-text">Analyzing article content...</p>
-                    <p class="text-muted">This may take a moment as we perform deep analysis</p>
+                <div class="mb-3">
+                    <label for="sourceName" class="form-label">Source Name (optional)</label>
+                    <input type="text" class="form-control" id="sourceName" placeholder="Enter source name if known">
                 </div>
+                <button type="button" id="analyzeBtn" class="btn btn-custom">Analyze Article</button>
+            </form>
+        </div>
 
-                <div id="analysisResults" class="analysis-results">
-                    <div class="analysis-section">
-                        <h2 class="analysis-title">Analysis Results</h2>
-                        <div id="analysisOutput"></div>
-                    </div>
+        <div id="loadingIndicator">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p>Analyzing article content...</p>
+        </div>
 
-                    <div class="analysis-section">
-                        <h2 class="analysis-title">Article Credibility Radar Chart</h2>
-                        <div class="chart-container">
-                            <div id="articleCredibilityChart"></div>
-                        </div>
-                    </div>
+        <div id="analysisResults">
+            <div class="analysis-section">
+                <h2>Analysis Results</h2>
+                <div id="analysisOutput"></div>
+            </div>
 
-                    <div class="analysis-section">
-                        <h2 class="analysis-title">Source Credibility Comparison</h2>
-                        <div class="source-chart-container">
-                            <div id="sourceCredibilityChart"></div>
-                        </div>
-                    </div>
+            <div class="chart-container">
+                <div id="articleChart"></div>
+            </div>
 
-                    <div class="analysis-section">
-                        <h2 class="analysis-title">Similar Articles</h2>
-                        <div class="similar-articles-container" id="sameTopicArticles">
-                            <!-- Similar articles will be inserted here by JavaScript -->
-                        </div>
-                        <button id="showMoreBtn" class="show-more-btn" style="display: none;">
-                            Show More Articles
-                        </button>
-                    </div>
-                </div>
+            <div class="chart-container">
+                <div id="sourceChart"></div>
+            </div>
+
+            <div class="analysis-section">
+                <h2>Same Topic Articles</h2>
+                <div id="sameTopicArticles"></div>
+                <button id="showMoreBtn" class="btn btn-custom" style="display: none;">Show More Similar Articles</button>
+            </div>
+
+            <div class="analysis-section">
+                <h2>Analysis History</h2>
+                <div id="analysisHistory"></div>
             </div>
         </div>
     </div>
 
-    <footer class="footer">
+    <div class="footer">
         <div class="container">
-            <p class="mb-0">&copy; 2023 Media Credibility Index. All rights reserved.</p>
+            <p>&copy; 2025 Media Index Tool. All rights reserved.</p>
+            <p><a href="/faq" class="text-white">FAQ</a> | <a href="/feedback" class="text-white">Feedback</a></p>
         </div>
-    </footer>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <script>
-        // DOM elements cache
+        // DOM elements
         const elements = {
-            analysisForm: document.getElementById('analysisForm'),
             articleInput: document.getElementById('articleInput'),
             sourceName: document.getElementById('sourceName'),
+            analyzeBtn: document.getElementById('analyzeBtn'),
             loadingIndicator: document.getElementById('loadingIndicator'),
             analysisResults: document.getElementById('analysisResults'),
             analysisOutput: document.getElementById('analysisOutput'),
-            articleCredibilityChart: document.getElementById('articleCredibilityChart'),
-            sourceCredibilityChart: document.getElementById('sourceCredibilityChart'),
             sameTopicArticles: document.getElementById('sameTopicArticles'),
-            showMoreBtn: document.getElementById('showMoreBtn')
+            showMoreBtn: document.getElementById('showMoreBtn'),
+            articleChart: document.getElementById('articleChart'),
+            sourceChart: document.getElementById('sourceChart'),
+            analysisHistory: document.getElementById('analysisHistory')
         };
 
-        // Current page for pagination
-        let currentPage = 1;
-
-        // Initialize on page load
+        // Initialize the page
         document.addEventListener('DOMContentLoaded', function() {
-            if (elements.analysisForm) {
-                elements.analysisForm.addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    analyzeArticle();
-                });
-            }
+            loadAnalysisHistory();
+            loadSourceCredibilityChart();
 
-            if (elements.showMoreBtn) {
-                elements.showMoreBtn.addEventListener('click', function() {
-                    loadMoreArticles();
-                });
-            }
+            elements.analyzeBtn.addEventListener('click', analyzeArticle);
+            elements.showMoreBtn.addEventListener('click', loadMoreSimilarArticles);
         });
 
         // Function to analyze article
@@ -613,7 +308,23 @@
             .then(response => {
                 if (!response.ok) {
                     return response.json().then(err => {
-                        throw new Error(err.error || 'Network response was not ok');
+                        let errorMessage = err.error || 'Network response was not ok';
+
+                        // If there are suggestions, display them
+                        if (err.suggestions && err.suggestions.length > 0) {
+                            errorMessage += '<ul>';
+                            err.suggestions.forEach(suggestion => {
+                                errorMessage += `<li>${suggestion}</li>`;
+                            });
+                            errorMessage += '</ul>';
+                        }
+
+                        // If there are details, add them
+                        if (err.details) {
+                            errorMessage += `<br><br>Details: ${err.details}`;
+                        }
+
+                        throw new Error(errorMessage);
                     });
                 }
                 return response.json();
@@ -657,44 +368,178 @@
             .catch(error => {
                 elements.loadingIndicator.style.display = 'none';
                 console.error('Error:', error);
-                showAlert(`An error occurred: ${error.message}`, 'danger');
+                showAlert(error.message, 'danger');
             });
         }
 
-        // Function to load more articles
-        function loadMoreArticles() {
-            currentPage++;
-            elements.showMoreBtn.disabled = true;
-            elements.showMoreBtn.textContent = 'Loading...';
-
-            fetch(`/same_topic_articles?page=${currentPage}`)
+        // Function to load more similar articles
+        function loadMoreSimilarArticles() {
+            fetch('/same_topic_articles?page=' + (currentPage + 1))
             .then(response => {
                 if (!response.ok) {
-                    return response.json().then(err => {
-                        throw new Error(err.error || 'Network response was not ok');
-                    });
+                    throw new Error('Network response was not ok');
                 }
                 return response.json();
             })
             .then(data => {
                 if (data.same_topic_html) {
                     elements.sameTopicArticles.innerHTML += data.same_topic_html;
+                    currentPage++;
+
+                    if (!data.has_more) {
+                        elements.showMoreBtn.style.display = 'none';
+                    }
                 } else {
                     elements.showMoreBtn.style.display = 'none';
                 }
-
-                elements.showMoreBtn.disabled = false;
-                elements.showMoreBtn.textContent = 'Show More Articles';
             })
             .catch(error => {
                 console.error('Error loading more articles:', error);
-                showAlert(`An error occurred: ${error.message}`, 'danger');
-                elements.showMoreBtn.disabled = false;
-                elements.showMoreBtn.textContent = 'Show More Articles';
+                showAlert('Error loading more articles: ' + error.message, 'danger');
             });
         }
 
-        // Function to show alerts
+        // Function to load analysis history
+        function loadAnalysisHistory() {
+            fetch('/analysis-history')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.history_html) {
+                    elements.analysisHistory.innerHTML = data.history_html;
+                }
+            })
+            .catch(error => {
+                console.error('Error loading analysis history:', error);
+                elements.analysisHistory.innerHTML = '<div class="alert alert-warning">Error loading analysis history</div>';
+            });
+        }
+
+        // Function to load source credibility chart
+        function loadSourceCredibilityChart() {
+            fetch('/source-credibility-chart')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.data) {
+                    renderSourceCredibilityChart(data.data);
+                }
+            })
+            .catch(error => {
+                console.error('Error loading source credibility chart:', error);
+                elements.sourceChart.innerHTML = '<div class="alert alert-warning">Error loading source credibility data</div>';
+            });
+        }
+
+        // Function to render article credibility chart
+        function renderArticleCredibilityChart(scores) {
+            const data = [{
+                type: 'barpolar',
+                r: Object.values(scores),
+                theta: Object.keys(scores),
+                name: 'Credibility Scores',
+                marker: {
+                    color: Object.values(scores).map(score => {
+                        if (score >= 70) return 'rgb(75, 192, 192)';
+                        if (score >= 40) return 'rgb(255, 206, 86)';
+                        return 'rgb(255, 99, 132)';
+                    }),
+                    line: {
+                        color: Object.values(scores).map(score => {
+                            if (score >= 70) return 'rgb(50, 150, 150)';
+                            if (score >= 40) return 'rgb(200, 170, 50)';
+                            return 'rgb(200, 70, 100)';
+                        }),
+                        width: 2
+                    }
+                }
+            }];
+
+            const layout = {
+                title: 'Article Credibility Analysis',
+                font: { size: 12 },
+                legend: { font: { size: 12 } },
+                polar: {
+                    radialaxis: {
+                        visible: true,
+                        range: [0, 100]
+                    }
+                },
+                margin: { t: 50, b: 50 }
+            };
+
+            Plotly.newPlot('articleChart', data, layout);
+        }
+
+        // Function to render source credibility chart
+        function renderSourceCredibilityChart(data) {
+            const sources = data.sources;
+            const credibilityScores = data.credibility_scores;
+            const highCounts = data.high_counts;
+            const mediumCounts = data.medium_counts;
+            const lowCounts = data.low_counts;
+
+            const trace1 = {
+                x: sources,
+                y: credibilityScores,
+                name: 'Credibility Score',
+                type: 'bar',
+                marker: {
+                    color: credibilityScores.map(score => {
+                        if (score >= 0.7) return 'rgb(75, 192, 192)';
+                        if (score >= 0.4) return 'rgb(255, 206, 86)';
+                        return 'rgb(255, 99, 132)';
+                    })
+                }
+            };
+
+            const trace2 = {
+                x: sources,
+                y: highCounts,
+                name: 'High Credibility',
+                type: 'scatter',
+                mode: 'lines+markers',
+                marker: { color: 'rgb(75, 192, 192)' }
+            };
+
+            const trace3 = {
+                x: sources,
+                y: mediumCounts,
+                name: 'Medium Credibility',
+                type: 'scatter',
+                mode: 'lines+markers',
+                marker: { color: 'rgb(255, 206, 86)' }
+            };
+
+            const trace4 = {
+                x: sources,
+                y: lowCounts,
+                name: 'Low Credibility',
+                type: 'scatter',
+                mode: 'lines+markers',
+                marker: { color: 'rgb(255, 99, 132)' }
+            };
+
+            const layout = {
+                title: 'Source Credibility Analysis',
+                xaxis: { title: 'News Sources' },
+                yaxis: { title: 'Count' },
+                barmode: 'group',
+                margin: { t: 50, b: 100 }
+            };
+
+            Plotly.newPlot('sourceChart', [trace1, trace2, trace3, trace4], layout);
+        }
+
+        // Function to show alert messages
         function showAlert(message, type) {
             const alertContainer = document.createElement('div');
             alertContainer.className = `alert alert-${type} alert-dismissible fade show`;
@@ -704,138 +549,21 @@
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             `;
 
-            document.querySelector('.container').prepend(alertContainer);
+            // Add alert to the top of the container
+            const container = document.querySelector('.container');
+            if (container) {
+                container.prepend(alertContainer);
 
-            setTimeout(() => {
-                const alert = bootstrap.Alert.getOrCreateInstance(alertContainer);
-                alert.close();
-            }, 5000);
+                // Auto-close the alert after 10 seconds
+                setTimeout(() => {
+                    const alert = bootstrap.Alert.getOrCreateInstance(alertContainer);
+                    alert.close();
+                }, 10000);
+            }
         }
 
-        // Function to render article credibility chart
-        function renderArticleCredibilityChart(scores) {
-            if (typeof Plotly === 'undefined') {
-                console.error('Plotly is not loaded!');
-                showAlert('Error loading visualization library', 'danger');
-                return;
-            }
-
-            const chartData = [{
-                type: 'scatterpolar',
-                r: [
-                    scores.Integrity * 100 || 0,
-                    scores.Factuality * 100 || 0,
-                    scores.Sentiment * 100 || 0,
-                    scores.Bias * 100 || 0,
-                    scores['Overall Credibility Index'] * 100 || 0
-                ],
-                theta: [
-                    'Integrity',
-                    'Factuality',
-                    'Neutral Sentiment',
-                    'Low Bias',
-                    'Overall Credibility'
-                ],
-                fill: 'toself',
-                name: 'Credibility Scores',
-                marker: {
-                    color: 'rgba(52, 152, 219, 0.8)',
-                    line: {
-                        color: 'rgba(46, 65, 235, 0.9)',
-                        width: 2
-                    }
-                }
-            }];
-
-            const layout = {
-                polar: {
-                    radialaxis: {
-                        visible: true,
-                        range: [0, 100],
-                        tickangle: 45,
-                        tickfont: {
-                            size: 12
-                        }
-                    },
-                    angularaxis: {
-                        direction: 'clockwise',
-                        rotation: 90
-                    }
-                },
-                title: 'Article Credibility Radar Chart',
-                showlegend: false,
-                margin: {
-                    l: 50,
-                    r: 50,
-                    t: 50,
-                    b: 50
-                },
-                paper_bgcolor: 'rgba(0,0,0,0)',
-                plot_bgcolor: 'rgba(0,0,0,0)'
-            };
-
-            Plotly.newPlot('articleCredibilityChart', chartData, layout);
-        }
-
-        // Function to render source credibility chart
-        function renderSourceCredibilityChart(data) {
-            if (typeof Plotly === 'undefined') {
-                console.error('Plotly is not loaded!');
-                showAlert('Error loading visualization library', 'danger');
-                return;
-            }
-
-            if (!data || !data.sources || !data.credibility_scores) {
-                console.error('Invalid source credibility data:', data);
-                showAlert('No source credibility data available', 'warning');
-                return;
-            }
-
-            const chartData = [{
-                x: data.sources,
-                y: data.credibility_scores,
-                type: 'bar',
-                marker: {
-                    color: data.credibility_scores.map(score => {
-                        if (score >= 0.75) return 'rgba(40, 167, 69, 0.8)';
-                        if (score >= 0.5) return 'rgba(255, 193, 7, 0.8)';
-                        return 'rgba(220, 53, 69, 0.8)';
-                    })
-                },
-                text: data.credibility_scores.map(score => (score * 100).toFixed(0) + '%'),
-                textposition: 'auto',
-                hoverinfo: 'text+y',
-                hovertemplate: '<b>%{x}</b><br>Credibility: %{y:.2f}<br>%{text}<extra></extra>'
-            }];
-
-            const layout = {
-                title: 'Source Credibility Comparison',
-                xaxis: {
-                    title: 'News Sources',
-                    tickangle: 45,
-                    tickfont: {
-                        size: 12
-                    }
-                },
-                yaxis: {
-                    title: 'Credibility Score',
-                    range: [0, 1],
-                    tickfont: {
-                        size: 12
-                    }
-                },
-                margin: {
-                    l: 50,
-                    r: 50,
-                    t: 50,
-                    b: 100
-                },
-                paper_bgcolor: 'rgba(0,0,0,0)',
-                plot_bgcolor: 'rgba(0,0,0,0)'
-            };
-
-            Plotly.newPlot('sourceCredibilityChart', chartData, layout);
-        }
+        // Initialize current page for similar articles
+        let currentPage = 1;
     </script>
 </body>
 </html>
