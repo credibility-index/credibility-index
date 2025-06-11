@@ -303,13 +303,22 @@ def before_request():
 
 @app.after_request
 def add_security_headers(response):
-    """Add security headers"""
+    """Add security headers with debug info"""
     response.headers['Access-Control-Allow-Origin'] = '*'
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Accept'
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'SAMEORIGIN'
     response.headers['X-XSS-Protection'] = '1; mode=block'
+
+    # Debug headers
+    response.headers['X-Debug-Processed'] = 'true'
+    response.headers['X-Debug-Status'] = response.status_code
+    response.headers['X-Debug-Method'] = request.method
+
+    # Логируем информацию о запросе для отладки
+    logger.debug(f"Request processed: {request.method} {request.path} - Status: {response.status_code}")
+
     return response
 
 # Основные маршруты приложения
@@ -425,53 +434,75 @@ def faq():
     return render_template('faq.html')
 @app.route('/analyze', methods=['POST', 'OPTIONS'])
 def analyze():
-    """Analyze article endpoint with comprehensive error handling"""
+    """Analyze article endpoint with comprehensive error handling and logging"""
+    logger.info(f"Received analyze request. Method: {request.method}, Path: {request.path}, Remote addr: {request.remote_addr}")
+
+    # Handle OPTIONS request for CORS preflight
     if request.method == 'OPTIONS':
+        logger.debug("Processing OPTIONS request for CORS preflight")
         response = make_response()
         response.headers['Access-Control-Allow-Origin'] = '*'
         response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
         response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Accept'
+        response.headers['Access-Control-Max-Age'] = '3600'
+        logger.debug("Successfully processed OPTIONS request")
         return response
 
+    # Validate request content type
+    if not request.is_json:
+        logger.warning(f"Invalid content type: {request.content_type}")
+        return jsonify({
+            'error': 'Invalid content type',
+            'status': 400,
+            'details': 'Content-Type header must be application/json',
+            'request_id': str(uuid.uuid4())
+        }), 400
+
     try:
-        # Validate request content type
-        if not request.is_json:
-            return jsonify({
-                'error': 'Request must be JSON',
-                'status': 400,
-                'details': 'Content-Type header must be application/json'
-            }), 400
+        logger.debug("Processing JSON request data")
 
         # Get and validate data
         data = request.get_json()
         if not data:
+            logger.warning("Empty request body received")
             return jsonify({
                 'error': 'Empty request body',
-                'status': 400
+                'status': 400,
+                'request_id': str(uuid.uuid4())
             }), 400
 
+        logger.debug(f"Request data: {json.dumps(data, indent=2)}")
+
         if 'input_text' not in data:
+            logger.warning("Missing input_text in request")
             return jsonify({
                 'error': 'Missing input text',
                 'status': 400,
-                'details': 'input_text field is required'
+                'details': 'input_text field is required',
+                'request_id': str(uuid.uuid4())
             }), 400
 
         input_text = data['input_text'].strip()
         source_name = data.get('source_name_manual', 'Direct Input').strip()
 
         if not input_text:
+            logger.warning("Empty input text received")
             return jsonify({
                 'error': 'Empty input text',
                 'status': 400,
-                'details': 'Input text cannot be empty'
+                'details': 'Input text cannot be empty',
+                'request_id': str(uuid.uuid4())
             }), 400
 
-        # Process article
+        logger.info(f"Processing input of length: {len(input_text)} characters")
+
+        # Process article - either URL or direct text
         if input_text.startswith(('http://', 'https://')):
+            logger.info(f"Processing URL input: {input_text[:100]}...")  # Log first 100 chars of URL
             try:
                 content, source, title = extract_text_from_url(input_text)
                 if not content:
+                    logger.warning(f"Failed to extract content from URL: {input_text}")
                     return jsonify({
                         'error': 'Could not extract article content',
                         'status': 400,
@@ -481,10 +512,11 @@ def analyze():
                             'Try a different URL',
                             'Make sure the website allows scraping',
                             'Alternatively, you can paste the article text directly'
-                        ]
+                        ],
+                        'request_id': str(uuid.uuid4())
                     }), 400
             except Exception as e:
-                logger.error(f"Error processing URL: {str(e)}")
+                logger.error(f"Error processing URL: {input_text}. Error: {str(e)}", exc_info=True)
                 return jsonify({
                     'error': 'Error processing URL',
                     'status': 400,
@@ -493,32 +525,53 @@ def analyze():
                         'The website might be blocking our requests',
                         'Try a different URL',
                         'You can paste the article text directly instead of using URL'
-                    ]
+                    ],
+                    'request_id': str(uuid.uuid4())
                 }), 400
         else:
+            logger.info("Processing direct text input")
             if len(input_text) < 100:
+                logger.warning(f"Input text too short: {len(input_text)} characters")
                 return jsonify({
                     'error': 'Content too short',
                     'status': 400,
-                    'details': 'Minimum 100 characters required'
+                    'details': f'Minimum 100 characters required, got {len(input_text)}',
+                    'request_id': str(uuid.uuid4())
                 }), 400
             content = input_text
             title = 'User-provided Text'
             source = source_name
 
-        # Analyze the article content
+        logger.info(f"Successfully extracted content. Length: {len(content)} characters")
+
+        # Analyze the article content using Claude API
         try:
+            logger.info("Starting article analysis with Claude API")
+            analysis_start_time = time.time()
             analysis = analyze_with_claude(content, source)
+            analysis_duration = time.time() - analysis_start_time
+            logger.info(f"Completed article analysis in {analysis_duration:.2f} seconds")
+        except anthropic.APIError as e:
+            logger.error(f"Anthropic API error: {str(e)}", exc_info=True)
+            return jsonify({
+                'error': 'API service error',
+                'status': 503,
+                'details': 'Temporary issue with the analysis service',
+                'request_id': str(uuid.uuid4())
+            }), 503
         except Exception as e:
-            logger.error(f"Analysis failed: {str(e)}")
+            logger.error(f"Analysis failed: {str(e)}", exc_info=True)
             return jsonify({
                 'error': 'Analysis failed',
                 'status': 500,
-                'details': str(e)
+                'details': str(e),
+                'request_id': str(uuid.uuid4())
             }), 500
 
-        # Save to database
+        # Save analysis to database
         try:
+            logger.info("Saving analysis to database")
+            save_start_time = time.time()
             credibility = save_analysis(
                 input_text if input_text.startswith(('http://', 'https://')) else None,
                 title,
@@ -526,32 +579,58 @@ def analyze():
                 content,
                 analysis
             )
+            save_duration = time.time() - save_start_time
+            logger.info(f"Saved analysis to database in {save_duration:.2f} seconds")
         except Exception as e:
-            logger.error(f"Failed to save analysis: {str(e)}")
+            logger.error(f"Failed to save analysis: {str(e)}", exc_info=True)
             return jsonify({
                 'error': 'Failed to save analysis',
                 'status': 500,
-                'details': str(e)
+                'details': str(e),
+                'request_id': str(uuid.uuid4())
             }), 500
 
         # Store analysis result in session
         session['last_analysis_result'] = analysis
+        logger.debug("Stored analysis result in session")
 
         # Get similar articles
         try:
+            logger.info("Fetching similar articles")
             same_topic_articles = fetch_same_topic_articles(analysis)
             same_topic_html = render_same_topic_articles_html(same_topic_articles)
+            logger.info(f"Found {len(same_topic_articles)} similar articles")
         except Exception as e:
-            logger.error(f"Failed to fetch similar articles: {str(e)}")
-            same_topic_html = '<p>Could not fetch similar articles at this time.</p>'
+            logger.error(f"Failed to fetch similar articles: {str(e)}", exc_info=True)
+            same_topic_html = '<div class="alert alert-warning">Could not fetch similar articles at this time.</div>'
 
         # Get source credibility data
-        source_credibility_data = get_source_credibility_data()
+        try:
+            logger.info("Fetching source credibility data")
+            source_credibility_data = get_source_credibility_data()
+            logger.debug(f"Retrieved source credibility data for {len(source_credibility_data['sources'])} sources")
+        except Exception as e:
+            logger.error(f"Failed to fetch source credibility data: {str(e)}", exc_info=True)
+            source_credibility_data = {
+                'sources': [],
+                'credibility_scores': [],
+                'high_counts': [],
+                'medium_counts': [],
+                'low_counts': [],
+                'total_counts': []
+            }
 
         # Get analysis history
-        analysis_history = get_analysis_history()
+        try:
+            logger.info("Fetching analysis history")
+            analysis_history = get_analysis_history()
+            logger.debug(f"Retrieved {len(analysis_history)} items from analysis history")
+        except Exception as e:
+            logger.error(f"Failed to fetch analysis history: {str(e)}", exc_info=True)
+            analysis_history = []
 
-        # Prepare response
+        # Prepare and return response
+        logger.info("Preparing response data")
         response_data = {
             'status': 'success',
             'analysis': analysis,
@@ -568,13 +647,17 @@ def analyze():
             'source_credibility_data': source_credibility_data,
             'analysis_history': analysis_history,
             'same_topic_html': same_topic_html,
-            'output': format_analysis_results(title, source, analysis, credibility)
+            'output': format_analysis_results(title, source, analysis, credibility),
+            'request_id': str(uuid.uuid4()),
+            'processing_time': f"{time.time() - analysis_start_time:.2f} seconds"
         }
 
+        logger.info(f"Successfully processed analysis request. Response size: {len(json.dumps(response_data))} bytes")
         return jsonify(response_data)
 
     except Exception as e:
-        logger.error(f"Unexpected error in analyze endpoint: {str(e)}", exc_info=True)
+        request_id = str(uuid.uuid4())
+        logger.error(f"Unexpected error in analyze endpoint: {str(e)}. Request ID: {request_id}", exc_info=True)
         return jsonify({
             'error': 'Internal server error',
             'status': 500,
@@ -582,9 +665,11 @@ def analyze():
             'suggestions': [
                 'Please try again later',
                 'Check your internet connection',
-                'If the problem persists, contact support'
-            ]
+                'If the problem persists, contact support with this request ID'
+            ],
+            'request_id': request_id
         }), 500
+
 
 def extract_text_from_url(url):
     """Extract text from URL with improved error handling"""
