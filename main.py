@@ -12,9 +12,13 @@ from urllib.parse import urlparse, urlunparse
 from flask import Flask, request, jsonify, render_template, session, make_response
 from werkzeug.middleware.proxy_fix import ProxyFix
 import anthropic
-from newspaper import Article, Config
 from stop_words import get_stop_words
 from flask_cors import CORS
+from newspaper import Article, Config, ArticleException
+from requests.exceptions import RequestException
+import socket
+import ssl
+
 
 # Initialize Flask application
 app = Flask(__name__, static_folder='static', template_folder='templates')
@@ -285,72 +289,179 @@ def analysis_history():
 
 @app.route('/analyze', methods=['POST', 'OPTIONS'])
 def analyze():
-    """Analyze article endpoint with full functionality"""
+    """Analyze article endpoint with comprehensive error handling"""
+    logger.info(f"Received analyze request. Method: {request.method}, Path: {request.path}")
+
+    # Handle OPTIONS request for CORS preflight
     if request.method == 'OPTIONS':
+        logger.debug("Processing OPTIONS request for CORS preflight")
         response = make_response()
         response.headers['Access-Control-Allow-Origin'] = '*'
         response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
         response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Accept'
+        response.headers['Access-Control-Max-Age'] = '3600'
+        logger.debug("Successfully processed OPTIONS request")
         return response
 
-    try:
-        # Validate request
-        if not request.is_json:
-            return jsonify({'error': 'Request must be JSON', 'status': 400}), 400
+    # Validate request content type
+    if not request.is_json:
+        logger.warning(f"Invalid content type: {request.content_type}")
+        return jsonify({
+            'error': 'Invalid content type',
+            'status': 400,
+            'details': 'Content-Type header must be application/json',
+            'request_id': str(uuid.uuid4())
+        }), 400
 
+    try:
+        logger.debug("Processing JSON request data")
+
+        # Get and validate data
         data = request.get_json()
-        if not data or 'input_text' not in data:
-            return jsonify({'error': 'Missing input text', 'status': 400}), 400
+        if not data:
+            logger.warning("Empty request body received")
+            return jsonify({
+                'error': 'Empty request body',
+                'status': 400,
+                'request_id': str(uuid.uuid4())
+            }), 400
+
+        logger.debug(f"Request data: {json.dumps(data, indent=2)}")
+
+        if 'input_text' not in data:
+            logger.warning("Missing input_text in request")
+            return jsonify({
+                'error': 'Missing input text',
+                'status': 400,
+                'details': 'input_text field is required',
+                'request_id': str(uuid.uuid4())
+            }), 400
 
         input_text = data['input_text'].strip()
         source_name = data.get('source_name_manual', 'Direct Input').strip()
 
         if not input_text:
-            return jsonify({'error': 'Empty input text', 'status': 400}), 400
+            logger.warning("Empty input text received")
+            return jsonify({
+                'error': 'Empty input text',
+                'status': 400,
+                'details': 'Input text cannot be empty',
+                'request_id': str(uuid.uuid4())
+            }), 400
 
-        # Process article
+        logger.info(f"Processing input of length: {len(input_text)} characters")
+
+        # Process article - either URL or direct text
         if input_text.startswith(('http://', 'https://')):
-            content, source, title = extract_text_from_url(input_text)
-            if not content:
+            logger.info(f"Processing URL input: {input_text[:100]}...")  # Log first 100 chars of URL
+            try:
+                content, source, title = extract_text_from_url(input_text)
+                if not content:
+                    logger.warning(f"Failed to extract content from URL: {input_text}")
+                    return jsonify({
+                        'error': 'Could not extract article content',
+                        'status': 400,
+                        'details': 'Failed to download or parse the article from the provided URL',
+                        'suggestions': [
+                            'Check if the URL is correct and accessible',
+                            'Try a different URL',
+                            'Make sure the website allows scraping',
+                            'Alternatively, you can paste the article text directly'
+                        ],
+                        'request_id': str(uuid.uuid4())
+                    }), 400
+            except Exception as e:
+                logger.error(f"Error processing URL: {input_text}. Error: {str(e)}", exc_info=True)
                 return jsonify({
-                    'error': 'Could not extract article content',
+                    'error': 'Error processing URL',
                     'status': 400,
+                    'details': str(e),
                     'suggestions': [
-                        'Check if the URL is correct',
+                        'The website might be blocking our requests',
                         'Try a different URL',
-                        'Make sure the website allows scraping',
-                        'Alternatively, paste the article text directly'
-                    ]
+                        'You can paste the article text directly instead of using URL'
+                    ],
+                    'request_id': str(uuid.uuid4())
                 }), 400
         else:
-            if len(input_text) < 50:
+            logger.info("Processing direct text input")
+            if len(input_text) < 100:
+                logger.warning(f"Input text too short: {len(input_text)} characters")
                 return jsonify({
                     'error': 'Content too short',
                     'status': 400,
-                    'details': 'Minimum 50 characters required'
+                    'details': f'Minimum 100 characters required, got {len(input_text)}',
+                    'request_id': str(uuid.uuid4())
                 }), 400
             content = input_text
             title = 'User-provided Text'
             source = source_name
 
-        # Analyze content using Claude API
-        analysis = analyze_with_claude(content, source)
+        logger.info(f"Successfully extracted content. Length: {len(content)} characters")
 
-        # Save to database
-        credibility = save_analysis(
-            input_text if input_text.startswith(('http://', 'https://')) else None,
-            title, source, content, analysis
-        )
+        # Analyze the article content using Claude API
+        try:
+            logger.info("Starting article analysis with Claude API")
+            analysis_start_time = time.time()
+            analysis = analyze_with_claude(content, source)
+            analysis_duration = time.time() - analysis_start_time
+            logger.info(f"Completed article analysis in {analysis_duration:.2f} seconds")
+        except Exception as e:
+            logger.error(f"Analysis failed: {str(e)}", exc_info=True)
+            return jsonify({
+                'error': 'Analysis failed',
+                'status': 500,
+                'details': str(e),
+                'request_id': str(uuid.uuid4())
+            }), 500
 
-        # Get similar articles (first page)
-        similar_articles = fetch_same_topic_articles(analysis, page=1)
-        similar_articles_html = render_same_topic_articles_html(similar_articles)
+        # Save analysis to database
+        try:
+            logger.info("Saving analysis to database")
+            save_start_time = time.time()
+            credibility = save_analysis(
+                input_text if input_text.startswith(('http://', 'https://')) else None,
+                title,
+                source,
+                content,
+                analysis
+            )
+            save_duration = time.time() - save_start_time
+            logger.info(f"Saved analysis to database in {save_duration:.2f} seconds")
+        except Exception as e:
+            logger.error(f"Failed to save analysis: {str(e)}", exc_info=True)
+            return jsonify({
+                'error': 'Failed to save analysis',
+                'status': 500,
+                'details': str(e),
+                'request_id': str(uuid.uuid4())
+            }), 500
 
-        # Store current analysis in session for pagination
-        session['current_analysis'] = analysis
-        session['current_page'] = 1
+        # Store analysis result in session
+        session['last_analysis_result'] = analysis
+
+        # Get similar articles
+        try:
+            logger.info("Fetching similar articles")
+            same_topic_articles = fetch_same_topic_articles(analysis)
+            same_topic_html = render_same_topic_articles_html(same_topic_articles)
+            logger.info(f"Found {len(same_topic_articles)} similar articles")
+        except Exception as e:
+            logger.error(f"Failed to fetch similar articles: {str(e)}", exc_info=True)
+            same_topic_html = '<div class="alert alert-warning">Could not fetch similar articles at this time.</div>'
+
+        # Get source credibility data (mock)
+        source_credibility_data = {
+            'sources': ['BBC', 'Reuters', 'CNN', 'Fox News', 'The Guardian'],
+            'credibility_scores': [0.9, 0.95, 0.7, 0.4, 0.85],
+            'high_counts': [45, 50, 30, 15, 40],
+            'medium_counts': [10, 5, 25, 20, 10],
+            'low_counts': [5, 2, 10, 30, 5],
+            'total_counts': [60, 57, 65, 65, 55]
+        }
 
         # Format response
+        logger.info("Preparing response data")
         response_data = {
             'status': 'success',
             'analysis': analysis,
@@ -358,33 +469,35 @@ def analyze():
             'title': title,
             'source': source,
             'scores_for_chart': {
-                'news_integrity': analysis.get('news_integrity', 0.5),
-                'fact_check_needed_score': analysis.get('fact_check_needed_score', 0.5),
+                'news_integrity': analysis.get('news_integrity', 0.0),
+                'fact_check_needed_score': analysis.get('fact_check_needed_score', 1.0),
                 'sentiment_score': analysis.get('sentiment_score', 0.5),
-                'bias_score': analysis.get('bias_score', 0.5),
-                'index_of_credibility': analysis.get('index_of_credibility', 0.5)
+                'bias_score': analysis.get('bias_score', 1.0),
+                'index_of_credibility': analysis.get('index_of_credibility', 0.0)
             },
-            'source_credibility_data': {
-                'sources': ['BBC', 'Reuters', 'CNN'],
-                'credibility_scores': [0.9, 0.95, 0.7],
-                'high_counts': [45, 50, 30],
-                'medium_counts': [10, 5, 25],
-                'low_counts': [5, 2, 10],
-                'total_counts': [60, 57, 65]
-            },
-            'same_topic_html': similar_articles_html,
-            'show_more_button': len(similar_articles) > 0,
-            'output': format_analysis_results(title, source, analysis, credibility)
+            'source_credibility_data': source_credibility_data,
+            'same_topic_html': same_topic_html,
+            'output': format_analysis_results(title, source, analysis, credibility),
+            'request_id': str(uuid.uuid4()),
+            'processing_time': f"{time.time() - analysis_start_time:.2f} seconds"
         }
 
+        logger.info(f"Successfully processed analysis request. Response size: {len(json.dumps(response_data))} bytes")
         return jsonify(response_data)
 
     except Exception as e:
-        logger.error(f"Error in analyze endpoint: {str(e)}", exc_info=True)
+        request_id = str(uuid.uuid4())
+        logger.error(f"Unexpected error in analyze endpoint: {str(e)}. Request ID: {request_id}", exc_info=True)
         return jsonify({
-            'error': str(e),
+            'error': 'Internal server error',
             'status': 500,
-            'details': 'An unexpected error occurred during analysis'
+            'details': str(e),
+            'suggestions': [
+                'Please try again later',
+                'Check your internet connection',
+                'If the problem persists, contact support with this request ID'
+            ],
+            'request_id': request_id
         }), 500
 
 @app.route('/more-articles', methods=['GET'])
@@ -421,47 +534,115 @@ def more_articles():
         }), 500
 
 def extract_text_from_url(url):
-    """Extract text from URL with improved error handling"""
+    """Extract text from URL with improved error handling and additional checks"""
     try:
-        parsed = urlparse(url)
-        if not all([parsed.scheme, parsed.netloc]):
+        logger.info(f"Attempting to process URL: {url}")
+
+        # Validate URL format
+        try:
+            parsed = urlparse(url)
+            if not all([parsed.scheme, parsed.netloc]):
+                logger.error(f"Invalid URL format: {url}")
+                return None, None, None
+        except Exception as e:
+            logger.error(f"URL parsing error for {url}: {str(e)}")
             return None, None, None
 
+        # Normalize URL
         clean_url = urlunparse(parsed._replace(
             scheme=parsed.scheme.lower(),
             netloc=parsed.netloc.lower()
         ))
 
+        # Check for video content
         if any(domain in clean_url for domain in ['youtube.com', 'vimeo.com', 'twitch.tv']):
+            logger.info("Video content detected")
             return "Video content detected", parsed.netloc.replace('www.', ''), "Video: " + clean_url
 
+        # Check URL accessibility with more robust headers and timeout
         try:
-            response = requests.head(clean_url, timeout=10, allow_redirects=True, headers={'User-Agent': user_agent})
-            if response.status_code != 200:
-                return None, None, None
-        except requests.RequestException:
+            headers = {
+                'User-Agent': user_agent,
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1'
+            }
+
+            # First try with HEAD request
+            try:
+                response = requests.head(
+                    clean_url,
+                    timeout=10,
+                    allow_redirects=True,
+                    headers=headers
+                )
+                response.raise_for_status()
+            except RequestException as e:
+                logger.warning(f"HEAD request failed, trying GET: {str(e)}")
+                # If HEAD fails, try GET
+                response = requests.get(
+                    clean_url,
+                    timeout=15,
+                    allow_redirects=True,
+                    headers=headers
+                )
+                response.raise_for_status()
+
+        except RequestException as e:
+            logger.error(f"URL accessibility check failed for {clean_url}: {str(e)}")
             return None, None, None
 
-        article = Article(clean_url, config=Config(browser_user_agent=user_agent))
+        # Configure article with timeout and user agent
+        config = Config()
+        config.browser_user_agent = user_agent
+        config.request_timeout = 30
+        config.memoize_articles = False
+        config.fetch_images = False
+
+        article = Article(clean_url, config=config)
+
+        # Download article with timeout
         try:
             article.download()
             if article.download_state != 2:
+                logger.error(f"Failed to download article from {clean_url}")
                 return None, None, None
-        except Exception:
+        except ArticleException as e:
+            logger.error(f"Article download failed: {str(e)}")
+            return None, None, None
+        except Exception as e:
+            logger.error(f"Unexpected download error: {str(e)}")
             return None, None, None
 
+        # Parse article
         try:
             article.parse()
             if not article.text or len(article.text.strip()) < 100:
+                logger.warning(f"Short or empty content from {clean_url}")
                 return None, None, None
-        except Exception:
+        except ArticleException as e:
+            logger.error(f"Article parsing failed: {str(e)}")
+            return None, None, None
+        except Exception as e:
+            logger.error(f"Unexpected parsing error: {str(e)}")
             return None, None, None
 
+        # Extract domain and title
         domain = parsed.netloc.replace('www.', '')
         title = article.title.strip() if article.title else "No title"
+
+        logger.info(f"Successfully extracted content from {clean_url}")
         return article.text.strip(), domain, title
 
-    except Exception:
+    except socket.gaierror as e:
+        logger.error(f"DNS resolution failed for {url}: {str(e)}")
+        return None, None, None
+    except ssl.SSLError as e:
+        logger.error(f"SSL certificate error for {url}: {str(e)}")
+        return None, None, None
+    except Exception as e:
+        logger.error(f"Unexpected error extracting article from {url}: {str(e)}", exc_info=True)
         return None, None, None
 
 def analyze_with_claude(content, source):
