@@ -94,11 +94,15 @@ def initialize_database():
                     bias REAL,
                     credibility_level TEXT,
                     index_of_credibility REAL,
-                    url TEXT UNIQUE,
+                    url TEXT,
                     analysis_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    short_summary TEXT
+                    short_summary TEXT,
+                    UNIQUE(url)
                 )
             ''')
+
+            # Create index on url for faster lookups
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_url ON news(url)')
 
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS source_stats (
@@ -288,6 +292,7 @@ def analysis_history():
         }), 500
 
 @app.route('/analyze', methods=['POST', 'OPTIONS'])
+@app.route('/analyze', methods=['POST', 'OPTIONS'])
 def analyze():
     """Analyze article endpoint with comprehensive error handling"""
     logger.info(f"Received analyze request. Method: {request.method}, Path: {request.path}")
@@ -353,7 +358,7 @@ def analyze():
 
         # Process article - either URL or direct text
         if input_text.startswith(('http://', 'https://')):
-            logger.info(f"Processing URL input: {input_text[:100]}...")  # Log first 100 chars of URL
+            logger.info(f"Processing URL input: {input_text[:100]}...")
             try:
                 content, source, title = extract_text_from_url(input_text)
                 if not content:
@@ -450,15 +455,8 @@ def analyze():
             logger.error(f"Failed to fetch similar articles: {str(e)}", exc_info=True)
             same_topic_html = '<div class="alert alert-warning">Could not fetch similar articles at this time.</div>'
 
-        # Get source credibility data (mock)
-        source_credibility_data = {
-            'sources': ['BBC', 'Reuters', 'CNN', 'Fox News', 'The Guardian'],
-            'credibility_scores': [0.9, 0.95, 0.7, 0.4, 0.85],
-            'high_counts': [45, 50, 30, 15, 40],
-            'medium_counts': [10, 5, 25, 20, 10],
-            'low_counts': [5, 2, 10, 30, 5],
-            'total_counts': [60, 57, 65, 65, 55]
-        }
+        # Get source credibility data
+        source_credibility_data = get_source_credibility_data()
 
         # Format response
         logger.info("Preparing response data")
@@ -743,11 +741,12 @@ def calculate_credibility(integrity, fact_check, sentiment, bias):
     return 'Low'
 
 def save_analysis(url, title, source, content, analysis):
-    """Save analysis to database"""
+    """Save analysis to database with improved error handling"""
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor()
 
+            # Safely get all analysis values with defaults
             integrity = analysis.get('news_integrity', 0.5)
             fact_check = analysis.get('fact_check_needed_score', 0.5)
             sentiment = analysis.get('sentiment_score', 0.5)
@@ -755,20 +754,65 @@ def save_analysis(url, title, source, content, analysis):
             summary = analysis.get('short_summary', 'No summary available')
             credibility = analysis.get('index_of_credibility', 0.5)
             level = calculate_credibility(integrity, fact_check, sentiment, bias)
-            db_url = url if url else f'text_{datetime.now(timezone.utc).timestamp()}'
 
-            cursor.execute('''
-                INSERT INTO news
-                (url, title, source, content, integrity, fact_check, sentiment, bias,
-                credibility_level, short_summary, index_of_credibility)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (db_url, title, source, content, integrity, fact_check,
-                  sentiment, bias, level, summary, credibility))
+            # Generate unique URL for text inputs
+            if url and url.startswith(('http://', 'https://')):
+                db_url = url
+            else:
+                db_url = f'text_{datetime.now(timezone.utc).timestamp()}'
 
-            conn.commit()
-            return level
+            # Try to insert the record
+            try:
+                cursor.execute('''
+                    INSERT INTO news
+                    (url, title, source, content, integrity, fact_check, sentiment, bias,
+                    credibility_level, short_summary, index_of_credibility, analysis_date)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (db_url, title, source, content, integrity, fact_check,
+                      sentiment, bias, level, summary, credibility,
+                      datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')))
+
+                conn.commit()
+                logger.info(f"Successfully saved analysis for {title} from {source}")
+                return level
+            except sqlite3.IntegrityError as e:
+                # Handle UNIQUE constraint violation
+                if "UNIQUE constraint failed: news.url" in str(e):
+                    logger.warning(f"URL already exists in database: {db_url}")
+
+                    # Update existing record instead
+                    cursor.execute('''
+                        UPDATE news
+                        SET title = ?,
+                            source = ?,
+                            content = ?,
+                            integrity = ?,
+                            fact_check = ?,
+                            sentiment = ?,
+                            bias = ?,
+                            credibility_level = ?,
+                            short_summary = ?,
+                            index_of_credibility = ?,
+                            analysis_date = ?
+                        WHERE url = ?
+                    ''', (title, source, content, integrity, fact_check,
+                          sentiment, bias, level, summary, credibility,
+                          datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'), db_url))
+
+                    conn.commit()
+                    logger.info(f"Updated existing analysis for URL: {db_url}")
+                    return level
+                else:
+                    raise e
+            except Exception as e:
+                logger.error(f"Error saving analysis: {str(e)}")
+                raise
+
+    except sqlite3.Error as e:
+        logger.error(f"Database error in save_analysis: {str(e)}")
+        return 'Medium'  # Default credibility level
     except Exception as e:
-        logger.error(f"Error saving analysis: {str(e)}")
+        logger.error(f"Unexpected error in save_analysis: {str(e)}")
         return 'Medium'  # Default credibility level
 
 def generate_query_from_analysis(analysis_result):
