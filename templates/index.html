@@ -58,35 +58,12 @@
             font-size: 1.3rem;
         }
 
-        .nav-link {
-            color: var(--light-color);
-            margin-left: 15px;
-            position: relative;
-        }
-
-        .nav-link:hover {
-            color: var(--accent-color);
-        }
-
-        .nav-link::after {
-            content: '';
-            position: absolute;
-            bottom: -5px;
-            left: 0;
-            width: 0;
-            height: 2px;
-            background-color: var(--accent-color);
-            transition: width 0.3s ease;
-        }
-
-        .nav-link:hover::after {
-            width: 100%;
-        }
-
         /* Main Container */
         .main-container {
             flex: 1;
             padding: 40px 0;
+            display: flex;
+            flex-direction: column;
         }
 
         /* Page Title */
@@ -97,7 +74,7 @@
         }
 
         .main-heading {
-            font-size: 2.2rem;
+            font-size: 2.5rem;
             font-weight: 700;
             color: var(--light-color);
             margin-bottom: 15px;
@@ -108,10 +85,55 @@
         }
 
         .subheading {
-            font-size: 1.1rem;
+            font-size: 1.2rem;
             color: rgba(255, 255, 255, 0.7);
             max-width: 800px;
             margin: 0 auto 30px;
+        }
+
+        /* Content Layout */
+        .content-layout {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            width: 100%;
+        }
+
+        .sidebar {
+            position: fixed;
+            right: 20px;
+            top: 100px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            z-index: 100;
+        }
+
+        .sidebar-link {
+            background-color: var(--accent-color);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            transition: var(--transition);
+            width: fit-content;
+        }
+
+        .sidebar-link:hover {
+            background-color: #2980b9;
+            transform: translateY(-2px);
+        }
+
+        .sidebar-link i {
+            margin-right: 8px;
         }
 
         /* Form Container */
@@ -123,11 +145,14 @@
             margin-bottom: 30px;
             transition: var(--transition);
             border: 1px solid rgba(255, 255, 255, 0.1);
+            width: 100%;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
         }
 
         .form-container:hover {
             box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
-            border-color: rgba(255, 255, 255, 0.2);
         }
 
         .form-label {
@@ -150,12 +175,10 @@
             border-color: var(--accent-color);
             box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
             background-color: rgba(255, 255, 255, 0.1);
-            color: var(--light-color);
         }
 
         .form-control::placeholder {
-            color: rgba(255, 255, 255, 0.3);
-            opacity: 1;
+            color: rgba(255, 255, 255, 0.5);
         }
 
         .btn-analyze {
@@ -172,6 +195,7 @@
             transition: var(--transition);
             border: none;
             font-size: 1rem;
+            width: fit-content;
         }
 
         .btn-analyze:hover {
@@ -195,25 +219,19 @@
             box-shadow: var(--box-shadow);
             max-width: 600px;
             border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .spinner {
-            width: 3rem;
-            height: 3rem;
-            margin: 0 auto 15px;
-            color: var(--accent-color);
-        }
-
-        .loading-text {
-            font-size: 1.1rem;
-            margin-bottom: 5px;
-            color: var(--light-color);
+            width: fit-content;
+            margin-left: auto;
+            margin-right: auto;
         }
 
         /* Analysis Results */
         .analysis-results {
             display: none;
             margin-top: 30px;
+            width: 100%;
+            max-width: 1000px;
+            margin-left: auto;
+            margin-right: auto;
         }
 
         .analysis-section {
@@ -231,6 +249,7 @@
             padding-bottom: 10px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
             font-size: 1.5rem;
+            text-align: center;
         }
 
         /* Chart Containers */
@@ -268,85 +287,6 @@
             background-color: rgba(255, 255, 255, 0.1);
         }
 
-        .similar-article h4 {
-            color: var(--light-color);
-            margin-bottom: 8px;
-        }
-
-        .similar-article h4 a {
-            color: inherit;
-            text-decoration: none;
-            transition: var(--transition);
-        }
-
-        .similar-article h4 a:hover {
-            color: var(--accent-color);
-        }
-
-        .article-meta {
-            font-size: 0.9rem;
-            color: rgba(255, 255, 255, 0.7);
-            margin-bottom: 10px;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            align-items: center;
-        }
-
-        .article-source {
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-        }
-
-        .article-source::before {
-            content: "•";
-            margin: 0 8px;
-            color: rgba(255, 255, 255, 0.5);
-        }
-
-        .article-date {
-            color: rgba(255, 255, 255, 0.6);
-            display: flex;
-            align-items: center;
-        }
-
-        .article-date::before {
-            content: "•";
-            margin: 0 8px;
-            color: rgba(255, 255, 255, 0.5);
-        }
-
-        .article-credibility {
-            padding: 3px 10px;
-            border-radius: 12px;
-            font-size: 0.8rem;
-            font-weight: 500;
-            margin-left: 8px;
-            display: inline-block;
-        }
-
-        .article-credibility.high {
-            background-color: rgba(40, 167, 69, 0.2);
-            color: var(--success-color);
-        }
-
-        .article-credibility.medium {
-            background-color: rgba(255, 193, 7, 0.2);
-            color: var(--warning-color);
-        }
-
-        .article-credibility.low {
-            background-color: rgba(220, 53, 69, 0.2);
-            color: var(--danger-color);
-        }
-
-        .article-description {
-            margin-top: 10px;
-            line-height: 1.5;
-            color: rgba(255, 255, 255, 0.9);
-        }
-
         /* Show More Button */
         .show-more-btn {
             display: block;
@@ -360,123 +300,7 @@
             transition: var(--transition);
             font-weight: 500;
             border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .show-more-btn:hover {
-            background-color: #2980b9;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-        }
-
-        .show-more-btn:disabled {
-            background-color: rgba(255, 255, 255, 0.1);
-            color: rgba(255, 255, 255, 0.5);
-            cursor: not-allowed;
-            border-color: rgba(255, 255, 255, 0.1);
-        }
-
-        /* Feedback Button */
-        .feedback-btn {
-            position: fixed;
-            bottom: 30px;
-            right: 30px;
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            background-color: var(--accent-color);
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-            z-index: 1000;
-            text-decoration: none;
-            transition: var(--transition);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .feedback-btn:hover {
-            transform: scale(1.05);
-            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25);
-            background-color: #2980b9;
-        }
-
-        .feedback-btn i {
-            font-size: 1.5rem;
-        }
-
-        /* Credibility Badges */
-        .credibility-badge {
-            display: inline-block;
-            padding: 3px 8px;
-            border-radius: 12px;
-            font-size: 0.8rem;
-            font-weight: 500;
-        }
-
-        .credibility-badge.high {
-            background-color: rgba(40, 167, 69, 0.2);
-            color: var(--success-color);
-        }
-
-        .credibility-badge.medium {
-            background-color: rgba(255, 193, 7, 0.2);
-            color: var(--warning-color);
-        }
-
-        .credibility-badge.low {
-            background-color: rgba(220, 53, 69, 0.2);
-            color: var(--danger-color);
-        }
-
-        /* Score Items */
-        .score-item {
-            text-align: center;
-            padding: 15px;
-            margin-bottom: 15px;
-            background-color: rgba(52, 152, 219, 0.1);
-            border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .score-name {
-            font-weight: 600;
-            margin-bottom: 5px;
-            color: var(--light-color);
-        }
-
-        .score-value {
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin-bottom: 5px;
-            color: var(--accent-color);
-        }
-
-        .score-description {
-            font-size: 0.9rem;
-            color: rgba(255, 255, 255, 0.7);
-        }
-
-        /* Alerts */
-        .alert {
-            background-color: rgba(255, 255, 255, 0.05);
-            color: var(--light-color);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .alert-danger {
-            background-color: rgba(220, 53, 69, 0.1);
-            border-color: rgba(220, 53, 69, 0.3);
-        }
-
-        .alert-warning {
-            background-color: rgba(255, 193, 7, 0.1);
-            border-color: rgba(255, 193, 7, 0.3);
-        }
-
-        .alert-info {
-            background-color: rgba(52, 152, 219, 0.1);
-            border-color: rgba(52, 152, 219, 0.3);
+            width: fit-content;
         }
 
         /* Footer */
@@ -490,6 +314,21 @@
         }
 
         /* Responsive Design */
+        @media (max-width: 1200px) {
+            .sidebar {
+                position: static;
+                display: flex;
+                flex-direction: row;
+                justify-content: center;
+                margin-top: 20px;
+                gap: 20px;
+            }
+
+            .main-content {
+                margin-bottom: 80px;
+            }
+        }
+
         @media (max-width: 992px) {
             .main-container {
                 padding: 30px 0;
@@ -500,7 +339,7 @@
             }
 
             .main-heading {
-                font-size: 2rem;
+                font-size: 2.2rem;
             }
 
             .chart-container {
@@ -528,6 +367,11 @@
             .btn-analyze {
                 width: 100%;
             }
+
+            .sidebar {
+                flex-direction: column;
+                align-items: center;
+            }
         }
     </style>
 </head>
@@ -538,46 +382,27 @@
                 <i class="bi bi-newspaper"></i>
                 Media Credibility Index
             </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="/faq">FAQ</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/feedback">Feedback</a>
-                    </li>
-                </ul>
-            </div>
         </div>
     </nav>
 
-    <a href="/feedback" class="feedback-btn">
-        <i class="bi bi-chat-dots"></i>
-    </a>
-
-    <div class="container main-container">
+    <div class="main-container">
         <div class="page-title">
             <h1 class="main-heading">Media Credibility Index Tool</h1>
             <p class="subheading">Setting the Standard for Media Trust</p>
         </div>
 
-        <div class="row justify-content-center">
-            <div class="col-lg-10">
+        <div class="content-layout">
+            <div class="main-content">
                 <div class="form-container">
                     <h3 class="mb-4 text-center">Analyze Article</h3>
                     <form id="analysisForm">
                         <div class="mb-4">
                             <label for="articleInput" class="form-label">Article URL or Text</label>
-                            <textarea class="form-control" id="articleInput" rows="6"
-                                      placeholder="Paste article text or URL here..."></textarea>
+                            <textarea class="form-control" id="articleInput" rows="6" placeholder="Paste article text or URL here..."></textarea>
                         </div>
                         <div class="mb-4">
                             <label for="sourceName" class="form-label">Source Name (optional)</label>
-                            <input type="text" class="form-control" id="sourceName"
-                                   placeholder="e.g., bbc.com, reuters.com">
+                            <input type="text" class="form-control" id="sourceName" placeholder="e.g., bbc.com, reuters.com">
                         </div>
                         <button type="submit" class="btn btn-analyze">
                             <i class="bi bi-search"></i> Analyze Article
@@ -623,6 +448,15 @@
                         </button>
                     </div>
                 </div>
+            </div>
+
+            <div class="sidebar">
+                <a href="/faq" class="sidebar-link">
+                    <i class="bi bi-question-circle"></i> FAQ
+                </a>
+                <a href="/feedback" class="sidebar-link">
+                    <i class="bi bi-chat-dots"></i> Feedback
+                </a>
             </div>
         </div>
     </div>
@@ -804,7 +638,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             `;
 
-            const container = document.querySelector('.container');
+            const container = document.querySelector('.main-content');
             if (container) {
                 container.prepend(alertContainer);
             }
