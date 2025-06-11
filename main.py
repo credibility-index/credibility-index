@@ -128,8 +128,6 @@ def populate_test_data():
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor()
-
-            # Test data for various sources
             test_sources = [
                 ('bbc.com', 45, 10, 5), ('reuters.com', 50, 5, 2),
                 ('foxnews.com', 15, 20, 30), ('cnn.com', 30, 25, 10),
@@ -348,7 +346,7 @@ def analysis_history():
 
 @app.route('/analyze', methods=['POST', 'OPTIONS'])
 def analyze():
-    """Analyze article endpoint"""
+    """Analyze article endpoint with full functionality"""
     logger.info(f"Received analyze request. Method: {request.method}")
 
     if request.method == 'OPTIONS':
@@ -387,13 +385,20 @@ def analyze():
             if not content:
                 return jsonify({
                     'error': 'Could not extract article content',
-                    'status': 400
+                    'status': 400,
+                    'suggestions': [
+                        'Check if the URL is correct and accessible',
+                        'Try a different URL',
+                        'Make sure the website allows scraping',
+                        'Alternatively, you can paste the article text directly'
+                    ]
                 }), 400
         else:
             if len(input_text) < 100:
                 return jsonify({
                     'error': 'Content too short',
-                    'status': 400
+                    'status': 400,
+                    'details': 'Minimum 100 characters required'
                 }), 400
             content = input_text
             title = 'User-provided Text'
@@ -406,6 +411,16 @@ def analyze():
             title, source, content, analysis
         )
 
+        # Get similar articles
+        same_topic_articles = fetch_same_topic_articles(analysis)
+        same_topic_html = render_same_topic_articles_html(same_topic_articles)
+
+        # Get source credibility data
+        source_credibility_data = get_source_credibility_data()
+
+        # Get analysis history
+        analysis_history = get_analysis_history()
+
         # Prepare response
         response_data = {
             'status': 'success',
@@ -413,6 +428,16 @@ def analyze():
             'credibility': credibility,
             'title': title,
             'source': source,
+            'scores_for_chart': {
+                'news_integrity': analysis.get('news_integrity', 0.0),
+                'fact_check_needed_score': analysis.get('fact_check_needed_score', 1.0),
+                'sentiment_score': analysis.get('sentiment_score', 0.5),
+                'bias_score': analysis.get('bias_score', 1.0),
+                'index_of_credibility': analysis.get('index_of_credibility', 0.0)
+            },
+            'source_credibility_data': source_credibility_data,
+            'analysis_history': analysis_history,
+            'same_topic_html': same_topic_html,
             'output': format_analysis_results(title, source, analysis, credibility)
         }
 
@@ -426,7 +451,7 @@ def analyze():
         }), 500
 
 def extract_text_from_url(url):
-    """Extract text from URL"""
+    """Extract text from URL with improved error handling"""
     try:
         parsed = urlparse(url)
         if not all([parsed.scheme, parsed.netloc]):
@@ -583,30 +608,258 @@ def save_analysis(url, title, source, content, analysis):
         logger.error(f"Error saving analysis: {str(e)}")
         raise
 
-def format_analysis_results(title, source, analysis, credibility):
-    """Format analysis results for display"""
+def generate_query(analysis_result):
+    """Generate query for finding similar articles"""
+    topics = analysis_result.get('topics', [])
+    key_arguments = analysis_result.get('key_arguments', [])
+    mentioned_facts = analysis_result.get('mentioned_facts', [])
+
+    all_terms = []
+    for phrase_list in [topics, key_arguments]:
+        for phrase in phrase_list:
+            if not phrase.strip():
+                continue
+            if ' ' in phrase.strip() and len(phrase.strip().split()) > 1:
+                all_terms.append('"' + phrase.strip() + '"')
+            else:
+                all_terms.append(phrase.strip())
+
+    for fact in mentioned_facts:
+        if not fact.strip():
+            continue
+        words = [word for word in fact.lower().split() if word not in stop_words_en and len(word) > 2]
+        all_terms.extend(words)
+
+    unique_terms = list(set(all_terms))
+
+    if len(unique_terms) >= 3:
+        query = ' AND '.join(unique_terms)
+    elif unique_terms:
+        query = ' OR '.join(unique_terms)
+    else:
+        query = 'current events OR news'
+
+    return query
+
+def make_newsapi_request(params):
+    """Make request to NewsAPI"""
+    url = 'https://newsapi.org/v2/everything'
     try:
-        return {
+        response = requests.get(url, params=params, timeout=15)
+        response.raise_for_status()
+        return response.json().get('articles', [])
+    except Exception as e:
+        logger.error(f'NewsAPI Request Error: {str(e)}')
+        return []
+
+def fetch_same_topic_articles(analysis_result, page=1, per_page=3):
+    """Fetch similar articles by topic with pagination"""
+    global predefined_trust_scores
+
+    if not NEWS_API_ENABLED:
+        logger.warning('NEWS_API_KEY is not configured or enabled. Using mock data for similar articles.')
+        return [
+            {
+                'title': f'Similar Article {i}',
+                'url': f'https://example.com/article{i}',
+                'source': {'name': 'Example News'},
+                'publishedAt': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+                'description': f'This is a similar article about the same topic {i}.'
+            }
+            for i in range(1, per_page + 1)
+        ]
+
+    try:
+        query = generate_query(analysis_result)
+        end_date = datetime.now(timezone.utc).date()
+        start_date = end_date - timedelta(days=7)
+
+        params = {
+            'q': query,
+            'apiKey': NEWS_API_KEY,
+            'language': 'en',
+            'pageSize': per_page,
+            'page': page,
+            'sortBy': 'relevancy',
+            'from': start_date.strftime('%Y-%m-%d'),
+            'to': end_date.strftime('%Y-%m-%d'),
+        }
+
+        if TRUSTED_NEWS_SOURCES_IDS:
+            params['sources'] = ','.join(TRUSTED_NEWS_SOURCES_IDS)
+
+        articles = make_newsapi_request(params)
+
+        if not articles and query != 'current events OR news':
+            broader_query = ' OR '.join([f'"{term}"' if ' ' in term else term
+                                      for term in analysis_result.get('topics', [])[:3]
+                                      if term and term not in stop_words_en])
+            if not broader_query:
+                broader_query = 'current events OR news'
+
+            params['q'] = broader_query
+            additional_articles = make_newsapi_request(params)
+            articles.extend(additional_articles)
+
+        unique_articles = {}
+        for article in articles:
+            if article.get('url'):
+                unique_articles[article['url']] = article
+
+        articles = list(unique_articles.values())
+
+        if not articles:
+            return []
+
+        all_query_terms = []
+        all_query_terms.extend([t.lower().replace('"', '') for t in query.split(' AND ') if t.strip()])
+        if 'broader_query' in locals():
+            all_query_terms.extend([t.lower().replace('"', '') for t in broader_query.split(' OR ') if t.strip()])
+        all_query_terms = list(set([t for t in all_query_terms if t and t not in stop_words_en]))
+
+        ranked_articles = []
+        for article in articles:
+            source_domain = urlparse(article.get('url', '')).netloc.replace('www.', '')
+            trust_score = predefined_trust_scores.get(source_domain, 0.5)
+
+            article_text = (article.get('title', '') + ' ' + article.get('description', '')).lower()
+            relevance_score = sum(1 for term in all_query_terms if term in article_text)
+            final_score = (relevance_score * 10) + (trust_score * 5)
+            ranked_articles.append((article, final_score))
+
+        ranked_articles.sort(key=lambda item: item[1], reverse=True)
+        return [item[0] for item in ranked_articles[:per_page]]
+
+    except Exception as e:
+        logger.error(f"Error in fetch_same_topic_articles: {str(e)}")
+        return []
+
+def render_same_topic_articles_html(articles):
+    """Render HTML for similar articles"""
+    if not articles:
+        return '<div class="alert alert-info">No similar articles found</div>'
+
+    html_items = []
+    for art in articles:
+        title = html.escape(art.get('title', 'No Title'))
+        article_url = html.escape(art.get('url', '#'))
+        source_api_name = html.escape(art.get('source', {}).get('name', 'Unknown Source'))
+        published_at = html.escape(art.get('publishedAt', 'N/A').split('T')[0])
+        description = html.escape(art.get('description', 'No description available.'))
+
+        domain = urlparse(art.get('url', '#')).netloc.replace('www.', '')
+        trust_score = predefined_trust_scores.get(domain, 0.5)
+        trust_display = f' (Credibility: {int(trust_score*100)}%)'
+
+        html_items.append(
+            f'''
+            <div class="similar-article">
+                <h4><a href="{article_url}" target="_blank" rel="noopener noreferrer">{title}</a></h4>
+                <div class="article-meta">
+                    <span class="article-source"><i class="bi bi-newspaper"></i> {source_api_name}</span>
+                    <span class="article-date"><i class="bi bi-calendar"></i> {published_at}</span>
+                    <span class="article-credibility">Credibility: {int(trust_score*100)}%</span>
+                </div>
+                <p class="article-description">{description}</p>
+            </div>
+            '''
+        )
+
+    return '<div class="similar-articles-container">' + ''.join(html_items) + '</div>'
+
+def format_analysis_results(title, source, analysis, credibility):
+    """Format analysis results for display with charts and similar articles"""
+    try:
+        output = {
             'title': title,
             'source': source,
             'credibility': credibility,
             'analysis': analysis,
+            'scores': {
+                'news_integrity': analysis.get('news_integrity', 0.0),
+                'fact_check_needed_score': analysis.get('fact_check_needed_score', 1.0),
+                'sentiment_score': analysis.get('sentiment_score', 0.5),
+                'bias_score': analysis.get('bias_score', 1.0),
+                'index_of_credibility': analysis.get('index_of_credibility', 0.0)
+            },
             'output_md': f"""
             <div class="analysis-section">
                 <h2>Article Information</h2>
                 <p><strong>Title:</strong> {html.escape(title)}</p>
                 <p><strong>Source:</strong> {html.escape(source)}</p>
-                <p><strong>Credibility:</strong> {credibility}</p>
+                <p><strong>Credibility Level:</strong> <span class="credibility-badge {credibility.lower()}">{credibility}</span></p>
             </div>
+
             <div class="analysis-section">
-                <h2>Analysis Results</h2>
-                <p><strong>Integrity:</strong> {analysis.get('news_integrity', 0.0):.2f}</p>
-                <p><strong>Fact Check Needed:</strong> {analysis.get('fact_check_needed_score', 1.0):.2f}</p>
-                <p><strong>Sentiment:</strong> {analysis.get('sentiment_score', 0.5):.2f}</p>
-                <p><strong>Bias:</strong> {analysis.get('bias_score', 1.0):.2f}</p>
+                <h2>Analysis Scores</h2>
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="score-item">
+                            <div class="score-name">News Integrity</div>
+                            <div class="score-value">{analysis.get('news_integrity', 0.0):.2f}</div>
+                            <div class="score-description">Overall integrity and trustworthiness</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="score-item">
+                            <div class="score-name">Fact Check Needed</div>
+                            <div class="score-value">{analysis.get('fact_check_needed_score', 1.0):.2f}</div>
+                            <div class="score-description">Likelihood that claims need fact-checking</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="score-item">
+                            <div class="score-name">Sentiment</div>
+                            <div class="score-value">{analysis.get('sentiment_score', 0.5):.2f}</div>
+                            <div class="score-description">Emotional tone (0.0 negative, 0.5 neutral, 1.0 positive)</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="score-item">
+                            <div class="score-name">Bias</div>
+                            <div class="score-value">{analysis.get('bias_score', 1.0):.2f}</div>
+                            <div class="score-description">Degree of perceived bias</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="analysis-section">
+                <h2>Additional Information</h2>
+                <div class="detail-item">
+                    <h4>Author Purpose</h4>
+                    <p>{html.escape(analysis.get('author_purpose', 'Not specified'))}</p>
+                </div>
+
+                <div class="detail-item">
+                    <h4>Short Summary</h4>
+                    <p>{html.escape(analysis.get('short_summary', 'No summary available'))}</p>
+                </div>
+
+                <div class="detail-item">
+                    <h4>Topics</h4>
+                    <div class="d-flex flex-wrap gap-2">
+                        {' '.join(f'<span class="badge bg-primary">{html.escape(topic)}</span>' for topic in analysis.get('topics', []))}
+                    </div>
+                </div>
+
+                <div class="detail-item">
+                    <h4>Key Arguments</h4>
+                    <ul class="list-unstyled">
+                        {''.join(f'<li>{html.escape(arg)}</li>' for arg in analysis.get('key_arguments', []))}
+                    </ul>
+                </div>
+
+                <div class="detail-item">
+                    <h4>Potential Biases Identified</h4>
+                    <ul class="list-unstyled">
+                        {''.join(f'<li>{html.escape(bias)}</li>' for bias in analysis.get('potential_biases_identified', []))}
+                    </ul>
+                </div>
             </div>
             """
         }
+        return output
     except Exception as e:
         logger.error(f"Error formatting analysis results: {str(e)}")
         return {"error": "Error formatting analysis results"}
