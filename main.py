@@ -29,9 +29,10 @@ CORS(app, resources={
 })
 
 # Environment variables with default values
-ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY', 'your-anthropic-api-key')
+ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
 MODEL_NAME = os.getenv('ANTHROPIC_MODEL', 'claude-3-opus-20240229')
-NEWS_API_KEY = os.getenv('NEWS_API_KEY', 'your-news-api-key')
+NEWS_API_KEY = os.getenv('NEWS_API_KEY')
+NEWS_API_ENABLED = bool(NEWS_API_KEY)
 
 # Configure logging
 logging.basicConfig(
@@ -411,7 +412,7 @@ def analyze():
         return response
 
     try:
-        # Проверяем формат запроса
+        # Validate request content type
         if not request.is_json:
             return jsonify({
                 'error': 'Request must be JSON',
@@ -419,7 +420,7 @@ def analyze():
                 'details': 'Content-Type header must be application/json'
             }), 400
 
-        # Получаем данные
+        # Get and validate data
         data = request.get_json()
         if not data:
             return jsonify({
@@ -444,7 +445,7 @@ def analyze():
                 'details': 'Input text cannot be empty'
             }), 400
 
-        # Обрабатываем URL или текст
+        # Process article
         if input_text.startswith(('http://', 'https://')):
             try:
                 content, source, title = extract_text_from_url(input_text)
@@ -483,21 +484,9 @@ def analyze():
             title = 'User-provided Text'
             source = source_name
 
-        # Анализируем статью
+        # Analyze the article content
         try:
-            analysis = {
-                'news_integrity': 0.85,
-                'fact_check_needed_score': 0.2,
-                'sentiment_score': 0.6,
-                'bias_score': 0.3,
-                'topics': ['politics', 'economy'],
-                'key_arguments': ['Argument 1', 'Argument 2'],
-                'mentioned_facts': ['Fact 1', 'Fact 2'],
-                'author_purpose': 'To inform',
-                'potential_biases_identified': ['Bias 1'],
-                'short_summary': 'This is a test summary',
-                'index_of_credibility': 0.75
-            }
+            analysis = analyze_with_claude(content, source)
         except Exception as e:
             logger.error(f"Analysis failed: {str(e)}")
             return jsonify({
@@ -506,7 +495,7 @@ def analyze():
                 'details': str(e)
             }), 500
 
-        # Сохраняем анализ в базу данных
+        # Save to database
         try:
             credibility = save_analysis(
                 input_text if input_text.startswith(('http://', 'https://')) else None,
@@ -523,28 +512,24 @@ def analyze():
                 'details': str(e)
             }), 500
 
-        # Сохраняем результат анализа в сессии
+        # Store analysis result in session
         session['last_analysis_result'] = analysis
 
-        # Получаем похожие статьи
-        same_topic_articles = [
-            {
-                'title': 'Similar Article 1',
-                'url': 'https://example.com/article1',
-                'source': {'name': 'Example News'},
-                'publishedAt': '2023-01-01T00:00:00Z',
-                'description': 'This is a similar article about the same topic.'
-            }
-        ]
-        same_topic_html = render_same_topic_articles_html(same_topic_articles)
+        # Get similar articles
+        try:
+            same_topic_articles = fetch_same_topic_articles(analysis)
+            same_topic_html = render_same_topic_articles_html(same_topic_articles)
+        except Exception as e:
+            logger.error(f"Failed to fetch similar articles: {str(e)}")
+            same_topic_html = '<p>Could not fetch similar articles at this time.</p>'
 
-        # Получаем данные о надежности источников
+        # Get source credibility data
         source_credibility_data = get_source_credibility_data()
 
-        # Получаем историю анализа
+        # Get analysis history
         analysis_history = get_analysis_history()
 
-        # Подготавливаем ответ
+        # Prepare response
         response_data = {
             'status': 'success',
             'analysis': analysis,
@@ -579,58 +564,6 @@ def analyze():
             ]
         }), 500
 
-
-        # Store analysis result in session
-        session['last_analysis_result'] = analysis
-
-        # Get similar articles (using mock data)
-        same_topic_articles = [
-            {
-                'title': 'Similar Article 1',
-                'url': 'https://example.com/article1',
-                'source': {'name': 'Example News'},
-                'publishedAt': '2023-01-01T00:00:00Z',
-                'description': 'This is a similar article about the same topic.'
-            }
-        ]
-        same_topic_html = render_same_topic_articles_html(same_topic_articles)
-
-        # Get source credibility data
-        source_credibility_data = get_source_credibility_data()
-
-        # Get analysis history
-        analysis_history = get_analysis_history()
-
-        # Prepare response matching your index.html expectations
-        response_data = {
-            'status': 'success',
-            'analysis': analysis,
-            'credibility': credibility,
-            'title': title,
-            'source': source,
-            'scores_for_chart': {
-                'news_integrity': analysis.get('news_integrity', 0.0),
-                'fact_check_needed_score': analysis.get('fact_check_needed_score', 1.0),
-                'sentiment_score': analysis.get('sentiment_score', 0.5),
-                'bias_score': analysis.get('bias_score', 1.0),
-                'index_of_credibility': analysis.get('index_of_credibility', 0.0)
-            },
-            'source_credibility_data': source_credibility_data,
-            'analysis_history': analysis_history,
-            'same_topic_html': same_topic_html,
-            'output': format_analysis_results(title, source, analysis, credibility)
-        }
-
-        return jsonify(response_data)
-
-    except Exception as e:
-        logger.error(f"Unexpected error in analyze endpoint: {str(e)}", exc_info=True)
-        return jsonify({
-            'error': 'Internal server error',
-            'status': 500,
-            'details': str(e)
-        }), 500
-
 def extract_text_from_url(url):
     """Extract text from URL with improved error handling"""
     try:
@@ -659,7 +592,7 @@ def extract_text_from_url(url):
 
         # Проверяем доступность URL
         try:
-            response = requests.head(clean_url, timeout=10, allow_redirects=True)
+            response = requests.head(clean_url, timeout=10, allow_redirects=True, headers={'User-Agent': user_agent})
             if response.status_code != 200:
                 logger.error(f"URL returned status code: {response.status_code}")
                 return None, None, None
@@ -700,6 +633,61 @@ def extract_text_from_url(url):
     except Exception as e:
         logger.error(f"Error extracting article from {url}: {str(e)}")
         return None, None, None
+
+def analyze_with_claude(content, source):
+    """Analyze article text using Claude API"""
+    try:
+        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+
+        # Ограничиваем длину контента для Claude API
+        max_chars_for_claude = 10000
+        if len(content) > max_chars_for_claude:
+            content = content[:max_chars_for_claude]
+            logger.warning(f"Article content truncated to {max_chars_for_claude} characters for Claude API.")
+
+        prompt = (
+            'You are a highly analytical and neutral AI assistant specializing in news article reliability and content analysis. '
+            'Your task is to dissect the provided news article.\n\n'
+            f'Article Text:\n"""\n{content}\n"""\n\n'
+            f'Source (for context, if known): {source}\n\n'
+            'Please perform the following analyses and return the results ONLY in a single, valid JSON object format. '
+            'Do not include any explanatory text before or after the JSON object.\n\n'
+            'JSON Fields:\n'
+            '- "news_integrity": (Float, 0.0-1.0) Assess the overall integrity and trustworthiness of the information presented.\n'
+            '- "fact_check_needed_score": (Float, 0.0-1.0) Likelihood that the article\'s claims require external fact-checking.\n'
+            '- "sentiment_score": (Float, 0.0-1.0) Overall emotional tone (0.0 negative, 0.5 neutral, 1.0 positive).\n'
+            '- "bias_score": (Float, 0.0-1.0) Degree of perceived bias (0.0 low bias, 1.0 high bias).\n'
+            '- "topics": (List of strings) Identify 3-5 main topics or keywords.\n'
+            '- "key_arguments": (List of strings) Extract the main arguments or claims.\n'
+            '- "mentioned_facts": (List of strings) List any specific facts or statistics mentioned.\n'
+            '- "author_purpose": (String) Briefly determine the author\'s likely primary purpose.\n'
+            '- "potential_biases_identified": (List of strings) Enumerate any specific signs of potential bias.\n'
+            '- "short_summary": (String) A concise summary of the article\'s main content.\n'
+            '- "index_of_credibility": (Float, 0.0-1.0) Overall credibility index.\n'
+            '- "published_date": (String, YYYY-MM-DD or N/A) The publication date.'
+        )
+
+        message = client.messages.create(
+            model=MODEL_NAME,
+            max_tokens=2000,
+            temperature=0.2,
+            system='You are a JSON-generating expert. Always provide valid JSON.',
+            messages=[{'role': 'user', 'content': prompt}]
+        )
+
+        raw_json_text = message.content[0].text.strip()
+        match = re.search(r'```json\s*(\{.*\})\s*```', raw_json_text, re.DOTALL)
+
+        if match:
+            json_str = match.group(1)
+        else:
+            json_str = raw_json_text
+
+        return json.loads(json_str)
+
+    except Exception as e:
+        logger.error(f"Analysis error: {str(e)}")
+        raise ValueError(f"Analysis failed: {str(e)}")
 
 def calculate_credibility(integrity, fact_check, sentiment, bias):
     """Calculate credibility level"""
@@ -824,9 +812,18 @@ def fetch_same_topic_articles(analysis_result, page=1, per_page=3):
     """Fetch similar articles by topic with pagination"""
     global predefined_trust_scores
 
-    if not NEWS_API_KEY:
-        logger.warning('NEWS_API_KEY is not configured. Skipping similar news search.')
-        return []
+    if not NEWS_API_ENABLED:
+        logger.warning('NEWS_API_KEY is not configured or enabled. Using mock data for similar articles.')
+        return [
+            {
+                'title': f'Similar Article {i}',
+                'url': f'https://example.com/article{i}',
+                'source': {'name': 'Example News'},
+                'publishedAt': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+                'description': f'This is a similar article about the same topic {i}.'
+            }
+            for i in range(1, per_page + 1)
+        ]
 
     try:
         query = generate_query(analysis_result)
