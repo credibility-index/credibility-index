@@ -569,7 +569,7 @@ def extract_text_from_url(url):
     try:
         logger.info(f"Processing URL: {url}")
 
-        # Проверяем корректность URL
+        # Validate URL format
         try:
             parsed = urlparse(url)
             if not all([parsed.scheme, parsed.netloc]):
@@ -578,6 +578,61 @@ def extract_text_from_url(url):
         except Exception as e:
             logger.error(f"URL parsing error: {str(e)}")
             return None, None, None
+
+        # Normalize URL
+        clean_url = urlunparse(parsed._replace(
+            scheme=parsed.scheme.lower(),
+            netloc=parsed.netloc.lower()
+        ))
+
+        # Check for video content
+        if any(domain in clean_url for domain in ['youtube.com', 'vimeo.com', 'twitch.tv']):
+            logger.info("Video content detected")
+            return "Video content detected", parsed.netloc.replace('www.', ''), "Video: " + clean_url
+
+        # Check URL accessibility
+        try:
+            response = requests.head(clean_url, timeout=10, allow_redirects=True, headers={'User-Agent': user_agent})
+            if response.status_code != 200:
+                logger.error(f"URL returned status code: {response.status_code}")
+                return None, None, None
+        except requests.RequestException as e:
+            logger.error(f"URL accessibility check failed: {str(e)}")
+            return None, None, None
+
+        # Configure article with timeout and user agent
+        article = Article(clean_url, config=config)
+
+        # Download article with timeout
+        try:
+            article.download()
+            if article.download_state != 2:
+                logger.error(f"Failed to download article from {clean_url}")
+                return None, None, None
+        except Exception as e:
+            logger.error(f"Article download failed: {str(e)}")
+            return None, None, None
+
+        # Parse article
+        try:
+            article.parse()
+            if not article.text or len(article.text.strip()) < 100:
+                logger.warning(f"Short or empty content from {clean_url}")
+                return None, None, None
+        except Exception as e:
+            logger.error(f"Article parsing failed: {str(e)}")
+            return None, None, None
+
+        # Extract domain and title
+        domain = parsed.netloc.replace('www.', '')
+        title = article.title.strip() if article.title else "No title"
+
+        logger.info(f"Successfully extracted content from {clean_url}")
+        return article.text.strip(), domain, title
+
+    except Exception as e:
+        logger.error(f"Error extracting article from {url}: {str(e)}")
+        return None, None, None
 
         # Нормализуем URL
         clean_url = urlunparse(parsed._replace(
