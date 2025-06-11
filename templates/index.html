@@ -7,6 +7,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <script src="https://cdn.plot.ly/plotly-2.20.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         :root {
             --primary-color: #2c3e50;
@@ -16,8 +17,8 @@
             --warning-color: #ffc107;
             --danger-color: #dc3545;
             --light-color: #ecf0f1;
-            --dark-color: #1a1a1a;
-            --text-color: #f8f9fa;
+            --dark-color: #2c3e50;
+            --text-color: #333333;
             --border-radius: 10px;
             --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             --transition: all 0.3s ease;
@@ -27,7 +28,7 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             line-height: 1.6;
             color: var(--text-color);
-            background-color: var(--dark-color);
+            background-color: var(--light-color);
             padding: 0;
             margin: 0;
             min-height: 100vh;
@@ -37,7 +38,7 @@
 
         /* Navigation */
         .navbar {
-            background-color: var(--secondary-color);
+            background-color: white;
             box-shadow: var(--box-shadow);
             padding: 15px 0;
             position: sticky;
@@ -47,7 +48,7 @@
 
         .navbar-brand {
             font-weight: 600;
-            color: var(--light-color);
+            color: var(--primary-color);
             display: flex;
             align-items: center;
             font-size: 1.2rem;
@@ -62,8 +63,6 @@
         .main-container {
             flex: 1;
             padding: 40px 0;
-            display: flex;
-            flex-direction: column;
         }
 
         /* Page Title */
@@ -74,99 +73,38 @@
         }
 
         .main-heading {
-            font-size: 2.5rem;
+            font-size: 2.2rem;
             font-weight: 700;
-            color: var(--light-color);
+            color: var(--primary-color);
             margin-bottom: 15px;
-            background: linear-gradient(90deg, var(--accent-color), var(--primary-color));
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
         }
 
         .subheading {
-            font-size: 1.2rem;
-            color: rgba(255, 255, 255, 0.7);
+            font-size: 1.1rem;
+            color: var(--text-color);
+            opacity: 0.8;
             max-width: 800px;
             margin: 0 auto 30px;
         }
 
-        /* Content Layout */
-        .content-layout {
-            display: flex;
-            flex-direction: column;
-            gap: 30px;
-        }
-
-        .main-content {
-            display: flex;
-            flex-direction: column;
-            gap: 30px;
-            width: 100%;
-        }
-
-        .sidebar {
-            position: fixed;
-            right: 20px;
-            top: 100px;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            z-index: 100;
-        }
-
-        .sidebar-link {
-            background-color: var(--accent-color);
-            color: white;
-            padding: 10px 15px;
-            border-radius: 5px;
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            transition: var(--transition);
-            width: fit-content;
-        }
-
-        .sidebar-link:hover {
-            background-color: #2980b9;
-            transform: translateY(-2px);
-        }
-
-        .sidebar-link i {
-            margin-right: 8px;
-        }
-
         /* Form Container */
         .form-container {
-            background-color: var(--secondary-color);
+            background-color: white;
             padding: 30px;
             border-radius: var(--border-radius);
             box-shadow: var(--box-shadow);
             margin-bottom: 30px;
             transition: var(--transition);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            width: 100%;
-            max-width: 800px;
-            margin-left: auto;
-            margin-right: auto;
         }
 
         .form-container:hover {
-            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
-        }
-
-        .form-label {
-            color: var(--light-color);
-            margin-bottom: 8px;
-            font-weight: 500;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
         }
 
         .form-control {
-            background-color: rgba(255, 255, 255, 0.05);
-            color: var(--light-color);
             border-radius: 6px;
             padding: 12px 15px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid #ddd;
             transition: var(--transition);
             margin-bottom: 15px;
         }
@@ -174,11 +112,6 @@
         .form-control:focus {
             border-color: var(--accent-color);
             box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
-            background-color: rgba(255, 255, 255, 0.1);
-        }
-
-        .form-control::placeholder {
-            color: rgba(255, 255, 255, 0.5);
         }
 
         .btn-analyze {
@@ -193,15 +126,12 @@
             justify-content: center;
             margin: 0 auto;
             transition: var(--transition);
-            border: none;
-            font-size: 1rem;
-            width: fit-content;
         }
 
         .btn-analyze:hover {
             background-color: #2980b9;
+            border-color: #2980b9;
             transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
         }
 
         .btn-analyze i {
@@ -214,42 +144,44 @@
             text-align: center;
             margin: 30px auto;
             padding: 30px;
-            background-color: var(--secondary-color);
+            background-color: rgba(255, 255, 255, 0.9);
             border-radius: var(--border-radius);
             box-shadow: var(--box-shadow);
             max-width: 600px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            width: fit-content;
-            margin-left: auto;
-            margin-right: auto;
+        }
+
+        .spinner {
+            width: 3rem;
+            height: 3rem;
+            margin: 0 auto 15px;
+            color: var(--accent-color);
+        }
+
+        .loading-text {
+            font-size: 1.1rem;
+            margin-bottom: 5px;
+            color: var(--primary-color);
         }
 
         /* Analysis Results */
         .analysis-results {
             display: none;
             margin-top: 30px;
-            width: 100%;
-            max-width: 1000px;
-            margin-left: auto;
-            margin-right: auto;
         }
 
         .analysis-section {
             margin-bottom: 30px;
             padding: 25px;
-            background-color: var(--secondary-color);
+            background-color: white;
             border-radius: var(--border-radius);
             box-shadow: var(--box-shadow);
-            border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .analysis-title {
-            color: var(--light-color);
+            color: var(--primary-color);
             margin-bottom: 20px;
             padding-bottom: 10px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            font-size: 1.5rem;
-            text-align: center;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
         }
 
         /* Chart Containers */
@@ -258,10 +190,19 @@
             height: 500px;
             margin: 20px 0;
             border-radius: var(--border-radius);
-            background-color: var(--secondary-color);
+            background-color: white;
             box-shadow: var(--box-shadow);
             padding: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .source-chart-container {
+            width: 100%;
+            height: 450px;
+            margin: 20px 0;
+            border-radius: var(--border-radius);
+            background-color: white;
+            box-shadow: var(--box-shadow);
+            padding: 20px;
         }
 
         /* Similar Articles */
@@ -270,21 +211,88 @@
         }
 
         .similar-article {
-            background-color: rgba(255, 255, 255, 0.05);
+            background-color: white;
             border-radius: 8px;
             padding: 20px;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
             margin-bottom: 20px;
             border-left: 4px solid var(--accent-color);
             transition: var(--transition);
-            border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .similar-article:hover {
             transform: translateY(-3px);
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            border-left: 4px solid var(--accent-color);
-            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .similar-article h4 {
+            color: var(--primary-color);
+            margin-bottom: 8px;
+        }
+
+        .similar-article h4 a {
+            color: inherit;
+            text-decoration: none;
+            transition: var(--transition);
+        }
+
+        .similar-article h4 a:hover {
+            text-decoration: underline;
+            color: var(--accent-color);
+        }
+
+        .article-meta {
+            font-size: 0.9rem;
+            color: #6c757d;
+            margin-bottom: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .article-meta span {
+            display: flex;
+            align-items: center;
+        }
+
+        .article-meta i {
+            margin-right: 5px;
+            font-size: 0.9rem;
+        }
+
+        .article-source {
+            font-weight: 500;
+        }
+
+        .article-date {
+            color: #6c757d;
+        }
+
+        .article-credibility {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .article-credibility.high {
+            background-color: rgba(40, 167, 69, 0.2);
+            color: var(--success-color);
+        }
+
+        .article-credibility.medium {
+            background-color: rgba(255, 193, 7, 0.2);
+            color: var(--warning-color);
+        }
+
+        .article-credibility.low {
+            background-color: rgba(220, 53, 69, 0.2);
+            color: var(--danger-color);
+        }
+
+        .article-description {
+            margin-top: 10px;
+            line-height: 1.5;
         }
 
         /* Show More Button */
@@ -299,36 +307,107 @@
             cursor: pointer;
             transition: var(--transition);
             font-weight: 500;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            width: fit-content;
+        }
+
+        .show-more-btn:hover {
+            background-color: #2980b9;
+            transform: translateY(-2px);
+        }
+
+        .show-more-btn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        /* Feedback Button */
+        .feedback-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background-color: var(--accent-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            text-decoration: none;
+            transition: var(--transition);
+        }
+
+        .feedback-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25);
+        }
+
+        .feedback-btn i {
+            font-size: 1.5rem;
+        }
+
+        /* Credibility Badges */
+        .credibility-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .credibility-badge.high {
+            background-color: rgba(40, 167, 69, 0.2);
+            color: var(--success-color);
+        }
+
+        .credibility-badge.medium {
+            background-color: rgba(255, 193, 7, 0.2);
+            color: var(--warning-color);
+        }
+
+        .credibility-badge.low {
+            background-color: rgba(220, 53, 69, 0.2);
+            color: var(--danger-color);
+        }
+
+        /* Score Items */
+        .score-item {
+            text-align: center;
+            padding: 15px;
+            margin-bottom: 15px;
+            background-color: rgba(52, 152, 219, 0.05);
+            border-radius: 8px;
+        }
+
+        .score-name {
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: var(--primary-color);
+        }
+
+        .score-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+            color: var(--accent-color);
+        }
+
+        .score-description {
+            font-size: 0.9rem;
+            color: #6c757d;
         }
 
         /* Footer */
         .footer {
-            background-color: var(--secondary-color);
+            background-color: white;
             padding: 20px 0;
             margin-top: 50px;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
             text-align: center;
-            color: var(--light-color);
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         /* Responsive Design */
-        @media (max-width: 1200px) {
-            .sidebar {
-                position: static;
-                display: flex;
-                flex-direction: row;
-                justify-content: center;
-                margin-top: 20px;
-                gap: 20px;
-            }
-
-            .main-content {
-                margin-bottom: 80px;
-            }
-        }
-
         @media (max-width: 992px) {
             .main-container {
                 padding: 30px 0;
@@ -339,10 +418,10 @@
             }
 
             .main-heading {
-                font-size: 2.2rem;
+                font-size: 2rem;
             }
 
-            .chart-container {
+            .chart-container, .source-chart-container {
                 height: 400px;
             }
         }
@@ -360,49 +439,63 @@
                 font-size: 1.8rem;
             }
 
-            .chart-container {
+            .chart-container, .source-chart-container {
                 height: 350px;
             }
 
             .btn-analyze {
                 width: 100%;
             }
-
-            .sidebar {
-                flex-direction: column;
-                align-items: center;
-            }
         }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark">
+    <nav class="navbar navbar-expand-lg navbar-light bg-white">
         <div class="container">
             <a class="navbar-brand" href="/">
                 <i class="bi bi-newspaper"></i>
                 Media Credibility Index
             </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/faq">FAQ</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/feedback">Feedback</a>
+                    </li>
+                </ul>
+            </div>
         </div>
     </nav>
 
-    <div class="main-container">
+    <a href="/feedback" class="feedback-btn">
+        <i class="bi bi-chat-dots"></i>
+    </a>
+
+    <div class="container main-container">
         <div class="page-title">
-            <h1 class="main-heading">Media Credibility Index Tool</h1>
-            <p class="subheading">Setting the Standard for Media Trust</p>
+            <h1 class="main-heading">Article Credibility Analyzer</h1>
+            <p class="subheading">Analyze news articles for credibility, bias, and factual accuracy</p>
         </div>
 
-        <div class="content-layout">
-            <div class="main-content">
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
                 <div class="form-container">
                     <h3 class="mb-4 text-center">Analyze Article</h3>
                     <form id="analysisForm">
                         <div class="mb-4">
                             <label for="articleInput" class="form-label">Article URL or Text</label>
-                            <textarea class="form-control" id="articleInput" rows="6" placeholder="Paste article text or URL here..."></textarea>
+                            <textarea class="form-control" id="articleInput" rows="6"
+                                    placeholder="Paste article text or URL here..."></textarea>
                         </div>
                         <div class="mb-4">
                             <label for="sourceName" class="form-label">Source Name (optional)</label>
-                            <input type="text" class="form-control" id="sourceName" placeholder="e.g., bbc.com, reuters.com">
+                            <input type="text" class="form-control" id="sourceName"
+                                    placeholder="e.g., bbc.com, reuters.com">
                         </div>
                         <button type="submit" class="btn btn-analyze">
                             <i class="bi bi-search"></i> Analyze Article
@@ -433,7 +526,7 @@
 
                     <div class="analysis-section">
                         <h2 class="analysis-title">Source Credibility Comparison</h2>
-                        <div class="chart-container">
+                        <div class="source-chart-container">
                             <div id="sourceCredibilityChart"></div>
                         </div>
                     </div>
@@ -449,21 +542,12 @@
                     </div>
                 </div>
             </div>
-
-            <div class="sidebar">
-                <a href="/faq" class="sidebar-link">
-                    <i class="bi bi-question-circle"></i> FAQ
-                </a>
-                <a href="/feedback" class="sidebar-link">
-                    <i class="bi bi-chat-dots"></i> Feedback
-                </a>
-            </div>
         </div>
     </div>
 
     <footer class="footer">
         <div class="container">
-            <p class="mb-0">&copy; 2025 Media Credibility Index. All rights reserved.</p>
+            <p class="mb-0">&copy; 2023 Media Credibility Index. All rights reserved.</p>
         </div>
     </footer>
 
@@ -638,10 +722,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             `;
 
-            const container = document.querySelector('.main-content');
-            if (container) {
-                container.prepend(alertContainer);
-            }
+            document.querySelector('.container').prepend(alertContainer);
 
             // Auto-close after 5 seconds
             setTimeout(() => {
@@ -692,25 +773,15 @@
                         range: [0, 100],
                         tickangle: 45,
                         tickfont: {
-                            size: 12,
-                            color: 'white'
-                        },
-                        gridcolor: 'rgba(255, 255, 255, 0.3)'
+                            size: 12
+                        }
                     },
                     angularaxis: {
                         direction: 'clockwise',
-                        rotation: 90,
-                        color: 'white'
-                    },
-                    bgcolor: 'rgba(0, 0, 0, 0)'
-                },
-                title: {
-                    text: 'Article Credibility Radar Chart',
-                    font: {
-                        color: 'white',
-                        size: 18
+                        rotation: 90
                     }
                 },
+                title: 'Article Credibility Radar Chart',
                 showlegend: false,
                 margin: {
                     l: 50,
@@ -745,8 +816,8 @@
                 type: 'bar',
                 marker: {
                     color: data.credibility_scores.map(score => {
-                        if (score >= 0.8) return 'rgba(40, 167, 69, 0.8)';
-                        if (score >= 0.6) return 'rgba(255, 193, 7, 0.8)';
+                        if (score >= 0.75) return 'rgba(40, 167, 69, 0.8)';
+                        if (score >= 0.5) return 'rgba(255, 193, 7, 0.8)';
                         return 'rgba(220, 53, 69, 0.8)';
                     })
                 },
@@ -757,41 +828,20 @@
             }];
 
             const layout = {
-                title: {
-                    text: 'Source Credibility Comparison',
-                    font: {
-                        color: 'white',
-                        size: 18
-                    }
-                },
+                title: 'Source Credibility Comparison',
                 xaxis: {
-                    title: {
-                        text: 'News Sources',
-                        font: {
-                            color: 'white',
-                            size: 14
-                        }
-                    },
+                    title: 'News Sources',
                     tickangle: 45,
                     tickfont: {
-                        size: 12,
-                        color: 'white'
+                        size: 12
                     }
                 },
                 yaxis: {
-                    title: {
-                        text: 'Credibility Score',
-                        font: {
-                            color: 'white',
-                            size: 14
-                        }
-                    },
+                    title: 'Credibility Score',
                     range: [0, 1],
                     tickfont: {
-                        size: 12,
-                        color: 'white'
-                    },
-                    gridcolor: 'rgba(255, 255, 255, 0.2)'
+                        size: 12
+                    }
                 },
                 margin: {
                     l: 50,
