@@ -400,7 +400,29 @@ def analysis_history():
             'status': 500,
             'details': str(e)
         }), 500
+@app.route('/')
+def index():
+    """Home page route"""
+    return render_template('index.html')
 
+# Добавляем новый маршрут для проверки состояния сервера
+@app.route('/health')
+def health_check():
+    """Health check endpoint"""
+    return jsonify({
+        'status': 'healthy',
+        'timestamp': datetime.now(timezone.utc).isoformat(),
+        'database': 'connected' if os.path.exists(DB_NAME) else 'disconnected',
+        'api_keys': {
+            'anthropic': 'configured' if ANTHROPIC_API_KEY else 'not_configured',
+            'news_api': 'configured' if NEWS_API_ENABLED else 'not_configured'
+        }
+    })
+
+@app.route('/faq')
+def faq():
+    """FAQ page route"""
+    return render_template('faq.html')
 @app.route('/analyze', methods=['POST', 'OPTIONS'])
 def analyze():
     """Analyze article endpoint with comprehensive error handling"""
