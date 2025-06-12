@@ -45,11 +45,11 @@
             font-family: 'Inter', 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             line-height: 1.6;
             color: var(--text-color);
-            background-color: var(--light-color);
+            background-color: #f3f4f6; /* Более профессиональный фон */
             min-height: 100vh;
             display: flex;
             flex-direction: column;
-            background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+            background-image: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%); /* Градиентный фон */
         }
 
         /* Layout */
@@ -69,6 +69,8 @@
             top: 0;
             z-index: 1000;
             border-bottom: 1px solid var(--border-color);
+            background-color: rgba(255, 255, 255, 0.95); /* Слегка прозрачный навигационный бар */
+            backdrop-filter: blur(5px); /* Размытие фона */
         }
 
         .navbar-container {
@@ -85,7 +87,7 @@
             font-weight: 600;
             font-size: 1.3rem;
             text-decoration: none;
-            margin-right: auto; /* Сдвигаем название левее */
+            margin-right: auto;
         }
 
         .navbar-brand-icon {
@@ -97,7 +99,7 @@
             display: flex;
             gap: 1.5rem;
             list-style: none;
-            margin-left: auto; /* Сдвигаем ссылки вправо */
+            margin-left: auto;
         }
 
         .navbar-link {
@@ -145,7 +147,7 @@
             line-height: 1.1;
             font-family: 'Manrope', sans-serif;
             font-weight: 700;
-            text-shadow: 0 2px 4px rgba(59, 130, 246, 0.3); /* Добавляем тень названию */
+            text-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
         }
 
         .hero-subtitle {
@@ -166,14 +168,16 @@
         .form-container {
             background-color: var(--light-color);
             border-radius: var(--border-radius);
-            box-shadow: var(--box-shadow);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
             padding: 2.5rem;
             border: 1px solid var(--border-color);
             transition: var(--transition);
+            background-color: rgba(255, 255, 255, 0.8); /* Слегка прозрачный фон формы */
+            backdrop-filter: blur(3px); /* Размытие фона формы */
         }
 
         .form-container:hover {
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.07);
             border-color: rgba(59, 130, 246, 0.2);
         }
 
@@ -224,6 +228,12 @@
             font-family: inherit;
         }
 
+        /* Стили для поля Source Name - делаем его уже */
+        #sourceName {
+            width: 300px; /* Фиксированная ширина */
+            max-width: 100%; /* Максимальная ширина для мобильных устройств */
+        }
+
         .form-control:focus {
             outline: none;
             border-color: var(--primary-color);
@@ -245,7 +255,7 @@
         .btn {
             display: inline-block;
             padding: 1rem 2rem;
-            background-color: #1d4ed8; /* Делаем кнопку темнее */
+            background-color: #1d4ed8;
             color: white;
             border: none;
             border-radius: 8px;
@@ -258,12 +268,13 @@
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
             font-family: 'Manrope', sans-serif;
             letter-spacing: 0.5px;
+            background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 100%); /* Градиент для кнопки */
         }
 
         .btn:hover {
-            background-color: #1e40af; /* Еще темнее при наведении */
+            background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%); /* Более темный градиент при наведении */
             transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         }
 
         .btn i {
@@ -282,6 +293,7 @@
             box-shadow: var(--box-shadow);
             max-width: 600px;
             border: 1px solid var(--border-color);
+            background-color: rgba(255, 255, 255, 0.9);
         }
 
         .spinner {
@@ -326,8 +338,9 @@
             padding: 2rem;
             background-color: var(--light-color);
             border-radius: var(--border-radius);
-            box-shadow: var(--box-shadow);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
             border: 1px solid var(--border-color);
+            background-color: rgba(255, 255, 255, 0.8);
         }
 
         .analysis-title {
@@ -424,9 +437,10 @@
             margin: 2rem 0;
             border-radius: var(--border-radius);
             background-color: var(--light-color);
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
             border: 1px solid var(--border-color);
             padding: 1.5rem;
+            background-color: rgba(255, 255, 255, 0.8);
         }
 
         /* Similar Articles */
@@ -598,6 +612,8 @@
             border: 1px solid var(--border-color);
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
             font-weight: 500;
+            background-color: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(3px);
         }
 
         .sidebar-link:hover {
@@ -619,6 +635,8 @@
             text-align: center;
             color: var(--text-secondary);
             border-top: 1px solid var(--border-color);
+            background-color: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(5px);
         }
 
         .footer-content {
@@ -734,6 +752,11 @@
             .hero-title {
                 font-size: 2.2rem;
             }
+
+            /* Делаем поле Source Name уже на средних экранах */
+            #sourceName {
+                width: 250px;
+            }
         }
 
         @media (max-width: 992px) {
@@ -751,6 +774,11 @@
 
             .chart-container {
                 height: 450px;
+            }
+
+            /* Делаем поле Source Name еще уже на небольших экранах */
+            #sourceName {
+                width: 200px;
             }
         }
 
@@ -787,6 +815,11 @@
 
             .article-info {
                 grid-template-columns: 1fr;
+            }
+
+            /* Делаем поле Source Name на всю ширину на мобильных устройствах */
+            #sourceName {
+                width: 100%;
             }
         }
 
@@ -828,7 +861,6 @@
         </div>
     </nav>
 
-    <!-- Остальной код остается без изменений -->
     <div class="container">
         <div class="hero">
             <h1 class="hero-title">Setting the Standard for Media</h1>
