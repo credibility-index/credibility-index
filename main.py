@@ -375,10 +375,12 @@ def extract_text_from_url(url):
             logger.debug("Using standard extraction method")
             return extract_standard_article(clean_url)
 
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Request error in extract_text_from_url: {str(e)}", exc_info=True)
+        return None, None, None
     except Exception as e:
         logger.error(f"Unexpected error in extract_text_from_url: {str(e)}", exc_info=True)
         return None, None, None
-
 def extract_reuters_article(url):
     """Special extraction method for Reuters articles"""
     try:
