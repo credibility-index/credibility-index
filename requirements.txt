@@ -15,3 +15,8 @@ simplejson
 lxml[html_clean]
 anthropic
 flask-cors
+selenium==4.10.0
+webdriver-manager==3.8.6
+playwright==1.39.0
+
+
