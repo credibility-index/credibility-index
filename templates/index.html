@@ -10,21 +10,22 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary-color: #1a202c;
-            --secondary-color: #2a303c;
+            --primary-color: #2563eb;
+            --secondary-color: #f8fafc;
             --accent-color: #3b82f6;
-            --accent-hover: #2563eb;
+            --accent-hover: #1d4ed8;
             --success-color: #10b981;
             --warning-color: #f59e0b;
             --danger-color: #ef4444;
-            --light-color: #f8fafc;
-            --dark-color: #0f172a;
-            --text-color: #f1f5f9;
-            --text-secondary: #94a3b8;
+            --light-color: #ffffff;
+            --dark-color: #1e293b;
+            --text-color: #1f2937;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
             --border-radius: 12px;
-            --box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            --box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
             --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            --glow: 0 0 15px rgba(59, 130, 246, 0.3);
+            --glow: 0 0 10px rgba(59, 130, 246, 0.2);
             --spacing-unit: 1.5rem;
             --max-width: 1200px;
         }
@@ -44,11 +45,11 @@
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             line-height: 1.6;
             color: var(--text-color);
-            background-color: var(--dark-color);
+            background-color: var(--light-color);
             min-height: 100vh;
             display: flex;
             flex-direction: column;
-            background: linear-gradient(180deg, var(--dark-color) 0%, #0a0f1a 100%);
+            background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
         }
 
         /* Typography */
@@ -57,7 +58,7 @@
             font-weight: 600;
             line-height: 1.2;
             margin-bottom: 0.75rem;
-            color: var(--light-color);
+            color: var(--text-color);
         }
 
         p {
@@ -67,13 +68,13 @@
         }
 
         a {
-            color: var(--accent-color);
+            color: var(--primary-color);
             text-decoration: none;
             transition: var(--transition);
         }
 
         a:hover {
-            color: var(--accent-hover);
+            color: var(--accent-color);
             text-decoration: underline;
         }
 
@@ -87,14 +88,13 @@
 
         /* Navigation */
         .navbar {
-            background-color: var(--secondary-color);
-            box-shadow: var(--box-shadow);
+            background-color: var(--light-color);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
             padding: 1rem 2rem;
             position: sticky;
             top: 0;
             z-index: 1000;
-            backdrop-filter: blur(10px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid var(--border-color);
         }
 
         .navbar-container {
@@ -107,7 +107,7 @@
             display: flex;
             align-items: center;
             gap: 0.75rem;
-            color: var(--light-color);
+            color: var(--text-color);
             font-weight: 600;
             font-size: 1.3rem;
             text-decoration: none;
@@ -115,7 +115,7 @@
 
         .navbar-brand-icon {
             font-size: 1.5rem;
-            color: var(--accent-color);
+            color: var(--primary-color);
         }
 
         .navbar-links {
@@ -134,7 +134,7 @@
         }
 
         .navbar-link:hover {
-            color: var(--light-color);
+            color: var(--primary-color);
         }
 
         .navbar-link::after {
@@ -144,7 +144,7 @@
             left: 0;
             width: 0;
             height: 2px;
-            background-color: var(--accent-color);
+            background-color: var(--primary-color);
             transition: var(--transition);
         }
 
@@ -156,15 +156,13 @@
         .hero {
             padding: 4rem 0;
             text-align: center;
-            background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(37, 99, 235, 0.03) 100%);
-            border-radius: var(--border-radius);
             margin-bottom: 3rem;
         }
 
         .hero-title {
             font-size: 2.5rem;
             margin-bottom: 1rem;
-            background: linear-gradient(90deg, var(--light-color), var(--accent-color));
+            background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
@@ -187,24 +185,23 @@
         }
 
         .form-container {
-            background-color: var(--secondary-color);
+            background-color: var(--light-color);
             border-radius: var(--border-radius);
             box-shadow: var(--box-shadow);
             padding: 2.5rem;
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
             transition: var(--transition);
-            backdrop-filter: blur(5px);
         }
 
         .form-container:hover {
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-            border-color: rgba(59, 130, 246, 0.3);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
+            border-color: rgba(59, 130, 246, 0.2);
         }
 
         .form-title {
             text-align: center;
             margin-bottom: 1.5rem;
-            color: var(--light-color);
+            color: var(--text-color);
             font-size: 1.5rem;
             position: relative;
             padding-bottom: 0.5rem;
@@ -218,7 +215,7 @@
             transform: translateX(-50%);
             width: 80px;
             height: 3px;
-            background: linear-gradient(90deg, transparent, var(--accent-color), transparent);
+            background: linear-gradient(90deg, transparent, var(--primary-color), transparent);
         }
 
         .form-group {
@@ -236,9 +233,9 @@
         .form-control {
             width: 100%;
             padding: 1rem;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--border-color);
             border-radius: 8px;
-            background-color: rgba(255, 255, 255, 0.03);
+            background-color: var(--light-color);
             color: var(--text-color);
             font-size: 1rem;
             transition: var(--transition);
@@ -249,8 +246,8 @@
 
         .form-control:focus {
             outline: none;
-            border-color: var(--accent-color);
-            box-shadow: var(--glow);
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
 
         .form-control::placeholder {
@@ -259,10 +256,16 @@
             font-style: italic;
         }
 
+        .form-hint {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-top: 0.3rem;
+        }
+
         .btn {
             display: inline-block;
             padding: 1rem 2rem;
-            background-color: var(--accent-color);
+            background-color: var(--primary-color);
             color: white;
             border: none;
             border-radius: 8px;
@@ -272,15 +275,15 @@
             text-align: center;
             width: 100%;
             font-size: 1rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
             font-family: 'Manrope', sans-serif;
             letter-spacing: 0.5px;
         }
 
         .btn:hover {
-            background-color: var(--accent-hover);
+            background-color: var(--accent-color);
             transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         }
 
         .btn i {
@@ -294,21 +297,20 @@
             text-align: center;
             margin: 3rem auto;
             padding: 2.5rem;
-            background-color: var(--secondary-color);
+            background-color: var(--light-color);
             border-radius: var(--border-radius);
             box-shadow: var(--box-shadow);
             max-width: 600px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(5px);
+            border: 1px solid var(--border-color);
         }
 
         .spinner {
             width: 60px;
             height: 60px;
             margin: 0 auto 1.5rem;
-            border: 4px solid rgba(255, 255, 255, 0.1);
+            border: 4px solid rgba(59, 130, 246, 0.1);
             border-radius: 50%;
-            border-top: 4px solid var(--accent-color);
+            border-top: 4px solid var(--primary-color);
             animation: spin 1s linear infinite;
         }
 
@@ -320,7 +322,7 @@
         .loading-text {
             font-size: 1.2rem;
             margin-bottom: 0.5rem;
-            color: var(--light-color);
+            color: var(--text-color);
             font-weight: 500;
             font-family: 'Manrope', sans-serif;
         }
@@ -341,18 +343,17 @@
         .analysis-section {
             margin-bottom: 3rem;
             padding: 2rem;
-            background-color: var(--secondary-color);
+            background-color: var(--light-color);
             border-radius: var(--border-radius);
             box-shadow: var(--box-shadow);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(5px);
+            border: 1px solid var(--border-color);
         }
 
         .analysis-title {
-            color: var(--light-color);
+            color: var(--text-color);
             margin-bottom: 1.5rem;
             padding-bottom: 0.75rem;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            border-bottom: 1px solid var(--border-color);
             font-size: 1.5rem;
             display: flex;
             justify-content: space-between;
@@ -362,7 +363,7 @@
 
         .section-icon {
             font-size: 1.5rem;
-            color: var(--accent-color);
+            color: var(--primary-color);
         }
 
         /* Article Information */
@@ -374,21 +375,21 @@
         }
 
         .info-card {
-            background-color: rgba(255, 255, 255, 0.03);
+            background-color: var(--secondary-color);
             border-radius: 8px;
             padding: 1.5rem;
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
             transition: var(--transition);
         }
 
         .info-card:hover {
             transform: translateY(-3px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
             border-color: rgba(59, 130, 246, 0.2);
         }
 
         .info-card h4 {
-            color: var(--accent-color);
+            color: var(--primary-color);
             margin-bottom: 0.75rem;
             font-size: 1.1rem;
             display: flex;
@@ -400,7 +401,7 @@
             font-size: 1.8rem;
             font-weight: 600;
             margin-bottom: 0.5rem;
-            color: var(--light-color);
+            color: var(--text-color);
             font-family: 'Manrope', sans-serif;
         }
 
@@ -421,17 +422,17 @@
         }
 
         .credibility-badge.high {
-            background-color: rgba(16, 185, 129, 0.2);
+            background-color: rgba(16, 185, 129, 0.1);
             color: var(--success-color);
         }
 
         .credibility-badge.medium {
-            background-color: rgba(245, 158, 11, 0.2);
+            background-color: rgba(245, 158, 11, 0.1);
             color: var(--warning-color);
         }
 
         .credibility-badge.low {
-            background-color: rgba(239, 68, 68, 0.2);
+            background-color: rgba(239, 68, 68, 0.1);
             color: var(--danger-color);
         }
 
@@ -441,11 +442,10 @@
             height: 500px;
             margin: 2rem 0;
             border-radius: var(--border-radius);
-            background-color: rgba(255, 255, 255, 0.03);
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            background-color: var(--light-color);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--border-color);
             padding: 1.5rem;
-            backdrop-filter: blur(5px);
         }
 
         /* Similar Articles */
@@ -454,24 +454,23 @@
         }
 
         .similar-article {
-            background-color: rgba(255, 255, 255, 0.03);
+            background-color: var(--secondary-color);
             border-radius: 8px;
             padding: 1.5rem;
             margin-bottom: 1.5rem;
-            border-left: 4px solid var(--accent-color);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-left: 4px solid var(--primary-color);
+            border: 1px solid var(--border-color);
             transition: var(--transition);
-            backdrop-filter: blur(3px);
         }
 
         .similar-article:hover {
             transform: translateY(-3px);
-            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.05);
             border-color: rgba(59, 130, 246, 0.3);
         }
 
         .similar-article h4 {
-            color: var(--light-color);
+            color: var(--text-color);
             margin-bottom: 0.75rem;
             font-size: 1.1rem;
             font-family: 'Manrope', sans-serif;
@@ -486,7 +485,7 @@
         }
 
         .similar-article h4 a:hover {
-            color: var(--accent-color);
+            color: var(--primary-color);
         }
 
         .similar-article h4 a::after {
@@ -496,7 +495,7 @@
             left: 0;
             width: 0;
             height: 2px;
-            background-color: var(--accent-color);
+            background-color: var(--primary-color);
             transition: width 0.3s ease;
         }
 
@@ -516,7 +515,7 @@
 
         .article-source {
             font-weight: 600;
-            color: var(--light-color);
+            color: var(--text-color);
             display: flex;
             align-items: center;
             gap: 0.3rem;
@@ -541,6 +540,8 @@
             display: flex;
             align-items: center;
             gap: 0.3rem;
+            background-color: rgba(59, 130, 246, 0.1);
+            color: var(--primary-color);
         }
 
         .article-credibility::before {
@@ -576,8 +577,8 @@
             margin: 2rem auto 0;
             padding: 1rem 2rem;
             background-color: transparent;
-            color: var(--accent-color);
-            border: 1px solid var(--accent-color);
+            color: var(--primary-color);
+            border: 1px solid var(--primary-color);
             border-radius: 8px;
             font-weight: 600;
             cursor: pointer;
@@ -587,9 +588,9 @@
         }
 
         .show-more-btn:hover {
-            background-color: rgba(59, 130, 246, 0.1);
+            background-color: rgba(59, 130, 246, 0.05);
             transform: translateY(-2px);
-            box-shadow: var(--glow);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
         }
 
         /* Sidebar */
@@ -607,22 +608,21 @@
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            background-color: rgba(255, 255, 255, 0.05);
+            background-color: var(--light-color);
             color: var(--text-color);
             padding: 0.8rem 1.2rem;
             border-radius: 8px;
             text-decoration: none;
             transition: var(--transition);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(5px);
-            font-weight: 500;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
         }
 
         .sidebar-link:hover {
-            background-color: rgba(59, 130, 246, 0.2);
-            color: var(--light-color);
+            background-color: var(--secondary-color);
+            color: var(--primary-color);
             transform: translateY(-2px);
-            box-shadow: var(--glow);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
         }
 
         .sidebar-link i {
@@ -631,13 +631,12 @@
 
         /* Footer */
         .footer {
-            background-color: var(--secondary-color);
+            background-color: var(--light-color);
             padding: 2.5rem 0;
             margin-top: 4rem;
             text-align: center;
             color: var(--text-secondary);
-            border-top: 1px solid rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(5px);
+            border-top: 1px solid var(--border-color);
         }
 
         .footer-content {
@@ -664,7 +663,7 @@
         }
 
         .footer-link:hover {
-            color: var(--accent-color);
+            color: var(--primary-color);
             text-decoration: underline;
         }
 
@@ -672,7 +671,8 @@
             font-size: 0.9rem;
             margin-top: 1rem;
             padding-top: 1rem;
-            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            border-top: 1px solid var(--border-color);
+            color: var(--text-secondary);
         }
 
         /* Alerts */
@@ -684,34 +684,49 @@
             position: relative;
             overflow: hidden;
             box-shadow: var(--box-shadow);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
         }
 
         .alert-danger {
-            background-color: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.3);
+            background-color: rgba(239, 68, 68, 0.05);
+            border: 1px solid rgba(239, 68, 68, 0.2);
             color: var(--danger-color);
             border-left: 4px solid var(--danger-color);
         }
 
         .alert-success {
-            background-color: rgba(16, 185, 129, 0.1);
-            border: 1px solid rgba(16, 185, 129, 0.3);
+            background-color: rgba(16, 185, 129, 0.05);
+            border: 1px solid rgba(16, 185, 129, 0.2);
             color: var(--success-color);
             border-left: 4px solid var(--success-color);
         }
 
         .alert-warning {
-            background-color: rgba(245, 158, 11, 0.1);
-            border: 1px solid rgba(245, 158, 11, 0.3);
+            background-color: rgba(245, 158, 11, 0.05);
+            border: 1px solid rgba(245, 158, 11, 0.2);
             color: var(--warning-color);
             border-left: 4px solid var(--warning-color);
         }
 
         .alert-info {
-            background-color: rgba(59, 130, 246, 0.1);
-            border: 1px solid rgba(59, 130, 246, 0.3);
-            color: var(--accent-color);
-            border-left: 4px solid var(--accent-color);
+            background-color: rgba(59, 130, 246, 0.05);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            color: var(--primary-color);
+            border-left: 4px solid var(--primary-color);
+        }
+
+        .alert-close {
+            margin-left: auto;
+            background: none;
+            border: none;
+            color: inherit;
+            cursor: pointer;
+            padding: 0.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         /* Responsive Design */
@@ -833,8 +848,8 @@
 
     <div class="container">
         <div class="hero">
-            <h1 class="hero-title">Media Credibility Tool</h1>
-            <p class="hero-subtitle">Setting the Standard for Media Trustaccuracy</p>
+            <h1 class="hero-title">Professional Media Credibility Tool</h1>
+            <p class="hero-subtitle">Setting the Standard for Media Trust</p>
         </div>
 
         <div class="analysis-container">
@@ -844,6 +859,7 @@
                     <div class="form-group">
                         <label for="articleInput" class="form-label">Article URL or Text</label>
                         <textarea class="form-control" id="articleInput" rows="8" placeholder="Paste article URL or text content here for analysis..."></textarea>
+                        <p class="form-hint">Enter either a URL to a news article or paste the article text directly</p>
                     </div>
                     <div class="form-group">
                         <label for="sourceName" class="form-label">Source Name (optional)</label>
@@ -1022,11 +1038,11 @@
                 elements.articleInput.addEventListener('input', function() {
                     const value = this.value.trim();
                     if (value.length === 0) {
-                        this.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                        this.style.borderColor = 'var(--border-color)';
                     } else if (value.length < 50 && !value.startsWith('http')) {
-                        this.style.borderColor = '#f59e0b';
+                        this.style.borderColor = 'var(--warning-color)';
                     } else {
-                        this.style.borderColor = 'rgba(59, 130, 246, 0.3)';
+                        this.style.borderColor = 'var(--primary-color)';
                     }
                 });
             }
@@ -1362,23 +1378,23 @@
                         tickangle: 45,
                         tickfont: {
                             size: 12,
-                            color: 'white'
+                            color: 'var(--text-secondary)'
                         },
-                        gridcolor: 'rgba(255, 255, 255, 0.2)',
-                        linecolor: 'rgba(255, 255, 255, 0.3)'
+                        gridcolor: 'rgba(0, 0, 0, 0.1)',
+                        linecolor: 'rgba(0, 0, 0, 0.1)'
                     },
                     angularaxis: {
                         direction: 'clockwise',
                         rotation: 90,
-                        color: 'white',
-                        linecolor: 'rgba(255, 255, 255, 0.3)'
+                        color: 'var(--text-secondary)',
+                        linecolor: 'rgba(0, 0, 0, 0.1)'
                     },
                     bgcolor: 'rgba(0, 0, 0, 0)'
                 },
                 title: {
                     text: 'Article Credibility Assessment',
                     font: {
-                        color: 'white',
+                        color: 'var(--text-color)',
                         size: 18,
                         family: 'Manrope, sans-serif'
                     },
@@ -1397,7 +1413,7 @@
                 plot_bgcolor: 'rgba(0,0,0,0)',
                 font: {
                     family: 'Inter, sans-serif',
-                    color: 'white'
+                    color: 'var(--text-secondary)'
                 }
             };
 
@@ -1445,14 +1461,15 @@
                 text: data.credibility_scores.map(score => (score * 100).toFixed(0) + '%'),
                 textposition: 'auto',
                 textfont: {
-                    color: 'white',
-                    size: 12
+                    color: 'var(--text-secondary)',
+                    size: 12,
+                    family: 'Inter, sans-serif'
                 },
                 hoverinfo: 'text+y',
                 hovertemplate: `
                     <b>%{x}</b><br>
-                    <span style="color: white;">Credibility: %{y:.2f}</span><br>
-                    <span style="color: #94a3b8;">%{text}</span>
+                    <span style="color: var(--text-color);">Credibility: %{y:.2f}</span><br>
+                    <span style="color: var(--text-secondary);">%{text}</span>
                     <extra></extra>
                 `,
                 opacity: 0.9
@@ -1463,7 +1480,7 @@
                 title: {
                     text: 'Source Credibility Comparison',
                     font: {
-                        color: 'white',
+                        color: 'var(--text-color)',
                         size: 18,
                         family: 'Manrope, sans-serif'
                     },
@@ -1474,7 +1491,7 @@
                     title: {
                         text: 'News Sources',
                         font: {
-                            color: 'white',
+                            color: 'var(--text-color)',
                             size: 14,
                             family: 'Manrope, sans-serif'
                         }
@@ -1482,17 +1499,17 @@
                     tickangle: 45,
                     tickfont: {
                         size: 12,
-                        color: 'white',
+                        color: 'var(--text-secondary)',
                         family: 'Inter, sans-serif'
                     },
-                    tickcolor: 'white',
-                    linecolor: 'rgba(255, 255, 255, 0.3)'
+                    tickcolor: 'var(--text-secondary)',
+                    linecolor: 'rgba(0, 0, 0, 0.1)'
                 },
                 yaxis: {
                     title: {
                         text: 'Credibility Score',
                         font: {
-                            color: 'white',
+                            color: 'var(--text-color)',
                             size: 14,
                             family: 'Manrope, sans-serif'
                         }
@@ -1500,11 +1517,11 @@
                     range: [0, 1],
                     tickfont: {
                         size: 12,
-                        color: 'white',
+                        color: 'var(--text-secondary)',
                         family: 'Inter, sans-serif'
                     },
-                    gridcolor: 'rgba(255, 255, 255, 0.1)',
-                    zerolinecolor: 'rgba(255, 255, 255, 0.2)'
+                    gridcolor: 'rgba(0, 0, 0, 0.05)',
+                    zerolinecolor: 'rgba(0, 0, 0, 0.1)'
                 },
                 margin: {
                     l: 50,
@@ -1518,14 +1535,14 @@
                 plot_bgcolor: 'rgba(0,0,0,0)',
                 font: {
                     family: 'Inter, sans-serif',
-                    color: 'white'
+                    color: 'var(--text-secondary)'
                 },
                 hoverlabel: {
-                    bgcolor: 'rgba(30, 41, 59, 0.9)',
-                    bordercolor: 'rgba(59, 130, 246, 0.5)',
+                    bgcolor: 'rgba(255, 255, 255, 0.95)',
+                    bordercolor: 'rgba(59, 130, 246, 0.2)',
                     font: {
                         family: 'Inter, sans-serif',
-                        color: 'white'
+                        color: 'var(--text-color)'
                     }
                 }
             };
@@ -1567,4 +1584,3 @@
     </script>
 </body>
 </html>
-
