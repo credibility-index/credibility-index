@@ -306,7 +306,9 @@ predefined_trust_scores = {
 
 TRUSTED_NEWS_SOURCES_IDS = [
     'bbc-news', 'reuters', 'associated-press', 'the-new-york-times',
-    'the-guardian-uk', 'the-wall-street-journal', 'cnn', 'al-jazeera-english'
+    'the-guardian-uk', 'the-wall-street-journal', 'cnn', 'al-jazeera-english',
+    'bloomberg', 'the-washington-post', 'fox-news', 'nbc-news', 'cbs-news',
+    'abc-news', 'usa-today', 'the-verge', 'techcrunch', 'wired'
 ]
 
 stop_words_en = get_stop_words('en')
