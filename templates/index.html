@@ -85,6 +85,7 @@
             font-weight: 600;
             font-size: 1.3rem;
             text-decoration: none;
+            margin-right: auto; /* Сдвигаем название левее */
         }
 
         .navbar-brand-icon {
@@ -96,6 +97,7 @@
             display: flex;
             gap: 1.5rem;
             list-style: none;
+            margin-left: auto; /* Сдвигаем ссылки вправо */
         }
 
         .navbar-link {
@@ -143,6 +145,7 @@
             line-height: 1.1;
             font-family: 'Manrope', sans-serif;
             font-weight: 700;
+            text-shadow: 0 2px 4px rgba(59, 130, 246, 0.3); /* Добавляем тень названию */
         }
 
         .hero-subtitle {
@@ -242,7 +245,7 @@
         .btn {
             display: inline-block;
             padding: 1rem 2rem;
-            background-color: var(--primary-color);
+            background-color: #1d4ed8; /* Делаем кнопку темнее */
             color: white;
             border: none;
             border-radius: 8px;
@@ -258,7 +261,7 @@
         }
 
         .btn:hover {
-            background-color: var(--accent-color);
+            background-color: #1e40af; /* Еще темнее при наведении */
             transform: translateY(-2px);
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         }
@@ -311,6 +314,7 @@
             margin: 0 auto;
         }
 
+        /* Остальные стили остаются без изменений */
         /* Analysis Results */
         .analysis-results {
             display: none;
@@ -824,6 +828,7 @@
         </div>
     </nav>
 
+    <!-- Остальной код остается без изменений -->
     <div class="container">
         <div class="hero">
             <h1 class="hero-title">Setting the Standard for Media</h1>
@@ -924,6 +929,7 @@
     </footer>
 
     <script>
+        // Весь JavaScript код остается без изменений
         // Глобальная переменная для элементов
         const elements = {
             analysisForm: null,
