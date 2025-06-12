@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template, make_response
+from flask import Flask, request, jsonify, render_template, make_response, abort
 from werkzeug.middleware.proxy_fix import ProxyFix
 import logging
 from logging.handlers import RotatingFileHandler
@@ -10,15 +10,14 @@ import requests
 import html
 import uuid
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from urllib.parse import urlparse
 import anthropic
 from newspaper import Article, Config
 from stop_words import get_stop_words
 from flask_cors import CORS
 from functools import wraps
-import platform
-import socket
+from bs4 import BeautifulSoup
 
 # Initialize Flask application
 app = Flask(__name__, static_folder='static', template_folder='templates')
@@ -189,10 +188,8 @@ def populate_test_data(conn):
         logger.debug("Populating database with test data")
         cursor = conn.cursor()
         test_sources = [
-            ('bbc.com', 45, 10, 5),
-            ('reuters.com', 50, 5, 2),
-            ('foxnews.com', 15, 20, 30),
-            ('cnn.com', 30, 25, 10),
+            ('bbc.com', 45, 10, 5), ('reuters.com', 50, 5, 2),
+            ('foxnews.com', 15, 20, 30), ('cnn.com', 30, 25, 10),
             ('nytimes.com', 35, 15, 5)
         ]
 
@@ -273,9 +270,17 @@ def index():
     logger.info("Rendering index page")
     return render_template('index.html')
 
-@app.route('/health')
+@app.route('/health', methods=['GET', 'OPTIONS'])
 def health_check():
     """Health check endpoint"""
+    if request.method == 'OPTIONS':
+        response = make_response()
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Accept'
+        response.headers['Access-Control-Max-Age'] = '3600'
+        return response
+
     logger.info("Processing health check request")
     claude_status = "connected" if check_claude_connection() else "disconnected"
     db_status = "connected" if initialize_database() else "disconnected"
@@ -293,15 +298,23 @@ def health_check():
     logger.debug("Health check completed successfully")
     return response
 
-@app.route('/faq')
+@app.route('/faq', methods=['GET'])
 def faq():
     """FAQ page route"""
     logger.info("Rendering FAQ page")
     return render_template('faq.html')
 
-@app.route('/feedback', methods=['GET', 'POST'])
+@app.route('/feedback', methods=['GET', 'POST', 'OPTIONS'])
 def feedback():
     """Feedback page and form handler"""
+    if request.method == 'OPTIONS':
+        response = make_response()
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'POST, GET, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Accept'
+        response.headers['Access-Control-Max-Age'] = '3600'
+        return response
+
     if request.method == 'POST':
         logger.info("Processing feedback submission")
         try:
@@ -910,31 +923,26 @@ def format_analysis_results(title, source, analysis, credibility):
         key_args = [html.escape(str(a)) for a in analysis.get('key_arguments', [])]
         biases = [html.escape(str(b)) for b in analysis.get('potential_biases_identified', [])]
 
-        # Create topic badges
         topic_badges = ' '.join(
             f'<span class="badge bg-primary me-1 mb-1">{topic}</span>'
             for topic in topics
         )
 
-        # Create key arguments list
         key_args_list = ''.join(
             f'<li class="mb-2"><i class="bi bi-check-circle-fill text-primary me-2"></i>{arg}</li>'
             for arg in key_args
         )
 
-        # Create biases list
         biases_list = ''.join(
             f'<li class="mb-2"><i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>{bias}</li>'
             for bias in biases
         )
 
-        # Create score indicators
         integrity_indicator = create_score_indicator(integrity, "News Integrity")
         fact_check_indicator = create_score_indicator(1 - fact_check, "Fact Check Score")
         sentiment_indicator = create_score_indicator(sentiment, "Sentiment")
         bias_indicator = create_score_indicator(1 - bias, "Bias Score")
 
-        # Create credibility gauge
         credibility_gauge = create_credibility_gauge(analysis.get('index_of_credibility', 0.5))
 
         logger.debug("Successfully formatted analysis results")
@@ -1138,18 +1146,15 @@ def get_source_credibility_data():
 @app.route('/analyze', methods=['POST', 'OPTIONS'])
 def analyze():
     """Analyze article endpoint with comprehensive error handling"""
-    logger.info(f"Received analyze request. Method: {request.method}, Path: {request.path}")
-
-    # Handle OPTIONS request for CORS preflight
     if request.method == 'OPTIONS':
-        logger.debug("Processing OPTIONS request for CORS preflight")
         response = make_response()
         response.headers['Access-Control-Allow-Origin'] = '*'
         response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
         response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Accept'
         response.headers['Access-Control-Max-Age'] = '3600'
-        logger.debug("Successfully processed OPTIONS request")
         return response
+
+    logger.info(f"Received analyze request. Method: {request.method}, Path: {request.path}")
 
     # Validate request content type
     if not request.is_json:
@@ -1327,3 +1332,4 @@ if __name__ == '__main__':
     # Start the application
     logger.info("Starting Flask application")
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+
