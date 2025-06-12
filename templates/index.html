@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Professional Media Credibility Index - Advanced tool for analyzing news article credibility with AI-powered assessment">
-    <title>Media Credibility Index | Professional News Analysis</title>
+    <meta name="description" content="Professional Media Credibility Tool - Advanced AI-powered solution for assessing news article credibility">
+    <title>Professional Media Credibility Tool</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -18,7 +18,7 @@
             --warning-color: #f59e0b;
             --danger-color: #ef4444;
             --light-color: #ffffff;
-            --dark-color: #1e293b;
+            --dark-color: #1a1a1a;
             --text-color: #1f2937;
             --text-secondary: #64748b;
             --border-color: #e2e8f0;
@@ -42,7 +42,7 @@
         }
 
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: 'Inter', 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             line-height: 1.6;
             color: var(--text-color);
             background-color: var(--light-color);
@@ -50,32 +50,6 @@
             display: flex;
             flex-direction: column;
             background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
-        }
-
-        /* Typography */
-        h1, h2, h3, h4, h5, h6 {
-            font-family: 'Manrope', sans-serif;
-            font-weight: 600;
-            line-height: 1.2;
-            margin-bottom: 0.75rem;
-            color: var(--text-color);
-        }
-
-        p {
-            color: var(--text-secondary);
-            margin-bottom: 1rem;
-            font-size: 1rem;
-        }
-
-        a {
-            color: var(--primary-color);
-            text-decoration: none;
-            transition: var(--transition);
-        }
-
-        a:hover {
-            color: var(--accent-color);
-            text-decoration: underline;
         }
 
         /* Layout */
@@ -167,6 +141,8 @@
             background-clip: text;
             color: transparent;
             line-height: 1.1;
+            font-family: 'Manrope', sans-serif;
+            font-weight: 700;
         }
 
         .hero-subtitle {
@@ -205,6 +181,7 @@
             font-size: 1.5rem;
             position: relative;
             padding-bottom: 0.5rem;
+            font-family: 'Manrope', sans-serif;
         }
 
         .form-title::after {
@@ -616,6 +593,7 @@
             transition: var(--transition);
             border: 1px solid var(--border-color);
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            font-weight: 500;
         }
 
         .sidebar-link:hover {
@@ -836,8 +814,8 @@
     <nav class="navbar">
         <div class="container navbar-container">
             <a class="navbar-brand" href="/">
-                <i class="navbar-brand-icon">📰</i>
-                <span>Media Credibility Index</span>
+                <i class="bi bi-newspaper"></i>
+                <span>Professional Media Credibility Tool</span>
             </a>
             <ul class="navbar-links">
                 <li><a href="/faq" class="navbar-link">FAQ</a></li>
@@ -867,7 +845,7 @@
                         <p class="form-hint">Provide the source domain if you're pasting raw text</p>
                     </div>
                     <button type="submit" class="btn">
-                        <i>🔍</i> Analyze Article Content
+                        <i class="bi bi-search"></i> Analyze Article Content
                     </button>
                 </form>
             </div>
@@ -882,7 +860,7 @@
                 <div class="analysis-section">
                     <h2 class="analysis-title">
                         <span>Analysis Results</span>
-                        <i class="section-icon">📊</i>
+                        <i class="bi bi-bar-chart"></i>
                     </h2>
                     <div id="analysisOutput"></div>
                 </div>
@@ -890,7 +868,7 @@
                 <div class="analysis-section">
                     <h2 class="analysis-title">
                         <span>Article Credibility Assessment</span>
-                        <i class="section-icon">🎯</i>
+                        <i class="bi bi-bullseye"></i>
                     </h2>
                     <div class="chart-container">
                         <div id="articleCredibilityChart"></div>
@@ -900,7 +878,7 @@
                 <div class="analysis-section">
                     <h2 class="analysis-title">
                         <span>Source Comparison</span>
-                        <i class="section-icon">📈</i>
+                        <i class="bi bi-graph-up"></i>
                     </h2>
                     <div class="chart-container">
                         <div id="sourceCredibilityChart"></div>
@@ -910,13 +888,13 @@
                 <div class="analysis-section">
                     <h2 class="analysis-title">
                         <span>Related Articles</span>
-                        <i class="section-icon">🔗</i>
+                        <i class="bi bi-link-45deg"></i>
                     </h2>
                     <div class="similar-articles-container" id="sameTopicArticles">
                         <!-- Similar articles will be inserted here by JavaScript -->
                     </div>
                     <button id="showMoreBtn" class="show-more-btn" style="display: none;">
-                        <i>↓</i> Load More Articles
+                        <i class="bi bi-arrow-down"></i> Load More Articles
                     </button>
                 </div>
             </div>
@@ -925,11 +903,11 @@
 
     <div class="sidebar">
         <a href="/faq" class="sidebar-link">
-            <i>❓</i>
+            <i class="bi bi-question-circle"></i>
             <span>FAQ</span>
         </a>
         <a href="/feedback" class="sidebar-link">
-            <i>💬</i>
+            <i class="bi bi-chat-dots"></i>
             <span>Feedback</span>
         </a>
     </div>
@@ -941,116 +919,70 @@
                 <a href="/terms" class="footer-link">Terms of Service</a>
                 <a href="/contact" class="footer-link">Contact Us</a>
             </div>
-            <p class="footer-copyright">&copy; 2025 Media Credibility Index. All rights reserved.</p>
+            <p class="footer-copyright">&copy; 2025 Professional Media Credibility Tool. All rights reserved.</p>
         </div>
     </footer>
 
     <script>
-        // Configuration for emoji icons
-        const iconConfig = {
-            '📰': 'bi bi-newspaper',
-            '🔍': 'bi bi-search',
-            '📊': 'bi bi-bar-chart',
-            '🎯': 'bi bi-bullseye',
-            '📈': 'bi bi-graph-up',
-            '🔗': 'bi bi-link-45deg',
-            '❓': 'bi bi-question-circle',
-            '💬': 'bi bi-chat-dots',
-            '↓': 'bi bi-arrow-down'
+        // Глобальная переменная для элементов
+        const elements = {
+            analysisForm: null,
+            articleInput: null,
+            sourceName: null,
+            loadingIndicator: null,
+            analysisResults: null,
+            analysisOutput: null,
+            sameTopicArticles: null,
+            showMoreBtn: null
         };
 
-        // Replace emoji with proper icons
-        function replaceEmojiWithIcons() {
-            for (const [emoji, iconClass] of Object.entries(iconConfig)) {
-                document.querySelectorAll(`i:contains("${emoji}")`).forEach(element => {
-                    element.className = iconClass;
-                    element.textContent = '';
-                });
-            }
-        }
+        let currentPage = 1;
 
-        // Load external resources
-        function loadResource(url, type, callback) {
-            const element = type === 'script' ?
-                document.createElement('script') :
-                document.createElement('link');
+        // Функция для загрузки скриптов
+        function loadScript(url) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = url;
+                script.async = true;
 
-            if (type === 'script') {
-                element.src = url;
-            } else {
-                element.rel = 'stylesheet';
-                element.href = url;
-            }
+                script.onload = () => {
+                    console.log(`Script loaded: ${url}`);
+                    resolve();
+                };
 
-            element.onload = callback;
-            element.onerror = function() {
-                console.error(`Failed to load ${type}: ${url}`);
-            };
+                script.onerror = () => {
+                    console.error(`Failed to load script: ${url}`);
+                    reject(new Error(`Failed to load script: ${url}`));
+                };
 
-            document.head.appendChild(element);
-        }
-
-        // Initialize the page
-        function initPage() {
-            // Load Bootstrap Icons
-            loadResource('https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css', 'stylesheet', function() {
-                replaceEmojiWithIcons();
-            });
-
-            // Load Plotly
-            loadResource('https://cdn.plot.ly/plotly-2.20.0.min.js', 'script', function() {
-                console.log('Plotly loaded successfully');
-                setupEventListeners();
+                document.head.appendChild(script);
             });
         }
 
-        // Set up event listeners
-        function setupEventListeners() {
-            // DOM elements cache
-            const elements = {
-                analysisForm: document.getElementById('analysisForm'),
-                articleInput: document.getElementById('articleInput'),
-                sourceName: document.getElementById('sourceName'),
-                loadingIndicator: document.getElementById('loadingIndicator'),
-                analysisResults: document.getElementById('analysisResults'),
-                analysisOutput: document.getElementById('analysisOutput'),
-                sameTopicArticles: document.getElementById('sameTopicArticles'),
-                showMoreBtn: document.getElementById('showMoreBtn')
-            };
+        // Функция для загрузки стилей
+        function loadStyle(url) {
+            return new Promise((resolve, reject) => {
+                const link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = url;
 
-            let currentPage = 1;
+                link.onload = () => {
+                    console.log(`Style loaded: ${url}`);
+                    resolve();
+                };
 
-            // Form submission handler
-            if (elements.analysisForm) {
-                elements.analysisForm.addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    analyzeArticle();
-                });
-            }
+                link.onerror = () => {
+                    console.error(`Failed to load style: ${url}`);
+                    reject(new Error(`Failed to load style: ${url}`));
+                };
 
-            // Show more button handler
-            if (elements.showMoreBtn) {
-                elements.showMoreBtn.addEventListener('click', loadMoreArticles);
-            }
-
-            // Input validation for article input
-            if (elements.articleInput) {
-                elements.articleInput.addEventListener('input', function() {
-                    const value = this.value.trim();
-                    if (value.length === 0) {
-                        this.style.borderColor = 'var(--border-color)';
-                    } else if (value.length < 50 && !value.startsWith('http')) {
-                        this.style.borderColor = 'var(--warning-color)';
-                    } else {
-                        this.style.borderColor = 'var(--primary-color)';
-                    }
-                });
-            }
+                document.head.appendChild(link);
+            });
         }
 
-        // Function to show alerts
+        // Функция для показа уведомлений
         function showAlert(message, type = 'info') {
-            // Create alert container if it doesn't exist
+            // Создаем контейнер для уведомлений, если его нет
             let alertContainer = document.getElementById('alertContainer');
             if (!alertContainer) {
                 alertContainer = document.createElement('div');
@@ -1060,12 +992,12 @@
                 alertContainer.innerHTML = '';
             }
 
-            // Create and show alert
+            // Создаем и показываем уведомление
             const alert = document.createElement('div');
             alert.className = `alert alert-${type}`;
             alert.role = 'alert';
 
-            // Add appropriate icon based on alert type
+            // Добавляем соответствующую иконку в зависимости от типа уведомления
             let icon = '';
             switch(type) {
                 case 'success':
@@ -1093,13 +1025,13 @@
 
             alertContainer.appendChild(alert);
 
-            // Add close functionality
+            // Добавляем функциональность закрытия
             const closeBtn = alert.querySelector('.alert-close');
             closeBtn.addEventListener('click', function() {
                 alert.remove();
             });
 
-            // Auto-close after 7 seconds (except for danger alerts)
+            // Автоматическое закрытие через 7 секунд (кроме уведомлений об ошибках)
             if (type !== 'danger') {
                 setTimeout(() => {
                     if (alert.parentNode) {
@@ -1109,12 +1041,12 @@
             }
         }
 
-        // Function to analyze article
+        // Функция для анализа статьи
         function analyzeArticle() {
             const inputText = elements.articleInput.value.trim();
             const sourceName = elements.sourceName ? elements.sourceName.value.trim() : '';
 
-            // Validate input
+            // Проверяем ввод
             if (!inputText) {
                 showAlert('Please enter article text or URL for analysis', 'warning');
                 return;
@@ -1125,22 +1057,22 @@
                 return;
             }
 
-            // Show loading indicator
+            // Показываем индикатор загрузки
             elements.loadingIndicator.style.display = 'block';
             elements.analysisResults.style.display = 'none';
 
-            // Prepare request data
+            // Подготавливаем данные для запроса
             const requestData = {
                 input_text: inputText,
                 source_name_manual: sourceName
             };
 
-            // Disable form during submission
+            // Отключаем форму во время отправки
             const submitBtn = elements.analysisForm.querySelector('button[type="submit"]');
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<i class="bi bi-arrow-clockwise animate-spin"></i> Processing...';
 
-            // Send request to server for analysis
+            // Отправляем запрос на сервер для анализа
             fetch('/analyze', {
                 method: 'POST',
                 headers: {
@@ -1158,27 +1090,27 @@
                 return response.json();
             })
             .then(data => {
-                // Process successful response
+                // Обрабатываем успешный ответ
                 processAnalysisResults(data);
             })
             .catch(error => {
-                // Handle errors
+                // Обрабатываем ошибки
                 handleAnalysisError(error);
             })
             .finally(() => {
-                // Re-enable form
+                // Включаем форму обратно
                 elements.loadingIndicator.style.display = 'none';
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<i class="bi bi-search"></i> Analyze Article Content';
             });
         }
 
-        // Process analysis results
+        // Функция для обработки результатов анализа
         function processAnalysisResults(data) {
-            // Show analysis results container
+            // Показываем контейнер с результатами анализа
             elements.analysisResults.style.display = 'block';
 
-            // Display analysis results
+            // Отображаем результаты анализа
             if (data.output && data.output.output_md) {
                 elements.analysisOutput.innerHTML = data.output.output_md;
             } else {
@@ -1190,7 +1122,7 @@
                 `;
             }
 
-            // Render charts if data is available
+            // Отображаем графики, если данные доступны
             if (data.scores_for_chart && typeof Plotly !== 'undefined') {
                 renderArticleCredibilityChart(data.scores_for_chart);
             } else if (!data.scores_for_chart) {
@@ -1213,12 +1145,12 @@
                 `;
             }
 
-            // Display similar articles
+            // Отображаем похожие статьи
             if (data.same_topic_html) {
                 elements.sameTopicArticles.innerHTML = data.same_topic_html;
                 currentPage = 1;
 
-                // Show or hide the show more button
+                // Показываем или скрываем кнопку "Показать больше"
                 if (data.show_more_button) {
                     elements.showMoreBtn.style.display = 'block';
                 } else {
@@ -1234,14 +1166,14 @@
                 elements.showMoreBtn.style.display = 'none';
             }
 
-            // Scroll to results smoothly
+            // Прокручиваем к результатам
             elements.analysisResults.scrollIntoView({ behavior: 'smooth' });
 
-            // Show success notification
+            // Показываем уведомление об успехе
             showAlert('Article analysis completed successfully!', 'success');
         }
 
-        // Handle analysis errors
+        // Функция для обработки ошибок анализа
         function handleAnalysisError(error) {
             console.error('Analysis error:', error);
 
@@ -1268,7 +1200,7 @@
                 }
             }
 
-            // Create detailed error message
+            // Создаем детальное сообщение об ошибке
             const fullErrorMessage = `
                 <div class="error-message">
                     <p class="mb-2">${errorMessage}</p>
@@ -1279,14 +1211,14 @@
             showAlert(fullErrorMessage, 'danger');
         }
 
-        // Function to load more articles
+        // Функция для загрузки дополнительных статей
         function loadMoreArticles() {
             currentPage++;
             const showMoreBtn = elements.showMoreBtn;
 
             if (!showMoreBtn) return;
 
-            // Disable button during loading
+            // Отключаем кнопку во время загрузки
             showMoreBtn.disabled = true;
             showMoreBtn.innerHTML = '<i class="bi bi-arrow-clockwise animate-spin"></i> Loading...';
 
@@ -1302,7 +1234,7 @@
                     if (data.same_topic_html) {
                         elements.sameTopicArticles.insertAdjacentHTML('beforeend', data.same_topic_html);
 
-                        // Add animation to new articles
+                        // Добавляем анимацию для новых статей
                         const newArticles = elements.sameTopicArticles.querySelectorAll('.similar-article:not(.animated)');
                         newArticles.forEach(article => {
                             article.classList.add('animated');
@@ -1310,7 +1242,7 @@
                         });
                     }
 
-                    // Update the show more button visibility
+                    // Обновляем видимость кнопки "Показать больше"
                     if (!data.show_more_button) {
                         showMoreBtn.style.display = 'none';
                     }
@@ -1323,7 +1255,7 @@
                 showAlert(`Failed to load more articles: ${error.message}`, 'danger');
             })
             .finally(() => {
-                // Re-enable button
+                // Включаем кнопку обратно
                 if (showMoreBtn) {
                     showMoreBtn.disabled = false;
                     showMoreBtn.innerHTML = '<i class="bi bi-arrow-down"></i> Load More Articles';
@@ -1331,7 +1263,7 @@
             });
         }
 
-        // Function to render article credibility chart
+        // Функция для отображения графика оценки достоверности статьи
         function renderArticleCredibilityChart(scores) {
             if (typeof Plotly === 'undefined') {
                 console.error('Plotly is not loaded!');
@@ -1339,7 +1271,7 @@
                 return;
             }
 
-            // Prepare chart data
+            // Подготавливаем данные для графика
             const chartData = [{
                 type: 'scatterpolar',
                 r: [
@@ -1369,7 +1301,7 @@
                 hovertemplate: '<b>%{theta}</b>: %{r:.1f}%<extra></extra>'
             }];
 
-            // Create layout with improved styling
+            // Создаем макет с улучшенным стилем
             const layout = {
                 polar: {
                     radialaxis: {
@@ -1417,14 +1349,14 @@
                 }
             };
 
-            // Render the chart
+            // Отображаем график
             Plotly.newPlot('articleCredibilityChart', chartData, layout, {
                 responsive: true,
                 displayModeBar: true
             });
         }
 
-        // Function to render source credibility chart
+        // Функция для отображения графика сравнения источников
         function renderSourceCredibilityChart(data) {
             if (typeof Plotly === 'undefined') {
                 console.error('Plotly is not loaded!');
@@ -1438,7 +1370,7 @@
                 return;
             }
 
-            // Prepare chart data with improved colors and styling
+            // Подготавливаем данные для графика с улучшенными цветами и стилем
             const chartData = [{
                 x: data.sources,
                 y: data.credibility_scores,
@@ -1475,7 +1407,7 @@
                 opacity: 0.9
             }];
 
-            // Create layout with improved styling
+            // Создаем макет с улучшенным стилем
             const layout = {
                 title: {
                     text: 'Source Credibility Comparison',
@@ -1547,18 +1479,78 @@
                 }
             };
 
-            // Render the chart
+            // Отображаем график
             Plotly.newPlot('sourceCredibilityChart', chartData, layout, {
                 responsive: true,
                 displayModeBar: true
             });
         }
 
-        // Initialize the page when DOM is loaded
-        document.addEventListener('DOMContentLoaded', initPage);
+        // Функция для настройки обработчиков событий
+        function setupEventListeners() {
+            // Инициализируем элементы
+            elements.analysisForm = document.getElementById('analysisForm');
+            elements.articleInput = document.getElementById('articleInput');
+            elements.sourceName = document.getElementById('sourceName');
+            elements.loadingIndicator = document.getElementById('loadingIndicator');
+            elements.analysisResults = document.getElementById('analysisResults');
+            elements.analysisOutput = document.getElementById('analysisOutput');
+            elements.sameTopicArticles = document.getElementById('sameTopicArticles');
+            elements.showMoreBtn = document.getElementById('showMoreBtn');
 
-        // Add animation for spinning icons
+            // Обработчик отправки формы
+            if (elements.analysisForm) {
+                elements.analysisForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    analyzeArticle();
+                });
+            }
+
+            // Обработчик кнопки "Показать больше"
+            if (elements.showMoreBtn) {
+                elements.showMoreBtn.addEventListener('click', loadMoreArticles);
+            }
+
+            // Валидация поля ввода
+            if (elements.articleInput) {
+                elements.articleInput.addEventListener('input', function() {
+                    const value = this.value.trim();
+                    if (value.length === 0) {
+                        this.style.borderColor = 'var(--border-color)';
+                    } else if (value.length < 50 && !value.startsWith('http')) {
+                        this.style.borderColor = 'var(--warning-color)';
+                    } else {
+                        this.style.borderColor = 'var(--primary-color)';
+                    }
+                });
+            }
+        }
+
+        // Инициализация страницы при загрузке DOM
         document.addEventListener('DOMContentLoaded', function() {
+            // Загружаем Bootstrap Icons
+            const bootstrapIcons = document.createElement('link');
+            bootstrapIcons.rel = 'stylesheet';
+            bootstrapIcons.href = 'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css';
+            bootstrapIcons.onload = function() {
+                console.log('Bootstrap Icons loaded');
+                setupEventListeners();
+            };
+            document.head.appendChild(bootstrapIcons);
+
+            // Загружаем Plotly
+            const plotlyScript = document.createElement('script');
+            plotlyScript.src = 'https://cdn.plot.ly/plotly-2.20.0.min.js';
+            plotlyScript.onload = function() {
+                console.log('Plotly loaded successfully');
+            };
+            plotlyScript.onerror = function() {
+                console.error('Failed to load Plotly');
+                showAlert('Failed to load visualization library. Some features may not work properly.', 'warning');
+            };
+            document.head.appendChild(plotlyScript);
+
+            // Добавляем стили для анимаций
             const style = document.createElement('style');
             style.textContent = `
                 @keyframes spin {
