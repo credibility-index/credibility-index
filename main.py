@@ -26,7 +26,7 @@ app.secret_key = os.getenv('SECRET_KEY', str(uuid.uuid4()))
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,  # Установлен уровень DEBUG для более детального логирования
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         RotatingFileHandler('app.log', maxBytes=1000000, backupCount=3),
@@ -39,6 +39,7 @@ logger = logging.getLogger(__name__)
 def security_middleware(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
+        logger.debug(f"Security middleware called for path: {request.path}")
         # Block common attack patterns
         if any(pattern in request.path for pattern in [
             '/wp-admin/',
@@ -72,6 +73,7 @@ def security_middleware(func):
 # Apply security middleware to all routes
 @app.before_request
 def before_request():
+    logger.debug("Security middleware applied to request")
     return security_middleware(lambda: None)()
 
 # Configure CORS for Railway
@@ -109,6 +111,7 @@ DB_NAME = 'news_analysis.db'
 
 def get_db_connection():
     """Create database connection"""
+    logger.debug("Creating database connection")
     conn = sqlite3.connect(DB_NAME)
     conn.row_factory = sqlite3.Row
     return conn
@@ -116,12 +119,15 @@ def get_db_connection():
 def initialize_database():
     """Initialize database schema and populate with test data if empty"""
     try:
+        logger.info("Initializing database")
         db_dir = os.path.dirname(DB_NAME)
         if db_dir and not os.path.exists(db_dir):
             os.makedirs(db_dir)
+            logger.debug(f"Created database directory: {db_dir}")
 
         with get_db_connection() as conn:
             cursor = conn.cursor()
+            logger.debug("Database connection established")
 
             # Create tables
             cursor.execute('''
@@ -142,8 +148,10 @@ def initialize_database():
                     UNIQUE(url)
                 )
             ''')
+            logger.debug("Created news table")
 
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_url ON news(url)')
+            logger.debug("Created index on news.url")
 
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS source_stats (
@@ -154,6 +162,7 @@ def initialize_database():
                     total_analyzed INTEGER DEFAULT 0
                 )
             ''')
+            logger.debug("Created source_stats table")
 
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS feedback (
@@ -165,6 +174,7 @@ def initialize_database():
                     date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
+            logger.debug("Created feedback table")
 
             conn.commit()
 
@@ -172,16 +182,18 @@ def initialize_database():
             cursor.execute("SELECT COUNT(*) FROM source_stats")
             if cursor.fetchone()[0] == 0:
                 populate_test_data(conn)
+                logger.debug("Populated database with test data")
 
             logger.info("Database initialized successfully")
             return True
     except Exception as e:
-        logger.error(f"Error initializing database: {str(e)}")
+        logger.error(f"Error initializing database: {str(e)}", exc_info=True)
         return False
 
 def populate_test_data(conn):
     """Populate database with test data"""
     try:
+        logger.debug("Populating database with test data")
         cursor = conn.cursor()
         test_sources = [
             ('bbc.com', 45, 10, 5), ('reuters.com', 50, 5, 2),
@@ -195,16 +207,47 @@ def populate_test_data(conn):
                 INSERT INTO source_stats (source, high, medium, low, total_analyzed)
                 VALUES (?, ?, ?, ?, ?)
             ''', (source, high, medium, low, total))
+            logger.debug(f"Added test data for source: {source}")
 
         conn.commit()
         logger.info("Test data added to database successfully")
     except Exception as e:
-        logger.error(f"Error populating test data: {str(e)}")
+        logger.error(f"Error populating test data: {str(e)}", exc_info=True)
         raise
+
+def check_claude_connection():
+    """Check connection to Claude API"""
+    try:
+        if not ANTHROPIC_API_KEY or ANTHROPIC_API_KEY == 'mock-key':
+            logger.warning("Claude API key is not configured or is a mock key")
+            return False
+
+        logger.info("Testing Claude API connection")
+        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+
+        # Simple test request
+        test_prompt = "Test connection"
+        try:
+            response = client.messages.create(
+                model=MODEL_NAME,
+                max_tokens=10,
+                temperature=0.2,
+                messages=[{"role": "user", "content": test_prompt}]
+            )
+            logger.info("Successfully connected to Claude API")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to connect to Claude API: {str(e)}", exc_info=True)
+            return False
+
+    except Exception as e:
+        logger.error(f"Error checking Claude connection: {str(e)}", exc_info=True)
+        return False
 
 @app.after_request
 def add_security_headers(response):
     """Add security headers with proper CSP configuration"""
+    logger.debug("Adding security headers to response")
     response.headers['Content-Security-Policy'] = (
         "default-src 'self'; "
         "script-src 'self' https://cdn.jsdelivr.net https://cdn.plot.ly 'unsafe-inline' 'unsafe-eval'; "
@@ -226,35 +269,46 @@ def add_security_headers(response):
     response.headers['Access-Control-Allow-Origin'] = '*'
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Accept'
+    logger.debug("Security headers added to response")
     return response
 
 @app.route('/')
 def index():
     """Home page route"""
+    logger.info("Rendering index page")
     return render_template('index.html')
 
 @app.route('/health')
 def health_check():
     """Health check endpoint"""
-    return jsonify({
+    logger.info("Processing health check request")
+    claude_status = "connected" if check_claude_connection() else "disconnected"
+    db_status = "connected" if initialize_database() else "disconnected"
+
+    response = jsonify({
         'status': 'healthy',
         'timestamp': datetime.now(timezone.utc).isoformat(),
-        'database': 'connected' if initialize_database() else 'disconnected',
+        'database': db_status,
+        'claude_api': claude_status,
         'api_keys': {
             'anthropic': 'configured' if ANTHROPIC_API_KEY and ANTHROPIC_API_KEY != 'mock-key' else 'not_configured',
             'news_api': 'configured' if NEWS_API_ENABLED else 'not_configured'
         }
     })
+    logger.debug("Health check completed successfully")
+    return response
 
 @app.route('/faq')
 def faq():
     """FAQ page route"""
+    logger.info("Rendering FAQ page")
     return render_template('faq.html')
 
 @app.route('/feedback', methods=['GET', 'POST'])
 def feedback():
     """Feedback page and form handler"""
     if request.method == 'POST':
+        logger.info("Processing feedback submission")
         try:
             name = request.form.get('name')
             email = request.form.get('email')
@@ -262,30 +316,37 @@ def feedback():
             message = request.form.get('message')
 
             if not all([name, email, feedback_type, message]):
+                logger.warning("Feedback submission missing required fields")
                 return render_template('feedback.html', error="All fields are required")
 
             if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
+                logger.warning(f"Invalid email address: {email}")
                 return render_template('feedback.html', error="Invalid email address")
 
             with get_db_connection() as conn:
+                logger.debug("Saving feedback to database")
                 conn.execute('''
                     INSERT INTO feedback (name, email, type, message, date)
                     VALUES (?, ?, ?, ?, ?)
                 ''', (name, email, feedback_type, message, datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')))
                 conn.commit()
+                logger.info(f"Feedback saved successfully from {name} ({email})")
 
+            logger.info("Redirecting to feedback success page")
             return render_template('feedback_success.html')
+
         except Exception as e:
-            logger.error(f'Error saving feedback: {str(e)}')
+            logger.error(f"Error saving feedback: {str(e)}", exc_info=True)
             return render_template('feedback.html', error="Error saving feedback")
 
+    logger.info("Rendering feedback form")
     return render_template('feedback.html')
 
 def extract_text_from_url(url):
-    """Extract text from URL with multiple fallback methods"""
-    try:
-        logger.info(f"Attempting to process URL: {url}")
+    """Extract text from URL with improved error handling"""
+    logger.info(f"Attempting to extract content from URL: {url}")
 
+    try:
         # Validate URL format
         parsed = urlparse(url)
         if not all([parsed.scheme, parsed.netloc]):
@@ -298,100 +359,107 @@ def extract_text_from_url(url):
             netloc=parsed.netloc.lower()
         ))
 
-        # Try different extraction methods
-        methods = [
-            extract_with_selenium,
-            extract_with_playwright,
-            extract_with_newspaper,
-            extract_with_requests
-        ]
+        logger.debug(f"Processing URL: {clean_url}")
 
-        for method in methods:
-            result = method(clean_url)
-            if result and all(result):
-                return result
-
-        logger.error(f"All extraction methods failed for URL: {clean_url}")
-        return None, None, None
+        # Special handling for different domains
+        if 'reuters.com' in clean_url:
+            logger.debug("Using Reuters-specific extraction method")
+            return extract_reuters_article(clean_url)
+        elif 'bbc.com' in clean_url:
+            logger.debug("Using BBC-specific extraction method")
+            return extract_bbc_article(clean_url)
+        elif any(domain in clean_url for domain in ['nytimes.com', 'theguardian.com']):
+            logger.debug("Using NYTimes/Guardian-specific extraction method")
+            return extract_standard_article(clean_url, True)
+        else:
+            logger.debug("Using standard extraction method")
+            return extract_standard_article(clean_url)
 
     except Exception as e:
-        logger.error(f"Unexpected error extracting article from {url}: {str(e)}", exc_info=True)
+        logger.error(f"Unexpected error in extract_text_from_url: {str(e)}", exc_info=True)
         return None, None, None
 
-def extract_with_selenium(url):
-    """Extract article using Selenium for dynamic content"""
+def extract_reuters_article(url):
+    """Special extraction method for Reuters articles"""
     try:
-        from selenium import webdriver
-        from selenium.webdriver.chrome.options import Options
-        from selenium.webdriver.chrome.service import Service
-        from webdriver_manager.chrome import ChromeDriverManager
+        logger.debug(f"Attempting to extract Reuters article: {url}")
 
-        options = Options()
-        options.add_argument("--headless")
-        options.add_argument("--disable-gpu")
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+        # Configure custom headers for Reuters
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Referer': 'https://www.google.com/',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
+            'Cache-Control': 'max-age=0'
+        }
 
-        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
-        driver.get(url)
+        logger.debug("Creating session for Reuters")
+        session = requests.Session()
 
-        # Wait for page to load
-        time.sleep(3)
+        logger.debug("Making initial request to Reuters")
+        response = session.get(url, headers=headers, timeout=15)
+        response.raise_for_status()
+
+        logger.debug("Parsing Reuters page with BeautifulSoup")
+        soup = BeautifulSoup(response.text, 'html.parser')
 
         # Try to find article content
-        title = driver.title
-        body = driver.find_element("tag name", "body").text
+        article_body = soup.find('div', {'class': 'ArticleBodyWrapper'})
+        if article_body:
+            title = soup.find('h1')
+            title = title.get_text(strip=True) if title else "No title"
 
-        if len(body) > 100:
-            domain = urlparse(url).netloc.replace('www.', '')
-            driver.quit()
-            return body, domain, title
-
-        driver.quit()
-        return None, None, None
-
-    except Exception as e:
-        logger.error(f"Selenium extraction failed: {str(e)}")
-        return None, None, None
-
-def extract_with_playwright(url):
-    """Extract article using Playwright for dynamic content"""
-    try:
-        from playwright.sync_api import sync_playwright
-
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            page = browser.new_page(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
-            page.goto(url, timeout=30000)
-
-            # Wait for page to load
-            page.wait_for_load_state("networkidle")
-
-            title = page.title()
-            body = page.inner_text("body")
-
-            if len(body) > 100:
+            content = article_body.get_text(separator=' ', strip=True)
+            if len(content) > 100:
                 domain = urlparse(url).netloc.replace('www.', '')
-                browser.close()
-                return body, domain, title
+                logger.info(f"Successfully extracted Reuters article: {title}")
+                return content, domain, title
 
-            browser.close()
-            return None, None, None
+        logger.debug("Trying alternative extraction methods for Reuters")
+        return alternative_reuters_extraction(url, session)
 
     except Exception as e:
-        logger.error(f"Playwright extraction failed: {str(e)}")
+        logger.error(f"Error extracting Reuters article: {str(e)}", exc_info=True)
         return None, None, None
 
-def extract_with_newspaper(url):
-    """Extract article using newspaper3k"""
+def alternative_reuters_extraction(url, session):
+    """Alternative extraction methods for Reuters"""
     try:
+        logger.debug("Trying JSON endpoint for Reuters")
+
+        # Try to get JSON data if available
+        json_url = url.replace('/article/', '/article-ajax/')
+        response = session.get(json_url, headers={
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+        })
+
+        if response.status_code == 200:
+            data = response.json()
+            if 'body' in data:
+                content = data['body']
+                soup = BeautifulSoup(content, 'html.parser')
+                text = soup.get_text(separator=' ', strip=True)
+                domain = urlparse(url).netloc.replace('www.', '')
+                title = data.get('title', 'No title')
+                logger.info(f"Successfully extracted Reuters article via JSON endpoint: {title}")
+                return text, domain, title
+
+        logger.debug("Trying newspaper3k as fallback for Reuters")
         config = Config()
         config.browser_user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         config.request_timeout = 30
         config.memoize_articles = False
         config.fetch_images = False
         config.follow_meta_refresh = True
+        config.keep_article_html = True
 
         article = Article(url, config=config)
         article.download()
@@ -399,18 +467,21 @@ def extract_with_newspaper(url):
 
         if article.text and len(article.text.strip()) > 100:
             domain = urlparse(url).netloc.replace('www.', '')
-            title = article.title.strip() if article.title else "No title"
-            return article.text.strip(), domain, title
+            logger.info(f"Successfully extracted Reuters article via newspaper3k: {article.title}")
+            return article.text.strip(), domain, article.title.strip() if article.title else "No title"
 
+        logger.warning("All extraction methods failed for Reuters article")
         return None, None, None
 
     except Exception as e:
-        logger.error(f"Newspaper extraction failed: {str(e)}")
+        logger.error(f"Alternative Reuters extraction failed: {str(e)}", exc_info=True)
         return None, None, None
 
-def extract_with_requests(url):
-    """Extract article using direct requests with BeautifulSoup"""
+def extract_bbc_article(url):
+    """Special extraction method for BBC articles"""
     try:
+        logger.debug(f"Attempting to extract BBC article: {url}")
+
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
@@ -423,30 +494,80 @@ def extract_with_requests(url):
         response.raise_for_status()
 
         soup = BeautifulSoup(response.text, 'html.parser')
-        title = soup.find('title').text if soup.find('title') else "No title"
 
-        # Try to find main content
-        content = soup.find('article') or soup.find('div', {'class': re.compile('article|content|main')})
+        # Try to find article content
+        article_body = soup.find('div', {'class': 'ssrcss-1q0x1q5-VideoContainer'})
+        if not article_body:
+            article_body = soup.find('article')
 
-        if content:
-            text = content.get_text(separator=' ', strip=True)
-            if len(text) > 100:
+        if article_body:
+            title = soup.find('h1')
+            title = title.get_text(strip=True) if title else "No title"
+
+            content = article_body.get_text(separator=' ', strip=True)
+            if len(content) > 100:
                 domain = urlparse(url).netloc.replace('www.', '')
-                return text, domain, title
+                logger.info(f"Successfully extracted BBC article: {title}")
+                return content, domain, title
 
+        logger.warning("BBC article extraction failed")
         return None, None, None
 
     except Exception as e:
-        logger.error(f"Requests extraction failed: {str(e)}")
+        logger.error(f"Error extracting BBC article: {str(e)}", exc_info=True)
+        return None, None, None
+
+def extract_standard_article(url, is_premium=False):
+    """Standard article extraction for non-Reuters sites"""
+    try:
+        logger.debug(f"Attempting to extract standard article: {url}")
+
+        # Configure custom headers
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Connection': 'keep-alive'
+        }
+
+        if is_premium:
+            headers['Referer'] = 'https://www.google.com/'
+
+        response = requests.get(url, headers=headers, timeout=15)
+        response.raise_for_status()
+
+        # Configure article with timeout and user agent
+        config = Config()
+        config.browser_user_agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        config.request_timeout = 30
+
+        article = Article(url, config=config)
+        article.download()
+        article.parse()
+
+        if article.text and len(article.text.strip()) > 100:
+            domain = urlparse(url).netloc.replace('www.', '')
+            title = article.title.strip() if article.title else "No title"
+            logger.info(f"Successfully extracted standard article: {title}")
+            return article.text.strip(), domain, title
+
+        logger.warning("Standard article extraction failed")
+        return None, None, None
+
+    except Exception as e:
+        logger.error(f"Error in standard article extraction: {str(e)}", exc_info=True)
         return None, None, None
 
 def analyze_with_claude(content, source):
     """Analyze article text using Claude API with fallback to mock data"""
+    logger.info("Starting Claude analysis")
+
     try:
         if not ANTHROPIC_API_KEY or ANTHROPIC_API_KEY == 'mock-key':
-            logger.info("Using mock data for Claude API")
+            logger.warning("Claude API key is not configured or is a mock key, using mock data")
             return generate_mock_analysis(source)
 
+        logger.debug("Creating Claude client")
         client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
         max_chars = 10000
@@ -454,6 +575,7 @@ def analyze_with_claude(content, source):
             content = content[:max_chars]
             logger.warning(f"Article content truncated to {max_chars} characters")
 
+        logger.debug("Preparing analysis prompt")
         prompt = f"""
         Analyze this news article for credibility, bias, and factual accuracy.
         Return results in JSON format with these fields:
@@ -467,6 +589,7 @@ def analyze_with_claude(content, source):
         Source: {source}
         """
 
+        logger.debug("Sending request to Claude API")
         try:
             response = client.messages.create(
                 model=MODEL_NAME,
@@ -476,27 +599,36 @@ def analyze_with_claude(content, source):
             )
 
             response_text = response.content[0].text
-            json_match = re.search(r'```json\s*(\{.*\})\s*```', response_text, re.DOTALL)
+            logger.debug("Received response from Claude API")
 
+            json_match = re.search(r'```json\s*(\{.*\})\s*```', response_text, re.DOTALL)
             if json_match:
-                return json.loads(json_match.group(1))
+                logger.debug("Found JSON in response")
+                analysis = json.loads(json_match.group(1))
+                logger.info("Successfully parsed Claude API response")
+                return analysis
             else:
+                logger.debug("Trying to parse response as direct JSON")
                 try:
-                    return json.loads(response_text)
+                    analysis = json.loads(response_text)
+                    logger.info("Successfully parsed direct JSON response")
+                    return analysis
                 except json.JSONDecodeError:
                     logger.error("Failed to parse API response as JSON")
                     return generate_mock_analysis(source)
 
         except Exception as e:
-            logger.error(f"Error calling Claude API: {str(e)}")
+            logger.error(f"Error calling Claude API: {str(e)}", exc_info=True)
             return generate_mock_analysis(source)
 
     except Exception as e:
-        logger.error(f"Unexpected error in analyze_with_claude: {str(e)}")
+        logger.error(f"Unexpected error in analyze_with_claude: {str(e)}", exc_info=True)
         return generate_mock_analysis(source)
 
 def generate_mock_analysis(source):
     """Generate mock analysis data"""
+    logger.debug("Generating mock analysis data")
+
     credibility_scores = {
         'bbc.com': 0.9,
         'reuters.com': 0.95,
@@ -506,7 +638,7 @@ def generate_mock_analysis(source):
     }
 
     base_score = credibility_scores.get(source, 0.7)
-    return {
+    mock_analysis = {
         "news_integrity": base_score * 0.9 + 0.1,
         "fact_check_needed_score": 1.0 - base_score * 0.8,
         "sentiment_score": 0.5 + (0.1 if "positive" in source else -0.1),
@@ -524,25 +656,37 @@ def generate_mock_analysis(source):
         "index_of_credibility": base_score * 0.9
     }
 
+    logger.debug("Generated mock analysis data successfully")
+    return mock_analysis
+
 def calculate_credibility(integrity, fact_check, sentiment, bias):
     """Calculate credibility level"""
+    logger.debug("Calculating credibility level")
+
     fact_check_score = 1.0 - fact_check
     sentiment_score = 1.0 - abs(sentiment - 0.5) * 2
     bias_score = 1.0 - bias
     score = (integrity * 0.45) + (fact_check_score * 0.35) + (sentiment_score * 0.10) + (bias_score * 0.10)
 
     if score >= 0.75:
-        return 'High'
-    if score >= 0.5:
-        return 'Medium'
-    return 'Low'
+        level = 'High'
+    elif score >= 0.5:
+        level = 'Medium'
+    else:
+        level = 'Low'
+
+    logger.debug(f"Calculated credibility score: {score:.2f}, level: {level}")
+    return level
 
 def save_analysis(url, title, source, content, analysis):
     """Save analysis to database with improved error handling"""
+    logger.debug("Saving analysis to database")
+
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor()
 
+            # Safely get all analysis values with defaults
             integrity = analysis.get('news_integrity', 0.5)
             fact_check = analysis.get('fact_check_needed_score', 0.5)
             sentiment = analysis.get('sentiment_score', 0.5)
@@ -554,6 +698,7 @@ def save_analysis(url, title, source, content, analysis):
             # Generate unique URL for text inputs
             db_url = url if url and url.startswith(('http://', 'https://')) else f'text_{datetime.now(timezone.utc).timestamp()}'
 
+            logger.debug(f"Attempting to insert analysis for URL: {db_url}")
             try:
                 cursor.execute('''
                     INSERT INTO news
@@ -563,6 +708,7 @@ def save_analysis(url, title, source, content, analysis):
                 ''', (db_url, title, source, content, integrity, fact_check,
                       sentiment, bias, level, summary, credibility,
                       datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')))
+
                 conn.commit()
                 logger.info(f"Successfully saved analysis for {title} from {source}")
                 return level
@@ -592,15 +738,17 @@ def save_analysis(url, title, source, content, analysis):
                 else:
                     raise e
             except Exception as e:
-                logger.error(f"Error saving analysis: {str(e)}")
+                logger.error(f"Error saving analysis: {str(e)}", exc_info=True)
                 raise
 
     except Exception as e:
-        logger.error(f"Unexpected error in save_analysis: {str(e)}")
+        logger.error(f"Unexpected error in save_analysis: {str(e)}", exc_info=True)
         return 'Medium'
 
 def generate_query_from_analysis(analysis_result):
     """Generate search query from analysis results"""
+    logger.debug("Generating search query from analysis results")
+
     topics = analysis_result.get('topics', [])
     key_arguments = analysis_result.get('key_arguments', [])
 
@@ -617,14 +765,19 @@ def generate_query_from_analysis(analysis_result):
     filtered_terms = [t for t in unique_terms if t.lower() not in stop_words_en]
 
     if len(filtered_terms) > 3:
-        return ' AND '.join(filtered_terms[:5])
+        query = ' AND '.join(filtered_terms[:5])
     elif filtered_terms:
-        return ' OR '.join(filtered_terms)
+        query = ' OR '.join(filtered_terms)
     else:
-        return 'news OR current events'
+        query = 'news OR current events'
+
+    logger.debug(f"Generated search query: {query}")
+    return query
 
 def fetch_same_topic_articles(analysis_result, page=1, per_page=3):
     """Fetch similar articles using News API with fallback to mock data"""
+    logger.debug("Fetching similar articles")
+
     try:
         if not NEWS_API_ENABLED:
             logger.info("News API not enabled, returning mock data")
@@ -649,6 +802,7 @@ def fetch_same_topic_articles(analysis_result, page=1, per_page=3):
             params['sources'] = ','.join(TRUSTED_NEWS_SOURCES_IDS)
 
         try:
+            logger.debug(f"Making request to News API with query: {query}")
             response = requests.get(
                 'https://newsapi.org/v2/everything',
                 params=params,
@@ -693,19 +847,22 @@ def fetch_same_topic_articles(analysis_result, page=1, per_page=3):
                 ranked_articles.append((article, final_score))
 
             ranked_articles.sort(key=lambda x: x[1], reverse=True)
+            logger.debug(f"Found {len(ranked_articles)} similar articles")
             return [article for article, score in ranked_articles[:per_page]]
 
         except requests.RequestException as e:
-            logger.error(f"News API request failed: {str(e)}")
+            logger.error(f"News API request failed: {str(e)}", exc_info=True)
             return generate_mock_articles(per_page)
 
     except Exception as e:
-        logger.error(f"Error fetching similar articles: {str(e)}")
+        logger.error(f"Error fetching similar articles: {str(e)}", exc_info=True)
         return generate_mock_articles(per_page)
 
 def generate_mock_articles(count):
     """Generate mock articles for when API is not available"""
-    return [
+    logger.debug(f"Generating {count} mock articles")
+
+    mock_articles = [
         {
             'title': f"Sample Article {i+1} on Similar Topic",
             'url': f"https://example.com/article{i+1}",
@@ -717,9 +874,15 @@ def generate_mock_articles(count):
         for i in range(count)
     ]
 
+    logger.debug("Generated mock articles successfully")
+    return mock_articles
+
 def render_same_topic_articles_html(articles):
     """Render HTML for similar articles with show more button"""
+    logger.debug("Rendering similar articles HTML")
+
     if not articles:
+        logger.debug("No articles to render")
         return ''
 
     html_items = []
@@ -743,10 +906,13 @@ def render_same_topic_articles_html(articles):
         </div>
         ''')
 
+    logger.debug(f"Rendered HTML for {len(html_items)} articles")
     return ''.join(html_items)
 
 def format_analysis_results(title, source, analysis, credibility):
     """Format analysis results for display with all sections"""
+    logger.debug("Formatting analysis results")
+
     try:
         integrity = analysis.get('news_integrity', 0.5)
         fact_check = analysis.get('fact_check_needed_score', 0.5)
@@ -761,6 +927,7 @@ def format_analysis_results(title, source, analysis, credibility):
         key_args_html = ''.join(f'<li>{arg}</li>' for arg in key_args)
         biases_html = ''.join(f'<li>{bias}</li>' for bias in biases)
 
+        logger.debug("Successfully formatted analysis results")
         return {
             'title': title,
             'source': source,
@@ -838,7 +1005,7 @@ def format_analysis_results(title, source, analysis, credibility):
             """
         }
     except Exception as e:
-        logger.error(f"Error formatting analysis results: {str(e)}")
+        logger.error(f"Error formatting analysis results: {str(e)}", exc_info=True)
         return {
             "error": "Error formatting analysis results",
             "output_md": "<div class='alert alert-danger'>Error displaying analysis results</div>"
@@ -851,15 +1018,18 @@ def analyze():
 
     # Handle OPTIONS request for CORS preflight
     if request.method == 'OPTIONS':
+        logger.debug("Processing OPTIONS request for CORS preflight")
         response = make_response()
         response.headers['Access-Control-Allow-Origin'] = '*'
         response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
         response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Accept'
         response.headers['Access-Control-Max-Age'] = '3600'
+        logger.debug("Successfully processed OPTIONS request")
         return response
 
     # Validate request content type
     if not request.is_json:
+        logger.warning(f"Invalid content type: {request.content_type}")
         return jsonify({
             'error': 'Invalid content type',
             'status': 400,
@@ -868,8 +1038,22 @@ def analyze():
         }), 400
 
     try:
+        logger.debug("Processing JSON request data")
+
+        # Get and validate data
         data = request.get_json()
-        if not data or 'input_text' not in data:
+        if not data:
+            logger.warning("Empty request body received")
+            return jsonify({
+                'error': 'Empty request body',
+                'status': 400,
+                'request_id': str(uuid.uuid4())
+            }), 400
+
+        logger.debug(f"Request data: {json.dumps(data, indent=2)}")
+
+        if 'input_text' not in data:
+            logger.warning("Missing input_text in request")
             return jsonify({
                 'error': 'Missing input text',
                 'status': 400,
@@ -881,6 +1065,7 @@ def analyze():
         source_name = data.get('source_name_manual', 'Direct Input').strip()
 
         if not input_text:
+            logger.warning("Empty input text received")
             return jsonify({
                 'error': 'Empty input text',
                 'status': 400,
@@ -888,26 +1073,59 @@ def analyze():
                 'request_id': str(uuid.uuid4())
             }), 400
 
-        # Process article
+        logger.info(f"Processing input of length: {len(input_text)} characters")
+
+        # Process article - either URL or direct text
         if input_text.startswith(('http://', 'https://')):
-            content, source, title = extract_text_from_url(input_text)
-            if not content:
+            logger.info(f"Processing URL input: {input_text[:100]}...")
+            try:
+                content, source, title = extract_text_from_url(input_text)
+                if not content:
+                    if 'reuters.com' in input_text.lower():
+                        logger.warning("Failed to extract Reuters article")
+                        return jsonify({
+                            'error': 'Could not extract article content from Reuters',
+                            'status': 400,
+                            'details': 'Reuters actively blocks automated requests. Please try:',
+                            'suggestions': [
+                                'Open the URL in a browser and copy the text manually',
+                                'Use a different news source',
+                                'Try accessing the article through Google Cache by prefixing the URL with "cache:"',
+                                'Try using the Wayback Machine to access an archived version'
+                            ],
+                            'request_id': str(uuid.uuid4())
+                        }), 400
+
+                    logger.warning("Failed to extract article content")
+                    return jsonify({
+                        'error': 'Could not extract article content',
+                        'status': 400,
+                        'details': 'Failed to download or parse the article from the provided URL',
+                        'suggestions': [
+                            'Check if the URL is correct and accessible',
+                            'Try a different URL',
+                            'Make sure the website allows scraping',
+                            'Alternatively, paste the article text directly'
+                        ],
+                        'request_id': str(uuid.uuid4())
+                    }), 400
+            except Exception as e:
+                logger.error(f"Error processing URL: {input_text}. Error: {str(e)}", exc_info=True)
                 return jsonify({
-                    'error': 'Could not extract article content',
+                    'error': 'Error processing URL',
                     'status': 400,
-                    'details': 'Failed to download or parse the article from the provided URL',
+                    'details': str(e),
                     'suggestions': [
-                        'Check if the URL is correct and accessible',
+                        'The website might be blocking our requests',
                         'Try a different URL',
-                        'Make sure the website allows scraping',
-                        'Alternatively, paste the article text directly',
-                        'Try accessing the article through Google Cache by prefixing the URL with "cache:"',
-                        'Try using the Wayback Machine to access an archived version'
+                        'You can paste the article text directly instead of using URL'
                     ],
                     'request_id': str(uuid.uuid4())
                 }), 400
         else:
+            logger.info("Processing direct text input")
             if len(input_text) < 100:
+                logger.warning(f"Input text too short: {len(input_text)} characters")
                 return jsonify({
                     'error': 'Content too short',
                     'status': 400,
@@ -918,18 +1136,33 @@ def analyze():
             title = 'User-provided Text'
             source = source_name
 
+        logger.info(f"Successfully extracted content. Length: {len(content)} characters")
+
         # Analyze content
+        logger.info("Starting article analysis")
+        analysis_start_time = time.time()
         analysis = analyze_with_claude(content, source)
+        analysis_duration = time.time() - analysis_start_time
+        logger.info(f"Completed article analysis in {analysis_duration:.2f} seconds")
+
+        # Save analysis to database
+        logger.info("Saving analysis to database")
+        save_start_time = time.time()
         credibility = save_analysis(
             input_text if input_text.startswith(('http://', 'https://')) else None,
             title, source, content, analysis
         )
+        save_duration = time.time() - save_start_time
+        logger.info(f"Saved analysis to database in {save_duration:.2f} seconds")
 
         # Get similar articles
+        logger.info("Fetching similar articles")
         similar_articles = fetch_same_topic_articles(analysis)
         similar_articles_html = render_same_topic_articles_html(similar_articles)
+        logger.info(f"Found {len(similar_articles)} similar articles")
 
         # Format response
+        logger.info("Preparing response data")
         response_data = {
             'status': 'success',
             'analysis': analysis,
@@ -938,23 +1171,38 @@ def analyze():
             'source': source,
             'output': format_analysis_results(title, source, analysis, credibility),
             'similar_articles': similar_articles_html,
-            'request_id': str(uuid.uuid4())
+            'request_id': str(uuid.uuid4()),
+            'processing_time': f"{analysis_duration:.2f} seconds"
         }
 
+        logger.info("Successfully processed analysis request")
         return jsonify(response_data)
 
     except Exception as e:
-        logger.error(f"Error in analyze endpoint: {str(e)}", exc_info=True)
+        request_id = str(uuid.uuid4())
+        logger.error(f"Unexpected error in analyze endpoint: {str(e)}. Request ID: {request_id}", exc_info=True)
         return jsonify({
             'error': 'Internal server error',
             'status': 500,
             'details': str(e),
-            'request_id': str(uuid.uuid4())
+            'suggestions': [
+                'Please try again later',
+                'Check your internet connection',
+                'If the problem persists, contact support with this request ID'
+            ],
+            'request_id': request_id
         }), 500
 
-
 if __name__ == '__main__':
+    # Initialize database
     if not initialize_database():
         logger.error("Failed to initialize database. Exiting...")
         exit(1)
+
+    # Check Claude connection
+    if not check_claude_connection():
+        logger.warning("Claude API connection test failed. Application will use mock data.")
+
+    # Start the application
+    logger.info("Starting Flask application")
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
