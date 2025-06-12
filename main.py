@@ -282,7 +282,7 @@ def feedback():
     return render_template('feedback.html')
 
 def extract_text_from_url(url):
-    """Extract text from URL with improved error handling"""
+    """Extract text from URL with multiple fallback methods"""
     try:
         logger.info(f"Attempting to process URL: {url}")
 
@@ -298,63 +298,146 @@ def extract_text_from_url(url):
             netloc=parsed.netloc.lower()
         ))
 
-        # Check for video content
-        if any(domain in clean_url for domain in ['youtube.com', 'vimeo.com', 'twitch.tv']):
-            logger.info("Video content detected")
-            return "Video content detected", parsed.netloc.replace('www.', ''), "Video: " + clean_url
+        # Try different extraction methods
+        methods = [
+            extract_with_selenium,
+            extract_with_playwright,
+            extract_with_newspaper,
+            extract_with_requests
+        ]
 
-        # Configure custom headers
+        for method in methods:
+            result = method(clean_url)
+            if result and all(result):
+                return result
+
+        logger.error(f"All extraction methods failed for URL: {clean_url}")
+        return None, None, None
+
+    except Exception as e:
+        logger.error(f"Unexpected error extracting article from {url}: {str(e)}", exc_info=True)
+        return None, None, None
+
+def extract_with_selenium(url):
+    """Extract article using Selenium for dynamic content"""
+    try:
+        from selenium import webdriver
+        from selenium.webdriver.chrome.options import Options
+        from selenium.webdriver.chrome.service import Service
+        from webdriver_manager.chrome import ChromeDriverManager
+
+        options = Options()
+        options.add_argument("--headless")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+
+        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+        driver.get(url)
+
+        # Wait for page to load
+        time.sleep(3)
+
+        # Try to find article content
+        title = driver.title
+        body = driver.find_element("tag name", "body").text
+
+        if len(body) > 100:
+            domain = urlparse(url).netloc.replace('www.', '')
+            driver.quit()
+            return body, domain, title
+
+        driver.quit()
+        return None, None, None
+
+    except Exception as e:
+        logger.error(f"Selenium extraction failed: {str(e)}")
+        return None, None, None
+
+def extract_with_playwright(url):
+    """Extract article using Playwright for dynamic content"""
+    try:
+        from playwright.sync_api import sync_playwright
+
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+            page.goto(url, timeout=30000)
+
+            # Wait for page to load
+            page.wait_for_load_state("networkidle")
+
+            title = page.title()
+            body = page.inner_text("body")
+
+            if len(body) > 100:
+                domain = urlparse(url).netloc.replace('www.', '')
+                browser.close()
+                return body, domain, title
+
+            browser.close()
+            return None, None, None
+
+    except Exception as e:
+        logger.error(f"Playwright extraction failed: {str(e)}")
+        return None, None, None
+
+def extract_with_newspaper(url):
+    """Extract article using newspaper3k"""
+    try:
+        config = Config()
+        config.browser_user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        config.request_timeout = 30
+        config.memoize_articles = False
+        config.fetch_images = False
+        config.follow_meta_refresh = True
+
+        article = Article(url, config=config)
+        article.download()
+        article.parse()
+
+        if article.text and len(article.text.strip()) > 100:
+            domain = urlparse(url).netloc.replace('www.', '')
+            title = article.title.strip() if article.title else "No title"
+            return article.text.strip(), domain, title
+
+        return None, None, None
+
+    except Exception as e:
+        logger.error(f"Newspaper extraction failed: {str(e)}")
+        return None, None, None
+
+def extract_with_requests(url):
+    """Extract article using direct requests with BeautifulSoup"""
+    try:
         headers = {
-            'User-Agent': user_agent,
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.5',
+            'Referer': 'https://www.google.com/',
             'Connection': 'keep-alive'
         }
 
-        # Check URL accessibility
-        try:
-            response = requests.get(clean_url, headers=headers, timeout=10)
-            response.raise_for_status()
-        except requests.RequestException as e:
-            logger.error(f"URL accessibility check failed for {clean_url}: {str(e)}")
-            return None, None, None
+        response = requests.get(url, headers=headers, timeout=15)
+        response.raise_for_status()
 
-        # Configure article with timeout and user agent
-        config = Config()
-        config.browser_user_agent = user_agent
-        config.request_timeout = 30
+        soup = BeautifulSoup(response.text, 'html.parser')
+        title = soup.find('title').text if soup.find('title') else "No title"
 
-        article = Article(clean_url, config=config)
+        # Try to find main content
+        content = soup.find('article') or soup.find('div', {'class': re.compile('article|content|main')})
 
-        # Download article with timeout
-        try:
-            article.download()
-            if article.download_state != 2:
-                logger.error(f"Failed to download article from {clean_url}")
-                return None, None, None
-        except Exception as e:
-            logger.error(f"Article download failed: {str(e)}")
-            return None, None, None
+        if content:
+            text = content.get_text(separator=' ', strip=True)
+            if len(text) > 100:
+                domain = urlparse(url).netloc.replace('www.', '')
+                return text, domain, title
 
-        # Parse article
-        try:
-            article.parse()
-            if not article.text or len(article.text.strip()) < 100:
-                logger.warning(f"Short or empty content from {clean_url}")
-                return None, None, None
-        except Exception as e:
-            logger.error(f"Article parsing failed: {str(e)}")
-            return None, None, None
-
-        # Extract domain and title
-        domain = parsed.netloc.replace('www.', '')
-        title = article.title.strip() if article.title else "No title"
-
-        logger.info(f"Successfully extracted content from {clean_url}")
-        return article.text.strip(), domain, title
+        return None, None, None
 
     except Exception as e:
-        logger.error(f"Unexpected error extracting article from {url}: {str(e)}")
+        logger.error(f"Requests extraction failed: {str(e)}")
         return None, None, None
 
 def analyze_with_claude(content, source):
@@ -768,18 +851,15 @@ def analyze():
 
     # Handle OPTIONS request for CORS preflight
     if request.method == 'OPTIONS':
-        logger.debug("Processing OPTIONS request for CORS preflight")
         response = make_response()
         response.headers['Access-Control-Allow-Origin'] = '*'
         response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
         response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Accept'
         response.headers['Access-Control-Max-Age'] = '3600'
-        logger.debug("Successfully processed OPTIONS request")
         return response
 
     # Validate request content type
     if not request.is_json:
-        logger.warning(f"Invalid content type: {request.content_type}")
         return jsonify({
             'error': 'Invalid content type',
             'status': 400,
@@ -788,22 +868,8 @@ def analyze():
         }), 400
 
     try:
-        logger.debug("Processing JSON request data")
-
-        # Get and validate data
         data = request.get_json()
-        if not data:
-            logger.warning("Empty request body received")
-            return jsonify({
-                'error': 'Empty request body',
-                'status': 400,
-                'request_id': str(uuid.uuid4())
-            }), 400
-
-        logger.debug(f"Request data: {json.dumps(data, indent=2)}")
-
-        if 'input_text' not in data:
-            logger.warning("Missing input_text in request")
+        if not data or 'input_text' not in data:
             return jsonify({
                 'error': 'Missing input text',
                 'status': 400,
@@ -815,7 +881,6 @@ def analyze():
         source_name = data.get('source_name_manual', 'Direct Input').strip()
 
         if not input_text:
-            logger.warning("Empty input text received")
             return jsonify({
                 'error': 'Empty input text',
                 'status': 400,
@@ -823,42 +888,26 @@ def analyze():
                 'request_id': str(uuid.uuid4())
             }), 400
 
-        logger.info(f"Processing input of length: {len(input_text)} characters")
-
-        # Process article - either URL or direct text
+        # Process article
         if input_text.startswith(('http://', 'https://')):
-            logger.info(f"Processing URL input: {input_text[:100]}...")
-            try:
-                content, source, title = extract_text_from_url(input_text)
-                if not content:
-                    return jsonify({
-                        'error': 'Could not extract article content',
-                        'status': 400,
-                        'suggestions': [
-                            'Check if the URL is correct and accessible',
-                            'Try a different URL',
-                            'Make sure the website allows scraping',
-                            'Alternatively, paste the article text directly'
-                        ],
-                        'request_id': str(uuid.uuid4())
-                    }), 400
-            except Exception as e:
-                logger.error(f"Error processing URL: {input_text}. Error: {str(e)}", exc_info=True)
+            content, source, title = extract_text_from_url(input_text)
+            if not content:
                 return jsonify({
-                    'error': 'Error processing URL',
+                    'error': 'Could not extract article content',
                     'status': 400,
-                    'details': str(e),
+                    'details': 'Failed to download or parse the article from the provided URL',
                     'suggestions': [
-                        'The website might be blocking our requests',
+                        'Check if the URL is correct and accessible',
                         'Try a different URL',
-                        'You can paste the article text directly instead of using URL'
+                        'Make sure the website allows scraping',
+                        'Alternatively, paste the article text directly',
+                        'Try accessing the article through Google Cache by prefixing the URL with "cache:"',
+                        'Try using the Wayback Machine to access an archived version'
                     ],
                     'request_id': str(uuid.uuid4())
                 }), 400
         else:
-            logger.info("Processing direct text input")
             if len(input_text) < 100:
-                logger.warning(f"Input text too short: {len(input_text)} characters")
                 return jsonify({
                     'error': 'Content too short',
                     'status': 400,
@@ -868,8 +917,6 @@ def analyze():
             content = input_text
             title = 'User-provided Text'
             source = source_name
-
-        logger.info(f"Successfully extracted content. Length: {len(content)} characters")
 
         # Analyze content
         analysis = analyze_with_claude(content, source)
@@ -882,16 +929,6 @@ def analyze():
         similar_articles = fetch_same_topic_articles(analysis)
         similar_articles_html = render_same_topic_articles_html(similar_articles)
 
-        # Get source credibility data
-        source_credibility_data = {
-            'sources': ['BBC', 'Reuters', 'CNN', 'Fox News', 'The Guardian'],
-            'credibility_scores': [0.9, 0.95, 0.7, 0.4, 0.85],
-            'high_counts': [45, 50, 30, 15, 40],
-            'medium_counts': [10, 5, 25, 20, 10],
-            'low_counts': [5, 2, 10, 30, 5],
-            'total_counts': [60, 57, 65, 65, 55]
-        }
-
         # Format response
         response_data = {
             'status': 'success',
@@ -899,36 +936,22 @@ def analyze():
             'credibility': credibility,
             'title': title,
             'source': source,
-            'scores_for_chart': {
-                'news_integrity': analysis.get('news_integrity', 0.0),
-                'fact_check_needed_score': analysis.get('fact_check_needed_score', 1.0),
-                'sentiment_score': analysis.get('sentiment_score', 0.5),
-                'bias_score': analysis.get('bias_score', 1.0),
-                'index_of_credibility': analysis.get('index_of_credibility', 0.0)
-            },
-            'source_credibility_data': source_credibility_data,
-            'same_topic_html': similar_articles_html,
             'output': format_analysis_results(title, source, analysis, credibility),
-            'request_id': str(uuid.uuid4()),
-            'processing_time': f"{time.time() - time.time():.2f} seconds"
+            'similar_articles': similar_articles_html,
+            'request_id': str(uuid.uuid4())
         }
 
         return jsonify(response_data)
 
     except Exception as e:
-        request_id = str(uuid.uuid4())
-        logger.error(f"Unexpected error in analyze endpoint: {str(e)}. Request ID: {request_id}", exc_info=True)
+        logger.error(f"Error in analyze endpoint: {str(e)}", exc_info=True)
         return jsonify({
             'error': 'Internal server error',
             'status': 500,
             'details': str(e),
-            'suggestions': [
-                'Please try again later',
-                'Check your internet connection',
-                'If the problem persists, contact support with this request ID'
-            ],
-            'request_id': request_id
+            'request_id': str(uuid.uuid4())
         }), 500
+
 
 if __name__ == '__main__':
     if not initialize_database():
