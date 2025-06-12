@@ -6,18 +6,13 @@ import os
 import sqlite3
 import re
 import json
-import requests
 import html
 import uuid
 import time
-from datetime import datetime, timezone, timedelta
-from urllib.parse import urlparse
+from datetime import datetime, timezone
 import anthropic
-from newspaper import Article, Config
-from stop_words import get_stop_words
 from flask_cors import CORS
 from functools import wraps
-from bs4 import BeautifulSoup
 
 # Initialize Flask application
 app = Flask(__name__, static_folder='static', template_folder='templates')
@@ -74,29 +69,6 @@ CORS(app, resources={
 # Environment variables
 ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY', 'mock-key')
 MODEL_NAME = os.getenv('ANTHROPIC_MODEL', 'claude-3-opus-20240229')
-NEWS_API_KEY = os.getenv('NEWS_API_KEY', 'mock-key')
-NEWS_API_ENABLED = bool(NEWS_API_KEY and NEWS_API_KEY != 'mock-key')
-
-# Global constants
-predefined_trust_scores = {
-    'bbc.com': 0.9,
-    'reuters.com': 0.95,
-    'apnews.com': 0.93,
-    'nytimes.com': 0.88,
-    'theguardian.com': 0.85,
-    'wsj.com': 0.82,
-    'cnn.com': 0.70,
-    'foxnews.com': 0.40,
-    'aljazeera.com': 0.80
-}
-
-TRUSTED_NEWS_SOURCES_IDS = [
-    'bbc-news', 'reuters', 'associated-press',
-    'the-new-york-times', 'the-guardian-uk'
-]
-
-stop_words_en = get_stop_words('en')
-user_agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
 
 # Database configuration
 DB_NAME = 'news_analysis.db'
@@ -109,7 +81,7 @@ def get_db_connection():
     return conn
 
 def initialize_database():
-    """Initialize database schema and populate with test data if empty"""
+    """Initialize database schema"""
     try:
         logger.info("Initializing database")
         db_dir = os.path.dirname(DB_NAME)
@@ -146,17 +118,6 @@ def initialize_database():
             logger.debug("Created index on news.url")
 
             cursor.execute('''
-                CREATE TABLE IF NOT EXISTS source_stats (
-                    source TEXT PRIMARY KEY,
-                    high INTEGER DEFAULT 0,
-                    medium INTEGER DEFAULT 0,
-                    low INTEGER DEFAULT 0,
-                    total_analyzed INTEGER DEFAULT 0
-                )
-            ''')
-            logger.debug("Created source_stats table")
-
-            cursor.execute('''
                 CREATE TABLE IF NOT EXISTS feedback (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL,
@@ -169,43 +130,11 @@ def initialize_database():
             logger.debug("Created feedback table")
 
             conn.commit()
-
-            # Populate with test data if empty
-            cursor.execute("SELECT COUNT(*) FROM source_stats")
-            if cursor.fetchone()[0] == 0:
-                populate_test_data(conn)
-                logger.debug("Populated database with test data")
-
             logger.info("Database initialized successfully")
             return True
     except Exception as e:
         logger.error(f"Error initializing database: {str(e)}", exc_info=True)
         return False
-
-def populate_test_data(conn):
-    """Populate database with test data"""
-    try:
-        logger.debug("Populating database with test data")
-        cursor = conn.cursor()
-        test_sources = [
-            ('bbc.com', 45, 10, 5), ('reuters.com', 50, 5, 2),
-            ('foxnews.com', 15, 20, 30), ('cnn.com', 30, 25, 10),
-            ('nytimes.com', 35, 15, 5)
-        ]
-
-        for source, high, medium, low in test_sources:
-            total = high + medium + low
-            cursor.execute('''
-                INSERT INTO source_stats (source, high, medium, low, total_analyzed)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (source, high, medium, low, total))
-            logger.debug(f"Added test data for source: {source}")
-
-        conn.commit()
-        logger.info("Test data added to database successfully")
-    except Exception as e:
-        logger.error(f"Error populating test data: {str(e)}", exc_info=True)
-        raise
 
 def check_claude_connection():
     """Check connection to Claude API"""
@@ -242,11 +171,11 @@ def add_security_headers(response):
     logger.debug("Adding security headers to response")
     response.headers['Content-Security-Policy'] = (
         "default-src 'self'; "
-        "script-src 'self' https://cdn.jsdelivr.net https://cdn.plot.ly 'unsafe-inline' 'unsafe-eval'; "
-        "style-src 'self' https://cdn.jsdelivr.net https://cdn.plot.ly https://fonts.googleapis.com 'unsafe-inline'; "
+        "script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline' 'unsafe-eval'; "
+        "style-src 'self' https://cdn.jsdelivr.net https://fonts.googleapis.com 'unsafe-inline'; "
         "img-src 'self' data: https://cdn.jsdelivr.net; "
         "font-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com; "
-        "connect-src 'self' https://cdn.jsdelivr.net https://cdn.plot.ly; "
+        "connect-src 'self' https://cdn.jsdelivr.net; "
         "frame-src 'self'; "
         "object-src 'none'; "
         "base-uri 'self'; "
@@ -270,17 +199,9 @@ def index():
     logger.info("Rendering index page")
     return render_template('index.html')
 
-@app.route('/health', methods=['GET', 'OPTIONS'])
+@app.route('/health')
 def health_check():
     """Health check endpoint"""
-    if request.method == 'OPTIONS':
-        response = make_response()
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Accept'
-        response.headers['Access-Control-Max-Age'] = '3600'
-        return response
-
     logger.info("Processing health check request")
     claude_status = "connected" if check_claude_connection() else "disconnected"
     db_status = "connected" if initialize_database() else "disconnected"
@@ -291,30 +212,21 @@ def health_check():
         'database': db_status,
         'claude_api': claude_status,
         'api_keys': {
-            'anthropic': 'configured' if ANTHROPIC_API_KEY and ANTHROPIC_API_KEY != 'mock-key' else 'not_configured',
-            'news_api': 'configured' if NEWS_API_ENABLED else 'not_configured'
+            'anthropic': 'configured' if ANTHROPIC_API_KEY and ANTHROPIC_API_KEY != 'mock-key' else 'not_configured'
         }
     })
     logger.debug("Health check completed successfully")
     return response
 
-@app.route('/faq', methods=['GET'])
+@app.route('/faq')
 def faq():
     """FAQ page route"""
     logger.info("Rendering FAQ page")
     return render_template('faq.html')
 
-@app.route('/feedback', methods=['GET', 'POST', 'OPTIONS'])
+@app.route('/feedback', methods=['GET', 'POST'])
 def feedback():
     """Feedback page and form handler"""
-    if request.method == 'OPTIONS':
-        response = make_response()
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        response.headers['Access-Control-Allow-Methods'] = 'POST, GET, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Accept'
-        response.headers['Access-Control-Max-Age'] = '3600'
-        return response
-
     if request.method == 'POST':
         logger.info("Processing feedback submission")
         try:
@@ -350,190 +262,9 @@ def feedback():
     logger.info("Rendering feedback form")
     return render_template('feedback.html')
 
-def extract_text_from_url(url):
-    """Extract text from URL with improved error handling"""
-    logger.info(f"Attempting to extract content from URL: {url}")
-
-    try:
-        # Validate URL format
-        parsed = urlparse(url)
-        if not all([parsed.scheme, parsed.netloc]):
-            logger.error(f"Invalid URL format: {url}")
-            return None, None, None
-
-        # Normalize URL
-        clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
-
-        logger.debug(f"Processing URL: {clean_url}")
-
-        # Special handling for different domains
-        if 'reuters.com' in clean_url:
-            logger.debug("Using Reuters-specific extraction method")
-            return extract_reuters_article(clean_url)
-        elif 'bbc.com' in clean_url:
-            logger.debug("Using BBC-specific extraction method")
-            return extract_bbc_article(clean_url)
-        elif any(domain in clean_url for domain in ['nytimes.com', 'theguardian.com']):
-            logger.debug("Using NYTimes/Guardian-specific extraction method")
-            return extract_standard_article(clean_url, True)
-        else:
-            logger.debug("Using standard extraction method")
-            return extract_standard_article(clean_url)
-
-    except Exception as e:
-        logger.error(f"Unexpected error in extract_text_from_url: {str(e)}", exc_info=True)
-        return None, None, None
-
-def extract_reuters_article(url):
-    """Special extraction method for Reuters articles"""
-    try:
-        logger.debug(f"Attempting to extract Reuters article: {url}")
-
-        headers = {
-            'User-Agent': user_agent,
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Referer': 'https://www.google.com/',
-            'Connection': 'keep-alive'
-        }
-
-        logger.debug("Making request to Reuters")
-        response = requests.get(url, headers=headers, timeout=15)
-        response.raise_for_status()
-
-        logger.debug("Parsing Reuters page")
-        soup = BeautifulSoup(response.text, 'html.parser')
-
-        # Try to find article content
-        article_body = soup.find('div', {'class': 'ArticleBodyWrapper'})
-        if article_body:
-            title = soup.find('h1')
-            title = title.get_text(strip=True) if title else "No title"
-
-            content = article_body.get_text(separator=' ', strip=True)
-            if len(content) > 100:
-                domain = urlparse(url).netloc.replace('www.', '')
-                logger.info(f"Successfully extracted Reuters article: {title}")
-                return content, domain, title
-
-        logger.debug("Trying alternative extraction methods for Reuters")
-        return alternative_reuters_extraction(url)
-
-    except Exception as e:
-        logger.error(f"Error extracting Reuters article: {str(e)}", exc_info=True)
-        return None, None, None
-
-def alternative_reuters_extraction(url):
-    """Alternative extraction methods for Reuters"""
-    try:
-        logger.debug("Trying newspaper3k as fallback for Reuters")
-        config = Config()
-        config.browser_user_agent = user_agent
-        config.request_timeout = 30
-        config.memoize_articles = False
-        config.fetch_images = False
-        config.follow_meta_refresh = True
-        config.keep_article_html = True
-
-        article = Article(url, config=config)
-        article.download()
-        article.parse()
-
-        if article.text and len(article.text.strip()) > 100:
-            domain = urlparse(url).netloc.replace('www.', '')
-            title = article.title.strip() if article.title else "No title"
-            logger.info(f"Successfully extracted Reuters article via newspaper3k: {title}")
-            return article.text.strip(), domain, title
-
-        logger.warning("All extraction methods failed for Reuters article")
-        return None, None, None
-
-    except Exception as e:
-        logger.error(f"Alternative Reuters extraction failed: {str(e)}", exc_info=True)
-        return None, None, None
-
-def extract_bbc_article(url):
-    """Special extraction method for BBC articles"""
-    try:
-        logger.debug(f"Attempting to extract BBC article: {url}")
-
-        headers = {
-            'User-Agent': user_agent,
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Referer': 'https://www.google.com/',
-            'Connection': 'keep-alive'
-        }
-
-        response = requests.get(url, headers=headers, timeout=15)
-        response.raise_for_status()
-
-        soup = BeautifulSoup(response.text, 'html.parser')
-
-        # Try to find article content
-        article_body = soup.find('div', {'class': 'ssrcss-1q0x1q5-VideoContainer'})
-        if not article_body:
-            article_body = soup.find('article')
-
-        if article_body:
-            title = soup.find('h1')
-            title = title.get_text(strip=True) if title else "No title"
-
-            content = article_body.get_text(separator=' ', strip=True)
-            if len(content) > 100:
-                domain = urlparse(url).netloc.replace('www.', '')
-                logger.info(f"Successfully extracted BBC article: {title}")
-                return content, domain, title
-
-        logger.warning("BBC article extraction failed")
-        return None, None, None
-
-    except Exception as e:
-        logger.error(f"Error extracting BBC article: {str(e)}", exc_info=True)
-        return None, None, None
-
-def extract_standard_article(url, is_premium=False):
-    """Standard article extraction for non-Reuters sites"""
-    try:
-        logger.debug(f"Attempting to extract standard article: {url}")
-
-        headers = {
-            'User-Agent': user_agent,
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Connection': 'keep-alive'
-        }
-
-        if is_premium:
-            headers['Referer'] = 'https://www.google.com/'
-
-        response = requests.get(url, headers=headers, timeout=15)
-        response.raise_for_status()
-
-        config = Config()
-        config.browser_user_agent = user_agent
-        config.request_timeout = 30
-
-        article = Article(url, config=config)
-        article.download()
-        article.parse()
-
-        if article.text and len(article.text.strip()) > 100:
-            domain = urlparse(url).netloc.replace('www.', '')
-            title = article.title.strip() if article.title else "No title"
-            logger.info(f"Successfully extracted standard article: {title}")
-            return article.text.strip(), domain, title
-
-        logger.warning("Standard article extraction failed")
-        return None, None, None
-
-    except Exception as e:
-        logger.error(f"Error in standard article extraction: {str(e)}", exc_info=True)
-        return None, None, None
-
 def analyze_with_claude(content, source):
-    """Analyze article text using Claude API with fallback to mock data"""
-    logger.info("Starting article analysis")
+    """Analyze article text using Claude API with full analysis and similar articles search"""
+    logger.info("Starting comprehensive article analysis with Claude")
 
     try:
         if not ANTHROPIC_API_KEY or ANTHROPIC_API_KEY == 'mock-key':
@@ -543,30 +274,56 @@ def analyze_with_claude(content, source):
         logger.debug("Creating Claude client")
         client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
-        max_chars = 10000
+        # Truncate content if too long
+        max_chars = 20000
         if len(content) > max_chars:
             content = content[:max_chars]
             logger.warning(f"Article content truncated to {max_chars} characters")
 
-        logger.debug("Preparing analysis prompt")
-        prompt = f"""
-        Analyze this news article for credibility, bias, and factual accuracy.
-        Return results in JSON format with these fields:
-        news_integrity (0.0-1.0), fact_check_needed_score (0.0-1.0),
-        sentiment_score (0.0-1.0), bias_score (0.0-1.0),
-        topics (list), key_arguments (list), mentioned_facts (list),
-        author_purpose (string), potential_biases_identified (list),
-        short_summary (string), index_of_credibility (0.0-1.0).
+        logger.debug("Preparing comprehensive analysis prompt")
 
-        Article: {content}
-        Source: {source}
+        # Current date for article search
+        current_date = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+
+        prompt = f"""
+        Perform a comprehensive analysis of this news article and find similar recent articles. Return results in JSON format with these sections:
+
+        1. Article Analysis:
+        - news_integrity (0.0-1.0)
+        - fact_check_needed_score (0.0-1.0)
+        - sentiment_score (0.0-1.0)
+        - bias_score (0.0-1.0)
+        - topics (list of key topics)
+        - key_arguments (list of main arguments)
+        - mentioned_facts (list of key facts)
+        - author_purpose (string)
+        - potential_biases_identified (list)
+        - short_summary (string)
+        - index_of_credibility (0.0-1.0)
+
+        2. Similar Articles:
+        - Find 3 recent articles (published within the last week) on similar topics
+        - For each article provide:
+          * title
+          * source
+          * url
+          * publication_date
+          * summary
+          * relevance_score (0.0-1.0)
+          * trust_score (0.0-1.0)
+
+        Current date: {current_date}
+        Article source: {source}
+
+        Article content:
+        {content}
         """
 
-        logger.debug("Sending request to Claude API")
+        logger.debug("Sending request to Claude API for comprehensive analysis")
         try:
             response = client.messages.create(
                 model=MODEL_NAME,
-                max_tokens=2000,
+                max_tokens=4000,
                 temperature=0.2,
                 messages=[{"role": "user", "content": prompt}]
             )
@@ -574,16 +331,24 @@ def analyze_with_claude(content, source):
             response_text = response.content[0].text
             logger.debug("Received response from Claude API")
 
+            # Try to extract JSON from response
             json_match = re.search(r'```json\s*(\{.*\})\s*```', response_text, re.DOTALL)
             if json_match:
                 logger.debug("Found JSON in response")
                 analysis = json.loads(json_match.group(1))
-                logger.info("Successfully parsed Claude API response")
+
+                # Validate the response structure
+                if not all(key in analysis for key in ['article_analysis', 'similar_articles']):
+                    raise ValueError("Invalid response structure from Claude API")
+
+                logger.info("Successfully parsed comprehensive analysis from Claude API")
                 return analysis
             else:
-                logger.debug("Trying to parse response as direct JSON")
+                # Try to parse as direct JSON if no code block found
                 try:
                     analysis = json.loads(response_text)
+                    if not all(key in analysis for key in ['article_analysis', 'similar_articles']):
+                        raise ValueError("Invalid response structure")
                     logger.info("Successfully parsed direct JSON response")
                     return analysis
                 except json.JSONDecodeError:
@@ -599,8 +364,8 @@ def analyze_with_claude(content, source):
         return generate_mock_analysis(source)
 
 def generate_mock_analysis(source):
-    """Generate mock analysis data"""
-    logger.debug("Generating mock analysis data")
+    """Generate mock analysis data with similar articles"""
+    logger.debug("Generating mock analysis data with similar articles")
 
     credibility_scores = {
         'bbc.com': 0.9,
@@ -611,25 +376,43 @@ def generate_mock_analysis(source):
     }
 
     base_score = credibility_scores.get(source, 0.7)
+
+    # Generate mock similar articles
+    mock_articles = [
+        {
+            "title": f"Sample Article {i+1} on Similar Topic",
+            "source": f"Example News {i+1}",
+            "url": f"https://example.com/article{i+1}",
+            "publication_date": datetime.now(timezone.utc).strftime('%Y-%m-%d'),
+            "summary": f"This is a sample article about a similar topic to demonstrate functionality.",
+            "relevance_score": 0.8 + (i * 0.05),
+            "trust_score": 0.7 + (i * 0.05)
+        }
+        for i in range(3)
+    ]
+
     mock_analysis = {
-        "news_integrity": base_score * 0.9 + 0.1,
-        "fact_check_needed_score": 1.0 - base_score * 0.8,
-        "sentiment_score": 0.5 + (0.1 if "positive" in source else -0.1),
-        "bias_score": 1.0 - base_score * 0.9,
-        "topics": ["news", "analysis", "sample", "demo"],
-        "key_arguments": [
-            "This is a sample analysis",
-            "Showing how the system works",
-            "Demonstrating functionality"
-        ],
-        "mentioned_facts": ["Sample fact 1", "Sample fact 2"],
-        "author_purpose": "To demonstrate the system functionality",
-        "potential_biases_identified": ["Sample bias detection"],
-        "short_summary": "This is a sample analysis demonstrating how the system would analyze a real article.",
-        "index_of_credibility": base_score * 0.9
+        "article_analysis": {
+            "news_integrity": base_score * 0.9 + 0.1,
+            "fact_check_needed_score": 1.0 - base_score * 0.8,
+            "sentiment_score": 0.5 + (0.1 if "positive" in source else -0.1),
+            "bias_score": 1.0 - base_score * 0.9,
+            "topics": ["news", "analysis", "sample", "demo"],
+            "key_arguments": [
+                "This is a sample analysis",
+                "Showing how the system works",
+                "Demonstrating functionality"
+            ],
+            "mentioned_facts": ["Sample fact 1", "Sample fact 2"],
+            "author_purpose": "To demonstrate the system functionality",
+            "potential_biases_identified": ["Sample bias detection"],
+            "short_summary": "This is a sample analysis demonstrating how the system would analyze a real article.",
+            "index_of_credibility": base_score * 0.9
+        },
+        "similar_articles": mock_articles
     }
 
-    logger.debug("Generated mock analysis data successfully")
+    logger.debug("Generated mock analysis data with similar articles successfully")
     return mock_analysis
 
 def calculate_credibility(integrity, fact_check, sentiment, bias):
@@ -659,12 +442,13 @@ def save_analysis(url, title, source, content, analysis):
         with get_db_connection() as conn:
             cursor = conn.cursor()
 
-            integrity = analysis.get('news_integrity', 0.5)
-            fact_check = analysis.get('fact_check_needed_score', 0.5)
-            sentiment = analysis.get('sentiment_score', 0.5)
-            bias = analysis.get('bias_score', 0.5)
-            summary = analysis.get('short_summary', 'No summary available')
-            credibility = analysis.get('index_of_credibility', 0.5)
+            article_analysis = analysis.get('article_analysis', {})
+            integrity = article_analysis.get('news_integrity', 0.5)
+            fact_check = article_analysis.get('fact_check_needed_score', 0.5)
+            sentiment = article_analysis.get('sentiment_score', 0.5)
+            bias = article_analysis.get('bias_score', 0.5)
+            summary = article_analysis.get('short_summary', 'No summary available')
+            credibility = article_analysis.get('index_of_credibility', 0.5)
             level = calculate_credibility(integrity, fact_check, sentiment, bias)
 
             db_url = url if url and url.startswith(('http://', 'https://')) else f'text_{datetime.now(timezone.utc).timestamp()}'
@@ -716,236 +500,117 @@ def save_analysis(url, title, source, content, analysis):
         logger.error(f"Unexpected error in save_analysis: {str(e)}", exc_info=True)
         return 'Medium'
 
-def generate_query_from_analysis(analysis_result):
-    """Generate search query from analysis results"""
-    logger.debug("Generating search query from analysis results")
-
-    topics = analysis_result.get('topics', [])
-    key_arguments = analysis_result.get('key_arguments', [])
-
-    terms = []
-    for phrase in topics + key_arguments:
-        if not phrase or not isinstance(phrase, str):
-            continue
-        if ' ' in phrase and len(phrase.split()) > 1:
-            terms.append(f'"{phrase}"')
-        else:
-            terms.append(phrase)
-
-    unique_terms = list(set(terms))
-    filtered_terms = [t for t in unique_terms if t.lower() not in stop_words_en]
-
-    if len(filtered_terms) > 3:
-        query = ' AND '.join(filtered_terms[:5])
-    elif filtered_terms:
-        query = ' OR '.join(filtered_terms)
-    else:
-        query = 'news OR current events'
-
-    logger.debug(f"Generated search query: {query}")
-    return query
-
-def fetch_same_topic_articles(analysis_result, page=1, per_page=3):
-    """Fetch similar articles using News API with fallback to mock data"""
-    logger.debug("Fetching similar articles")
-
-    try:
-        if not NEWS_API_ENABLED:
-            logger.info("News API not enabled, returning mock data")
-            return generate_mock_articles(per_page)
-
-        query = generate_query_from_analysis(analysis_result)
-        end_date = datetime.now(timezone.utc).date()
-        start_date = end_date - timedelta(days=7)
-
-        params = {
-            'q': query,
-            'apiKey': NEWS_API_KEY,
-            'language': 'en',
-            'pageSize': per_page,
-            'page': page,
-            'sortBy': 'relevancy',
-            'from': start_date.strftime('%Y-%m-%d'),
-            'to': end_date.strftime('%Y-%m-%d')
-        }
-
-        if TRUSTED_NEWS_SOURCES_IDS:
-            params['sources'] = ','.join(TRUSTED_NEWS_SOURCES_IDS)
-
-        try:
-            logger.debug(f"Making request to News API with query: {query}")
-            response = requests.get(
-                'https://newsapi.org/v2/everything',
-                params=params,
-                timeout=15
-            )
-            response.raise_for_status()
-            articles = response.json().get('articles', [])
-
-            if not articles and query != 'news OR current events':
-                broader_query = ' OR '.join([f'"{term}"' if ' ' in term else term
-                                          for term in analysis_result.get('topics', [])[:3]
-                                          if term and term not in stop_words_en])
-                if not broader_query:
-                    broader_query = 'news OR current events'
-
-                params['q'] = broader_query
-                response = requests.get(
-                    'https://newsapi.org/v2/everything',
-                    params=params,
-                    timeout=15
-                )
-                response.raise_for_status()
-                articles.extend(response.json().get('articles', []))
-
-            # Filter and rank articles
-            unique_articles = {}
-            for article in articles:
-                if article.get('url'):
-                    unique_articles[article['url']] = article
-
-            articles = list(unique_articles.values())
-            all_query_terms = query.split()
-            ranked_articles = []
-
-            for article in articles:
-                source_domain = urlparse(article.get('url', '')).netloc.replace('www.', '')
-                trust_score = predefined_trust_scores.get(source_domain, 0.5)
-
-                article_text = (article.get('title', '') + ' ' + article.get('description', '')).lower()
-                relevance_score = sum(1 for term in all_query_terms if term.lower() in article_text)
-                final_score = (relevance_score * 10) + (trust_score * 5)
-                ranked_articles.append((article, final_score))
-
-            ranked_articles.sort(key=lambda x: x[1], reverse=True)
-            logger.debug(f"Found {len(ranked_articles)} similar articles")
-            return [article for article, score in ranked_articles[:per_page]]
-
-        except requests.RequestException as e:
-            logger.error(f"News API request failed: {str(e)}", exc_info=True)
-            return generate_mock_articles(per_page)
-
-    except Exception as e:
-        logger.error(f"Error fetching similar articles: {str(e)}", exc_info=True)
-        return generate_mock_articles(per_page)
-
-def generate_mock_articles(count):
-    """Generate mock articles for when API is not available"""
-    logger.debug(f"Generating {count} mock articles")
-
-    mock_articles = [
-        {
-            'title': f"Sample Article {i+1} on Similar Topic",
-            'url': f"https://example.com/article{i+1}",
-            'source': {'name': f"Example News {i+1}"},
-            'publishedAt': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
-            'description': f"This is a sample article about a similar topic to demonstrate functionality.",
-            'trust_score': 0.7 + (i * 0.05)
-        }
-        for i in range(count)
-    ]
-
-    logger.debug("Generated mock articles successfully")
-    return mock_articles
-
-def render_same_topic_articles_html(articles):
-    """Render HTML for similar articles with show more button"""
-    logger.debug("Rendering similar articles HTML")
-
-    if not articles:
-        logger.debug("No articles to render")
-        return '<div class="alert alert-info">No similar articles found.</div>'
-
-    html_items = []
-    for art in articles:
-        title = html.escape(art.get('title', 'No Title'))
-        article_url = html.escape(art.get('url', '#'))
-        source_name = html.escape(art.get('source', {}).get('name', 'Unknown Source'))
-        published_at = html.escape(art.get('publishedAt', 'N/A').split('T')[0])
-        description = html.escape(art.get('description', 'No description available.'))
-        trust_score = art.get('trust_score', 0.7)
-        trust_percent = int(trust_score * 100)
-
-        trust_color = "success" if trust_score > 0.7 else "warning" if trust_score > 0.4 else "danger"
-
-        try:
-            date_obj = datetime.strptime(published_at, '%Y-%m-%d')
-            formatted_date = date_obj.strftime('%B %d, %Y')
-        except:
-            formatted_date = published_at
-
-        html_items.append(f'''
-        <div class="similar-article mb-4">
-            <div class="d-flex flex-column flex-md-row gap-3">
-                <div class="flex-shrink-0">
-                    <div class="trust-indicator text-center p-2 bg-light rounded">
-                        <div class="h5 mb-1">{trust_percent}%</div>
-                        <div class="small text-muted">Trust</div>
-                        <div class="progress mt-2" style="height: 5px;">
-                            <div class="progress-bar bg-{trust_color}"
-                                 role="progressbar"
-                                 style="width: {trust_percent}%"
-                                 aria-valuenow="{trust_percent}"
-                                 aria-valuemin="0"
-                                 aria-valuemax="100">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="flex-grow-1">
-                    <h4 class="article-title mb-2">
-                        <a href="{article_url}" target="_blank" class="text-decoration-none">{title}</a>
-                    </h4>
-                    <div class="article-meta mb-2">
-                        <span class="article-source fw-bold me-2">{source_name}</span>
-                        <span class="article-date text-muted me-2"><i class="bi bi-calendar me-1"></i>{formatted_date}</span>
-                    </div>
-                    <p class="article-description mb-0">{description}</p>
-                </div>
-            </div>
-        </div>
-        ''')
-
-    logger.debug(f"Rendered HTML for {len(html_items)} articles")
-    return ''.join(html_items)
-
 def format_analysis_results(title, source, analysis, credibility):
-    """Format analysis results for display with all sections"""
-    logger.debug("Formatting analysis results")
+    """Format analysis results with similar articles section"""
+    logger.debug("Formatting analysis results with similar articles")
 
     try:
-        integrity = analysis.get('news_integrity', 0.5)
-        fact_check = analysis.get('fact_check_needed_score', 0.5)
-        sentiment = analysis.get('sentiment_score', 0.5)
-        bias = analysis.get('bias_score', 0.5)
-        summary = html.escape(analysis.get('short_summary', 'No summary available'))
-        topics = [html.escape(str(t)) for t in analysis.get('topics', [])]
-        key_args = [html.escape(str(a)) for a in analysis.get('key_arguments', [])]
-        biases = [html.escape(str(b)) for b in analysis.get('potential_biases_identified', [])]
+        # Extract article analysis data
+        article_analysis = analysis.get('article_analysis', {})
+        integrity = article_analysis.get('news_integrity', 0.5)
+        fact_check = article_analysis.get('fact_check_needed_score', 0.5)
+        sentiment = article_analysis.get('sentiment_score', 0.5)
+        bias = article_analysis.get('bias_score', 0.5)
+        summary = html.escape(article_analysis.get('short_summary', 'No summary available'))
+        topics = [html.escape(str(t)) for t in article_analysis.get('topics', [])]
+        key_args = [html.escape(str(a)) for a in article_analysis.get('key_arguments', [])]
+        biases = [html.escape(str(b)) for b in article_analysis.get('potential_biases_identified', [])]
 
+        # Create topic badges
         topic_badges = ' '.join(
             f'<span class="badge bg-primary me-1 mb-1">{topic}</span>'
             for topic in topics
         )
 
+        # Create key arguments list
         key_args_list = ''.join(
             f'<li class="mb-2"><i class="bi bi-check-circle-fill text-primary me-2"></i>{arg}</li>'
             for arg in key_args
         )
 
+        # Create biases list
         biases_list = ''.join(
             f'<li class="mb-2"><i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>{bias}</li>'
             for bias in biases
         )
 
+        # Create score indicators
         integrity_indicator = create_score_indicator(integrity, "News Integrity")
         fact_check_indicator = create_score_indicator(1 - fact_check, "Fact Check Score")
         sentiment_indicator = create_score_indicator(sentiment, "Sentiment")
         bias_indicator = create_score_indicator(1 - bias, "Bias Score")
 
-        credibility_gauge = create_credibility_gauge(analysis.get('index_of_credibility', 0.5))
+        # Create credibility gauge
+        credibility_gauge = create_credibility_gauge(article_analysis.get('index_of_credibility', 0.5))
 
-        logger.debug("Successfully formatted analysis results")
+        # Format similar articles
+        similar_articles = analysis.get('similar_articles', [])
+        similar_articles_html = ''
+
+        if similar_articles:
+            similar_articles_html = '<div class="similar-articles-section mt-5">'
+            similar_articles_html += '<h3 class="section-title mb-4">Similar Recent Articles</h3>'
+            similar_articles_html += '<div class="row g-4">'
+
+            for article in similar_articles:
+                title = html.escape(article.get('title', 'No Title'))
+                source = html.escape(article.get('source', 'Unknown Source'))
+                url = html.escape(article.get('url', '#'))
+                date = html.escape(article.get('publication_date', 'N/A'))
+                summary = html.escape(article.get('summary', 'No summary available'))
+                relevance = int(article.get('relevance_score', 0.7) * 100)
+                trust = int(article.get('trust_score', 0.7) * 100)
+
+                # Determine color classes based on scores
+                relevance_color = "success" if relevance > 70 else "warning" if relevance > 40 else "danger"
+                trust_color = "success" if trust > 70 else "warning" if trust > 40 else "danger"
+
+                similar_articles_html += f'''
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="badge bg-secondary">{source}</span>
+                                <span class="badge bg-light text-dark">{date}</span>
+                            </div>
+                            <h5 class="card-title">{title}</h5>
+                            <p class="card-text">{summary}</p>
+                        </div>
+                        <div class="card-footer bg-transparent">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <small class="text-muted">Relevance</small>
+                                    <div class="progress mt-1" style="height: 5px;">
+                                        <div class="progress-bar bg-{relevance_color}"
+                                             role="progressbar"
+                                             style="width: {relevance}%"
+                                             aria-valuenow="{relevance}"
+                                             aria-valuemin="0"
+                                             aria-valuemax="100">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <small class="text-muted">Trust</small>
+                                    <div class="progress mt-1" style="height: 5px;">
+                                        <div class="progress-bar bg-{trust_color}"
+                                             role="progressbar"
+                                             style="width: {trust}%"
+                                             aria-valuenow="{trust}"
+                                             aria-valuemin="0"
+                                             aria-valuemax="100">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <a href="{url}" target="_blank" class="btn btn-primary btn-sm mt-2 w-100">Read Article</a>
+                        </div>
+                    </div>
+                </div>
+                '''
+            similar_articles_html += '</div></div>'
+
+        logger.debug("Successfully formatted analysis results with similar articles")
         return {
             'title': title,
             'source': source,
@@ -1013,6 +678,8 @@ def format_analysis_results(title, source, analysis, credibility):
                         </div>
                     </div>
                 </div>
+
+                {similar_articles_html}
             </div>
             """
         }
@@ -1107,42 +774,6 @@ def create_credibility_gauge(score: float) -> str:
     </div>
     """
 
-def get_source_credibility_data():
-    """Get source credibility data for chart"""
-    try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT source, AVG(index_of_credibility) as avg_credibility FROM news GROUP BY source")
-            results = cursor.fetchall()
-
-            sources = []
-            scores = []
-
-            # Add predefined sources first
-            for source, score in predefined_trust_scores.items():
-                sources.append(source)
-                scores.append(score)
-
-            # Add analyzed sources
-            for row in results:
-                source = row['source']
-                score = row['avg_credibility']
-                if source not in sources:
-                    sources.append(source)
-                    scores.append(score)
-
-            return {
-                'sources': sources,
-                'credibility_scores': scores
-            }
-    except Exception as e:
-        logger.error(f"Error getting source credibility data: {str(e)}", exc_info=True)
-        # Return mock data if there's an error
-        return {
-            'sources': list(predefined_trust_scores.keys()),
-            'credibility_scores': list(predefined_trust_scores.values())
-        }
-
 @app.route('/analyze', methods=['POST', 'OPTIONS'])
 def analyze():
     """Analyze article endpoint with comprehensive error handling"""
@@ -1204,52 +835,20 @@ def analyze():
 
         logger.info(f"Processing input of length: {len(input_text)} characters")
 
-        # Process article - either URL or direct text
-        if input_text.startswith(('http://', 'https://')):
-            logger.info(f"Processing URL input: {input_text[:100]}...")
-            content, source, title = extract_text_from_url(input_text)
-            if not content:
-                if 'reuters.com' in input_text.lower():
-                    logger.warning("Failed to extract Reuters article")
-                    return jsonify({
-                        'error': 'Could not extract article content from Reuters',
-                        'status': 400,
-                        'details': 'Reuters actively blocks automated requests. Please try:',
-                        'suggestions': [
-                            'Open the URL in a browser and copy the text manually',
-                            'Use a different news source',
-                            'Try accessing the article through Google Cache by prefixing the URL with "cache:"',
-                            'Try using the Wayback Machine to access an archived version'
-                        ],
-                        'request_id': str(uuid.uuid4())
-                    }), 400
+        # Process direct text input
+        logger.info("Processing direct text input")
+        if len(input_text) < 100:
+            logger.warning(f"Input text too short: {len(input_text)} characters")
+            return jsonify({
+                'error': 'Content too short',
+                'status': 400,
+                'details': f'Minimum 100 characters required, got {len(input_text)}',
+                'request_id': str(uuid.uuid4())
+            }), 400
 
-                logger.warning("Failed to extract article content")
-                return jsonify({
-                    'error': 'Could not extract article content',
-                    'status': 400,
-                    'details': 'Failed to download or parse the article from the provided URL',
-                    'suggestions': [
-                        'Check if the URL is correct and accessible',
-                        'Try a different URL',
-                        'Make sure the website allows scraping',
-                        'Alternatively, paste the article text directly'
-                    ],
-                    'request_id': str(uuid.uuid4())
-                }), 400
-        else:
-            logger.info("Processing direct text input")
-            if len(input_text) < 100:
-                logger.warning(f"Input text too short: {len(input_text)} characters")
-                return jsonify({
-                    'error': 'Content too short',
-                    'status': 400,
-                    'details': f'Minimum 100 characters required, got {len(input_text)}',
-                    'request_id': str(uuid.uuid4())
-                }), 400
-            content = input_text
-            title = 'User-provided Text'
-            source = source_name
+        content = input_text
+        title = 'User-provided Text'
+        source = source_name
 
         logger.info(f"Successfully extracted content. Length: {len(content)} characters")
 
@@ -1263,21 +862,9 @@ def analyze():
         # Save analysis to database
         logger.info("Saving analysis to database")
         save_start_time = time.time()
-        credibility = save_analysis(
-            input_text if input_text.startswith(('http://', 'https://')) else None,
-            title, source, content, analysis
-        )
+        credibility = save_analysis(None, title, source, content, analysis)
         save_duration = time.time() - save_start_time
         logger.info(f"Saved analysis to database in {save_duration:.2f} seconds")
-
-        # Get similar articles
-        logger.info("Fetching similar articles")
-        similar_articles = fetch_same_topic_articles(analysis)
-        similar_articles_html = render_same_topic_articles_html(similar_articles)
-        logger.info(f"Found {len(similar_articles)} similar articles")
-
-        # Get source credibility data
-        source_credibility_data = get_source_credibility_data()
 
         # Format response
         logger.info("Preparing response data")
@@ -1288,15 +875,6 @@ def analyze():
             'title': title,
             'source': source,
             'output': format_analysis_results(title, source, analysis, credibility),
-            'similar_articles': similar_articles_html,
-            'source_credibility_data': source_credibility_data,
-            'scores_for_chart': {
-                'news_integrity': analysis.get('news_integrity', 0.5),
-                'fact_check_needed_score': analysis.get('fact_check_needed_score', 0.5),
-                'sentiment_score': analysis.get('sentiment_score', 0.5),
-                'bias_score': analysis.get('bias_score', 0.5),
-                'index_of_credibility': analysis.get('index_of_credibility', 0.5)
-            },
             'request_id': str(uuid.uuid4()),
             'processing_time': f"{analysis_duration:.2f} seconds"
         }
@@ -1332,4 +910,5 @@ if __name__ == '__main__':
     # Start the application
     logger.info("Starting Flask application")
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+
 
