@@ -95,6 +95,38 @@ def initialize_database():
                 )
             ''')
 
+            # Create tables for daily buzz and voting
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS daily_buzz (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    article_id INTEGER,
+                    date DATE UNIQUE,
+                    FOREIGN KEY (article_id) REFERENCES news (id)
+                )
+            ''')
+
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS article_votes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    article_id INTEGER,
+                    user_id TEXT,
+                    vote_type TEXT CHECK(vote_type IN ('upvote', 'downvote')),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (article_id) REFERENCES news (id)
+                )
+            ''')
+
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS credibility_votes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    article_id INTEGER,
+                    user_id TEXT,
+                    credibility_rating INTEGER CHECK(credibility_rating BETWEEN 1 AND 5),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (article_id) REFERENCES news (id)
+                )
+            ''')
+
             conn.commit()
 
             # Populate with test data only if tables are empty
@@ -272,6 +304,156 @@ def get_analysis_history():
         logger.error(f"Error getting analysis history: {str(e)}")
         return []
 
+def get_daily_buzz():
+    """Get the daily buzz article"""
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+
+            # Get today's date
+            today = datetime.now(timezone.utc).date().strftime('%Y-%m-%d')
+
+            # Try to get today's buzz article
+            cursor.execute('''
+                SELECT n.*
+                FROM news n
+                JOIN daily_buzz d ON n.id = d.article_id
+                WHERE d.date = ?
+            ''', (today,))
+            article = cursor.fetchone()
+
+            # If no article is selected for today, pick one about Israel-Iran conflict
+            if not article:
+                cursor.execute('''
+                    SELECT id FROM news
+                    WHERE content LIKE '%Israel%' OR content LIKE '%Iran%'
+                    ORDER BY RANDOM()
+                    LIMIT 1
+                ''')
+                conflict_article = cursor.fetchone()
+                if conflict_article:
+                    cursor.execute('''
+                        INSERT INTO daily_buzz (article_id, date)
+                        VALUES (?, ?)
+                    ''', (conflict_article['id'], today))
+                    conn.commit()
+
+                    # Get the full article data
+                    cursor.execute('SELECT * FROM news WHERE id = ?', (conflict_article['id'],))
+                    article = cursor.fetchone()
+
+            return article
+    except Exception as e:
+        logger.error(f"Error getting daily buzz: {str(e)}")
+        return None
+
+def get_article_votes(article_id):
+    """Get votes for an article"""
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+
+            # Get upvotes and downvotes
+            cursor.execute('''
+                SELECT
+                    SUM(CASE WHEN vote_type = 'upvote' THEN 1 ELSE 0 END) as upvotes,
+                    SUM(CASE WHEN vote_type = 'downvote' THEN 1 ELSE 0 END) as downvotes
+                FROM article_votes
+                WHERE article_id = ?
+            ''', (article_id,))
+            votes = cursor.fetchone()
+
+            # Get credibility ratings
+            cursor.execute('''
+                SELECT
+                    AVG(credibility_rating) as avg_rating,
+                    COUNT(*) as rating_count
+                FROM credibility_votes
+                WHERE article_id = ?
+            ''', (article_id,))
+            credibility = cursor.fetchone()
+
+            return {
+                'upvotes': votes['upvotes'] if votes else 0,
+                'downvotes': votes['downvotes'] if votes else 0,
+                'avg_rating': credibility['avg_rating'] if credibility else 0,
+                'rating_count': credibility['rating_count'] if credibility else 0
+            }
+    except Exception as e:
+        logger.error(f"Error getting article votes: {str(e)}")
+        return {
+            'upvotes': 0,
+            'downvotes': 0,
+            'avg_rating': 0,
+            'rating_count': 0
+        }
+
+def vote_for_article(article_id, user_id, vote_type):
+    """Vote for an article"""
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+
+            # Check if user already voted
+            cursor.execute('''
+                SELECT id FROM article_votes
+                WHERE article_id = ? AND user_id = ?
+            ''', (article_id, user_id))
+            existing_vote = cursor.fetchone()
+
+            if existing_vote:
+                # Update existing vote
+                cursor.execute('''
+                    UPDATE article_votes
+                    SET vote_type = ?, created_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                ''', (vote_type, existing_vote['id']))
+            else:
+                # Add new vote
+                cursor.execute('''
+                    INSERT INTO article_votes (article_id, user_id, vote_type)
+                    VALUES (?, ?, ?)
+                ''', (article_id, user_id, vote_type))
+
+            conn.commit()
+            return True
+    except Exception as e:
+        logger.error(f"Error voting for article: {str(e)}")
+        return False
+
+def rate_credibility(article_id, user_id, rating):
+    """Rate article credibility"""
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+
+            # Check if user already rated
+            cursor.execute('''
+                SELECT id FROM credibility_votes
+                WHERE article_id = ? AND user_id = ?
+            ''', (article_id, user_id))
+            existing_rating = cursor.fetchone()
+
+            if existing_rating:
+                # Update existing rating
+                cursor.execute('''
+                    UPDATE credibility_votes
+                    SET credibility_rating = ?, created_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                ''', (rating, existing_rating['id']))
+            else:
+                # Add new rating
+                cursor.execute('''
+                    INSERT INTO credibility_votes (article_id, user_id, credibility_rating)
+                    VALUES (?, ?, ?)
+                ''', (article_id, user_id, rating))
+
+            conn.commit()
+            return True
+    except Exception as e:
+        logger.error(f"Error rating article credibility: {str(e)}")
+        return False
+
 # Initialize database
 initialize_database()
 
@@ -350,6 +532,21 @@ def faq():
     """FAQ page"""
     return render_template('faq.html')
 
+@app.route('/privacy')
+def privacy():
+    """Privacy Policy page"""
+    return render_template('privacy.html')
+
+@app.route('/terms')
+def terms():
+    """Terms of Service page"""
+    return render_template('terms.html')
+
+@app.route('/contact')
+def contact():
+    """Contact Us page"""
+    return render_template('contact.html')
+
 @app.route('/feedback', methods=['GET', 'POST'])
 def feedback():
     """Feedback page and form handler"""
@@ -380,6 +577,128 @@ def feedback():
             return render_template('feedback.html', error="Error saving feedback")
 
     return render_template('feedback.html')
+
+@app.route('/daily-buzz', methods=['GET'])
+def daily_buzz():
+    """Get the daily buzz article with voting information"""
+    try:
+        article = get_daily_buzz()
+        if not article:
+            return jsonify({
+                'status': 'error',
+                'message': 'No daily buzz article available'
+            }), 404
+
+        votes = get_article_votes(article['id'])
+
+        response_data = {
+            'status': 'success',
+            'article': {
+                'id': article['id'],
+                'title': article['title'],
+                'source': article['source'],
+                'url': article['url'],
+                'short_summary': article['short_summary'],
+                'credibility_level': article['credibility_level'],
+                'analysis_date': article['analysis_date']
+            },
+            'votes': votes
+        }
+
+        return jsonify(response_data)
+
+    except Exception as e:
+        logger.error(f"Error in daily_buzz endpoint: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': 'An error occurred while fetching daily buzz'
+        }), 500
+
+@app.route('/vote', methods=['POST'])
+def vote():
+    """Vote for an article"""
+    try:
+        data = request.get_json()
+        article_id = data.get('article_id')
+        user_id = data.get('user_id')
+        vote_type = data.get('vote_type')
+
+        if not all([article_id, user_id, vote_type]):
+            return jsonify({
+                'status': 'error',
+                'message': 'Missing required parameters'
+            }), 400
+
+        if vote_type not in ['upvote', 'downvote']:
+            return jsonify({
+                'status': 'error',
+                'message': 'Invalid vote type'
+            }), 400
+
+        success = vote_for_article(article_id, user_id, vote_type)
+
+        if success:
+            votes = get_article_votes(article_id)
+            return jsonify({
+                'status': 'success',
+                'message': 'Vote recorded successfully',
+                'votes': votes
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': 'Failed to record vote'
+            }), 500
+
+    except Exception as e:
+        logger.error(f"Error in vote endpoint: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': 'An error occurred while processing vote'
+        }), 500
+
+@app.route('/rate-credibility', methods=['POST'])
+def rate_credibility_endpoint():
+    """Rate article credibility"""
+    try:
+        data = request.get_json()
+        article_id = data.get('article_id')
+        user_id = data.get('user_id')
+        rating = data.get('rating')
+
+        if not all([article_id, user_id, rating]):
+            return jsonify({
+                'status': 'error',
+                'message': 'Missing required parameters'
+            }), 400
+
+        if not isinstance(rating, int) or rating < 1 or rating > 5:
+            return jsonify({
+                'status': 'error',
+                'message': 'Rating must be an integer between 1 and 5'
+            }), 400
+
+        success = rate_credibility(article_id, user_id, rating)
+
+        if success:
+            votes = get_article_votes(article_id)
+            return jsonify({
+                'status': 'success',
+                'message': 'Rating recorded successfully',
+                'votes': votes
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': 'Failed to record rating'
+            }), 500
+
+    except Exception as e:
+        logger.error(f"Error in rate_credibility endpoint: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': 'An error occurred while processing rating'
+        }), 500
 
 @app.route('/source-credibility-chart', methods=['GET'])
 def source_credibility_chart():
@@ -551,13 +870,6 @@ def analyze():
             'credibility': credibility,
             'title': title,
             'source': source,
-            'scores_for_chart': {
-                'Integrity': analysis.get('news_integrity', 0.0),
-                'Factuality': 1 - analysis.get('fact_check_needed_score', 1.0),
-                'Sentiment': analysis.get('sentiment_score', 0.5),
-                'Bias': 1 - analysis.get('bias_score', 1.0),
-                'Overall Credibility Index': analysis.get('index_of_credibility', 0.0)
-            },
             'source_credibility_data': source_credibility_data,
             'analysis_history': analysis_history,
             'same_topic_html': same_topic_html,
@@ -907,13 +1219,6 @@ def format_analysis_results(title, source, analysis, credibility):
             'source': source,
             'credibility': credibility,
             'analysis': analysis,
-            'scores': {
-                'Integrity': analysis.get('news_integrity', 0.0),
-                'Factuality': 1 - analysis.get('fact_check_needed_score', 1.0),
-                'Sentiment': analysis.get('sentiment_score', 0.5),
-                'Bias': 1 - analysis.get('bias_score', 1.0),
-                'Overall Credibility Index': analysis.get('index_of_credibility', 0.0)
-            },
             'output_md': f"""
             <div class="analysis-section">
                 <h2>Article Information</h2>
@@ -998,3 +1303,4 @@ def format_analysis_results(title, source, analysis, credibility):
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+
