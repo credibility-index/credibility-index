@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Media Credibility Analysis Tool">
-    <title>Media Credibility Index</title>
+    <title>Media Credibility Index - Israel-Iran Conflict Analysis</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <style>
         :root {
@@ -15,6 +15,8 @@
             --border-radius: 8px;
             --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             --transition: all 0.3s ease;
+            --spacing-unit: 1.5rem;
+            --max-width: 1200px;
         }
 
         * {
@@ -31,7 +33,7 @@
         }
 
         .container {
-            max-width: 1200px;
+            max-width: var(--max-width);
             margin: 0 auto;
             padding: 0 1rem;
         }
@@ -71,8 +73,8 @@
         .navbar-link {
             color: var(--text-color);
             font-weight: 500;
-            transition: var(--transition);
             text-decoration: none;
+            transition: var(--transition);
         }
 
         .navbar-link:hover {
@@ -107,10 +109,17 @@
 
         .voting-section {
             display: flex;
-            justify-content: space-between;
+            flex-direction: column;
+            gap: 1rem;
             margin-top: 1.5rem;
             padding-top: 1rem;
             border-top: 1px solid var(--border-color);
+        }
+
+        .vote-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 1rem;
         }
 
         .vote-btn {
@@ -122,20 +131,47 @@
             border: 1px solid var(--border-color);
             background-color: white;
             cursor: pointer;
+            transition: var(--transition);
         }
 
         .vote-btn:hover {
             background-color: #f1f5f9;
         }
 
+        .vote-btn.active {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .vote-btn.upvote.active {
+            background-color: #10b981;
+        }
+
+        .vote-btn.downvote.active {
+            background-color: #ef4444;
+        }
+
         .rating-stars {
             display: flex;
-            gap: 0.25rem;
+            gap: 0.5rem;
+            justify-content: center;
+            margin: 1rem 0;
+        }
+
+        .star {
+            font-size: 1.5rem;
+            color: var(--border-color);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .star:hover, .star.active {
+            color: #f59e0b;
         }
 
         /* Analysis Form */
         .analysis-form {
-            flex: 2;
+            flex: 1;
             background-color: white;
             border-radius: var(--border-radius);
             box-shadow: var(--box-shadow);
@@ -158,6 +194,8 @@
             border: 1px solid var(--border-color);
             border-radius: 4px;
             font-size: 1rem;
+            resize: vertical;
+            min-height: 150px;
         }
 
         .btn {
@@ -169,13 +207,82 @@
             border-radius: 4px;
             font-weight: 500;
             cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .btn:hover {
+            background-color: #1d4ed8;
+        }
+
+        /* Analysis Results */
+        .analysis-results {
+            margin-top: 2rem;
+            display: none;
+        }
+
+        .analysis-section {
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            background-color: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+        }
+
+        .analysis-title {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: var(--text-color);
+        }
+
+        .chart-container {
+            width: 100%;
+            height: 400px;
+            margin: 1rem 0;
+            border-radius: var(--border-radius);
+            background-color: white;
+            box-shadow: var(--box-shadow);
+        }
+
+        .similar-articles-container {
+            margin-top: 1rem;
+        }
+
+        .similar-article {
+            background-color: var(--secondary-color);
+            border-radius: var(--border-radius);
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-left: 4px solid var(--primary-color);
+        }
+
+        /* Loading Indicator */
+        .loading-container {
+            display: none;
+            text-align: center;
+            margin: 1rem 0;
+            padding: 1rem;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            margin: 0 auto;
+            border: 3px solid rgba(59, 130, 246, 0.1);
+            border-radius: 50%;
+            border-top: 3px solid var(--primary-color);
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
 
         /* Footer */
         .footer {
             background-color: white;
             padding: 1.5rem 0;
-            margin-top: 3rem;
+            margin-top: 2rem;
             border-top: 1px solid var(--border-color);
         }
 
@@ -204,6 +311,10 @@
 
             .daily-buzz, .analysis-form {
                 width: 100%;
+            }
+
+            .navbar-links {
+                display: none;
             }
         }
     </style>
@@ -236,7 +347,7 @@
                 <div id="dailyBuzzContent">
                     <div class="buzz-loading">
                         <div class="spinner"></div>
-                        <p>Loading today's featured article...</p>
+                        <p>Loading today's featured analysis about Israel-Iran conflict...</p>
                     </div>
                 </div>
             </div>
@@ -247,17 +358,46 @@
                 <form id="analysisForm">
                     <div class="form-group">
                         <label for="articleInput" class="form-label">Article URL or Text</label>
-                        <textarea class="form-control" id="articleInput" rows="8" placeholder="Paste article URL or text content here for analysis..."></textarea>
+                        <textarea class="form-control" id="articleInput" rows="8"
+                                placeholder="Paste article URL or text content here for analysis..."></textarea>
                     </div>
                     <div class="form-group">
                         <label for="sourceName" class="form-label">Source Name (optional)</label>
-                        <input type="text" class="form-control" id="sourceName" placeholder="e.g., bbc.com, reuters.com">
+                        <input type="text" class="form-control" id="sourceName"
+                                placeholder="e.g., bbc.com, reuters.com">
                     </div>
                     <button type="submit" class="btn">
                         <i class="bi bi-search"></i> Analyze Article
                     </button>
                 </form>
             </div>
+        </div>
+
+        <!-- Analysis Results -->
+        <div id="analysisResults" class="analysis-results">
+            <div class="analysis-section">
+                <h2 class="analysis-title">Analysis Results</h2>
+                <div id="analysisOutput"></div>
+            </div>
+
+            <div class="analysis-section">
+                <h2 class="analysis-title">Source Credibility Comparison</h2>
+                <div class="chart-container">
+                    <div id="sourceCredibilityChart"></div>
+                </div>
+            </div>
+
+            <div class="analysis-section">
+                <h2 class="analysis-title">Similar Articles</h2>
+                <div class="similar-articles-container" id="sameTopicArticles">
+                    <!-- Similar articles will be inserted here by JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <div class="loading-container" id="loadingIndicator">
+            <div class="spinner"></div>
+            <p>Performing deep analysis...</p>
         </div>
     </div>
 
@@ -274,8 +414,22 @@
 
     <script>
         // Global variables
-        let currentUserId = 'guest';
+        let currentUserId = 'guest_' + Math.random().toString(36).substring(2, 15);
         let currentArticleId = null;
+        let currentUserVote = null;
+        let currentUserRating = null;
+
+        // DOM Elements
+        const elements = {
+            dailyBuzzContent: document.getElementById('dailyBuzzContent'),
+            analysisForm: document.getElementById('analysisForm'),
+            articleInput: document.getElementById('articleInput'),
+            sourceName: document.getElementById('sourceName'),
+            analysisResults: document.getElementById('analysisResults'),
+            analysisOutput: document.getElementById('analysisOutput'),
+            sameTopicArticles: document.getElementById('sameTopicArticles'),
+            loadingIndicator: document.getElementById('loadingIndicator')
+        };
 
         // Load daily buzz article
         async function loadDailyBuzz() {
@@ -291,7 +445,9 @@
                         <div class="buzz-header">
                             <h3 class="buzz-title">${article.title}</h3>
                             <div class="buzz-meta">
-                                <span class="buzz-source">${article.source}</span>
+                                <span class="buzz-source">
+                                    <i class="bi bi-newspaper"></i> ${article.source}
+                                </span>
                                 <span class="buzz-credibility ${article.credibility_level.toLowerCase()}">
                                     ${article.credibility_level} Credibility
                                 </span>
@@ -303,23 +459,21 @@
                         </div>
                         <div class="voting-section">
                             <div class="vote-buttons">
-                                <button class="vote-btn upvote" data-vote="upvote">
+                                <button class="vote-btn upvote" onclick="voteForArticle('upvote')">
                                     <i class="bi bi-hand-thumbs-up"></i>
                                     <span class="vote-count">${votes.upvotes}</span>
                                 </button>
-                                <button class="vote-btn downvote" data-vote="downvote">
+                                <button class="vote-btn downvote" onclick="voteForArticle('downvote')">
                                     <i class="bi bi-hand-thumbs-down"></i>
                                     <span class="vote-count">${votes.downvotes}</span>
                                 </button>
                             </div>
-                            <div class="credibility-rating">
+                            <div class="rating-section">
                                 <div class="rating-title">Rate Credibility</div>
                                 <div class="rating-stars">
-                                    <i class="bi bi-star" data-rating="1"></i>
-                                    <i class="bi bi-star" data-rating="2"></i>
-                                    <i class="bi bi-star" data-rating="3"></i>
-                                    <i class="bi bi-star" data-rating="4"></i>
-                                    <i class="bi bi-star" data-rating="5"></i>
+                                    ${[1, 2, 3, 4, 5].map(rating =>
+                                        `<i class="bi bi-star star" onclick="rateCredibility(${rating})" data-rating="${rating}"></i>`
+                                    ).join('')}
                                 </div>
                                 <div class="rating-stats">
                                     <span class="rating-value">${votes.avg_rating.toFixed(1)}</span>
@@ -329,20 +483,41 @@
                         </div>
                     `;
 
-                    document.getElementById('dailyBuzzContent').innerHTML = articleHtml;
+                    elements.dailyBuzzContent.innerHTML = articleHtml;
                     currentArticleId = article.id;
 
-                    // Add event listeners
-                    setupEventListeners();
+                    // Highlight stars based on average rating
+                    highlightStars(Math.round(votes.avg_rating));
+
+                    // Show analysis results section
+                    elements.analysisResults.style.display = 'block';
+                } else {
+                    elements.dailyBuzzContent.innerHTML = `
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <span>${data.message || 'Failed to load daily buzz article'}</span>
+                        </div>
+                    `;
                 }
             } catch (error) {
                 console.error('Error loading daily buzz:', error);
-                document.getElementById('dailyBuzzContent').innerHTML = `
+                elements.dailyBuzzContent.innerHTML = `
                     <div class="alert alert-danger">
-                        Error loading daily buzz article. Please try again later.
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <span>Error loading daily buzz article. Please try again later.</span>
                     </div>
                 `;
             }
+        }
+
+        // Highlight stars based on rating
+        function highlightStars(rating) {
+            document.querySelectorAll('.star').forEach(star => {
+                star.classList.remove('active');
+                if (parseInt(star.dataset.rating) <= rating) {
+                    star.classList.add('active');
+                }
+            });
         }
 
         // Vote for article
@@ -365,11 +540,25 @@
                 const data = await response.json();
 
                 if (data.status === 'success') {
-                    document.querySelector(`.vote-btn[data-vote="${voteType}"] .vote-count`).textContent =
+                    // Update vote counts
+                    document.querySelector(`.vote-btn.${voteType} .vote-count`).textContent =
                         voteType === 'upvote' ? data.votes.upvotes : data.votes.downvotes;
+
+                    // Update active vote
+                    document.querySelectorAll('.vote-btn').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+                    document.querySelector(`.vote-btn.${voteType}`).classList.add('active');
+                    currentUserVote = voteType;
+
+                    // Show feedback
+                    alert('Thank you for your vote!');
+                } else {
+                    alert(data.message || 'Failed to record vote');
                 }
             } catch (error) {
                 console.error('Error voting:', error);
+                alert('Error occurred while voting');
             }
         }
 
@@ -386,47 +575,111 @@
                     body: JSON.stringify({
                         article_id: currentArticleId,
                         user_id: currentUserId,
-                        rating: parseInt(rating)
+                        rating: rating
                     })
                 });
 
                 const data = await response.json();
 
                 if (data.status === 'success') {
+                    // Update rating display
                     document.querySelector('.rating-value').textContent = data.votes.avg_rating.toFixed(1);
+                    document.querySelector('.rating-stats span:last-child').textContent =
+                        `(${data.votes.rating_count} ratings)`;
+
+                    // Highlight selected stars
+                    highlightStars(rating);
+                    currentUserRating = rating;
+
+                    // Show feedback
+                    alert('Thank you for your rating!');
+                } else {
+                    alert(data.message || 'Failed to record rating');
                 }
             } catch (error) {
                 console.error('Error rating:', error);
+                alert('Error occurred while rating');
             }
         }
 
-        // Setup event listeners
-        function setupEventListeners() {
-            // Vote buttons
-            document.querySelectorAll('.vote-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const voteType = btn.dataset.vote;
-                    voteForArticle(voteType);
-                });
-            });
+        // Load Plotly for charts
+        function loadPlotly() {
+            const plotlyScript = document.createElement('script');
+            plotlyScript.src = 'https://cdn.plot.ly/plotly-2.20.0.min.js';
+            plotlyScript.onload = function() {
+                console.log('Plotly loaded successfully');
+            };
+            plotlyScript.onerror = function() {
+                console.error('Failed to load Plotly');
+                alert('Failed to load visualization library. Some features may not work properly.');
+            };
+            document.head.appendChild(plotlyScript);
+        }
 
-            // Rating stars
-            document.querySelectorAll('.bi-star').forEach(star => {
-                star.addEventListener('click', () => {
-                    const rating = star.dataset.rating;
-                    rateCredibility(rating);
-                });
-            });
+        // Function to render source credibility chart
+        function renderSourceCredibilityChart(data) {
+            if (typeof Plotly === 'undefined') {
+                console.error('Plotly is not loaded!');
+                return;
+            }
+
+            if (!data || !data.sources || !data.credibility_scores) {
+                console.error('Invalid source credibility data:', data);
+                return;
+            }
+
+            const chartData = [{
+                x: data.sources,
+                y: data.credibility_scores,
+                type: 'bar',
+                marker: {
+                    color: data.credibility_scores.map(score => {
+                        if (score >= 0.8) return 'rgba(16, 185, 129, 0.8)';
+                        if (score >= 0.6) return 'rgba(245, 158, 11, 0.8)';
+                        return 'rgba(239, 68, 68, 0.8)';
+                    }),
+                    line: {
+                        color: data.credibility_scores.map(score => {
+                            if (score >= 0.8) return 'rgba(16, 185, 129, 1)';
+                            if (score >= 0.6) return 'rgba(245, 158, 11, 1)';
+                            return 'rgba(239, 68, 68, 1)';
+                        }),
+                        width: 1
+                    }
+                },
+                text: data.credibility_scores.map(score => (score * 100).toFixed(0) + '%'),
+                textposition: 'auto'
+            }];
+
+            const layout = {
+                title: 'Source Credibility Comparison',
+                xaxis: {
+                    title: 'News Sources',
+                    tickangle: 45
+                },
+                yaxis: {
+                    title: 'Credibility Score',
+                    range: [0, 1]
+                },
+                margin: {
+                    l: 50,
+                    r: 20,
+                    t: 50,
+                    b: 100
+                }
+            };
+
+            Plotly.newPlot('sourceCredibilityChart', chartData, layout);
         }
 
         // Initialize the page
         document.addEventListener('DOMContentLoaded', function() {
             loadDailyBuzz();
+            loadPlotly();
 
             // Analysis form submission
-            const analysisForm = document.getElementById('analysisForm');
-            if (analysisForm) {
-                analysisForm.addEventListener('submit', function(e) {
+            if (elements.analysisForm) {
+                elements.analysisForm.addEventListener('submit', function(e) {
                     e.preventDefault();
                     analyzeArticle();
                 });
@@ -435,8 +688,8 @@
 
         // Function to analyze article
         function analyzeArticle() {
-            const inputText = document.getElementById('articleInput').value.trim();
-            const sourceName = document.getElementById('sourceName').value.trim();
+            const inputText = elements.articleInput.value.trim();
+            const sourceName = elements.sourceName.value.trim();
 
             if (!inputText) {
                 alert('Please enter article text or URL for analysis');
@@ -448,11 +701,17 @@
                 return;
             }
 
+            // Show loading indicator
+            elements.loadingIndicator.style.display = 'block';
+            elements.analysisResults.style.display = 'none';
+
+            // Prepare request data
             const requestData = {
                 input_text: inputText,
                 source_name_manual: sourceName
             };
 
+            // Send request to server for analysis
             fetch('/analyze', {
                 method: 'POST',
                 headers: {
@@ -463,23 +722,108 @@
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'success') {
-                    // Handle successful analysis
+                    // Display analysis results
                     displayAnalysisResults(data);
                 } else {
-                    alert(data.error || 'Analysis failed');
+                    throw new Error(data.error || 'Analysis failed');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('An error occurred during analysis');
+                alert('An error occurred during analysis: ' + error.message);
+            })
+            .finally(() => {
+                elements.loadingIndicator.style.display = 'none';
+                elements.analysisResults.style.display = 'block';
             });
         }
 
         // Function to display analysis results
         function displayAnalysisResults(data) {
-            // This would be implemented to show the analysis results
-            // For now, we'll just show an alert
-            alert('Analysis completed successfully!');
+            // Display basic analysis information
+            const analysisInfo = `
+                <div class="analysis-section">
+                    <h2>Article Information</h2>
+                    <p><strong>Title:</strong> ${data.title}</p>
+                    <p><strong>Source:</strong> ${data.source}</p>
+                    <p><strong>Credibility Level:</strong>
+                        <span class="credibility-badge ${data.credibility.toLowerCase()}">${data.credibility}</span>
+                    </p>
+                </div>
+            `;
+
+            // Display analysis scores
+            const analysisScores = `
+                <div class="analysis-section">
+                    <h2>Analysis Scores</h2>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="score-item">
+                                <div class="score-name">Integrity</div>
+                                <div class="score-value">${data.scores.Integrity.toFixed(2)}</div>
+                                <div class="score-description">Overall integrity and trustworthiness</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="score-item">
+                                <div class="score-name">Factuality</div>
+                                <div class="score-value">${data.scores.Factuality.toFixed(2)}</div>
+                                <div class="score-description">Likelihood that claims are factual</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="score-item">
+                                <div class="score-name">Sentiment</div>
+                                <div class="score-value">${data.scores.Sentiment.toFixed(2)}</div>
+                                <div class="score-description">Emotional tone (0.0 negative, 0.5 neutral, 1.0 positive)</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="score-item">
+                                <div class="score-name">Bias</div>
+                                <div class="score-value">${data.scores.Bias.toFixed(2)}</div>
+                                <div class="score-description">Degree of perceived bias (1.0 low bias, 0.0 high bias)</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Display additional information
+            const additionalInfo = `
+                <div class="analysis-section">
+                    <h2>Additional Information</h2>
+                    <div class="detail-item">
+                        <h4>Author Purpose</h4>
+                        <p>${data.analysis.author_purpose || 'Not specified'}</p>
+                    </div>
+                    <div class="detail-item">
+                        <h4>Short Summary</h4>
+                        <p>${data.analysis.short_summary || 'No summary available'}</p>
+                    </div>
+                    <div class="detail-item">
+                        <h4>Topics</h4>
+                        <div class="d-flex flex-wrap gap-2">
+                            ${data.analysis.topics ? data.analysis.topics.map(topic =>
+                                `<span class="badge bg-primary">${topic}</span>`
+                            ).join('') : 'No topics identified'}
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Display source credibility chart
+            if (data.source_credibility_data) {
+                renderSourceCredibilityChart(data.source_credibility_data);
+            }
+
+            // Display similar articles
+            if (data.same_topic_html) {
+                elements.sameTopicArticles.innerHTML = data.same_topic_html;
+            }
+
+            // Combine all sections
+            elements.analysisOutput.innerHTML = analysisInfo + analysisScores + additionalInfo;
         }
     </script>
 </body>
