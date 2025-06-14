@@ -350,14 +350,15 @@ def get_daily_buzz():
         logger.error(f"Error getting daily buzz: {str(e)}")
         return None
 
+# Убедитесь, что этот маршрут определен только один раз в вашем коде
+# Удаляем дублирующийся маршрут /daily-buzz, оставляем только один
 @app.route('/daily-buzz', methods=['GET'])
 def daily_buzz():
     """Get the daily buzz article with voting information"""
     try:
         article = get_daily_buzz()
-
         if not article:
-            # If no article found, create a default one about Israel-Iran conflict
+            # Если статья не найдена, создаем статью по умолчанию о конфликте Израиля и Ирана
             default_article = {
                 'id': 0,
                 'title': 'Israel-Iran Conflict: Current Situation Analysis',
@@ -366,7 +367,7 @@ def daily_buzz():
                 'short_summary': 'Ongoing tensions between Israel and Iran continue to escalate. The international community watches closely as diplomatic efforts intensify.',
                 'credibility_level': 'Medium',
                 'analysis_date': datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
-                'content': 'The conflict between Israel and Iran has reached a critical point...',
+                'content': 'The conflict between Israel and Iran has reached a critical point with recent escalations in military and diplomatic tensions. Both countries have increased their rhetoric while international mediators attempt to broker peace talks.',
                 'integrity': 0.75,
                 'fact_check': 0.25,
                 'sentiment': 0.4,
@@ -374,14 +375,14 @@ def daily_buzz():
                 'index_of_credibility': 0.65
             }
 
-            # Save this default article to database
+            # Сохраняем эту статью по умолчанию в базу данных
             with get_db_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute('''
                     INSERT INTO news
                     (title, source, content, integrity, fact_check, sentiment, bias,
                      credibility_level, index_of_credibility, url, analysis_date, short_summary)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     default_article['title'],
                     default_article['source'],
@@ -447,6 +448,7 @@ def daily_buzz():
             'status': 'error',
             'message': 'An error occurred while fetching daily buzz'
         }), 500
+
 
 def get_article_votes(article_id):
     """Get votes for an article"""
