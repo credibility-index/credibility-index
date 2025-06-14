@@ -7,7 +7,7 @@ import requests
 import html
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse, urlunparse
-from flask import Flask, request, jsonify, render_template, session, make_response, redirect, url_for
+from flask import Flask, request, jsonify, render_template, session, make_response
 from werkzeug.middleware.proxy_fix import ProxyFix
 import anthropic
 from newspaper import Article, Config
@@ -95,7 +95,6 @@ def initialize_database():
                 )
             ''')
 
-            # Create tables for daily buzz and voting
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS daily_buzz (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -304,10 +303,6 @@ def get_analysis_history():
         logger.error(f"Error getting analysis history: {str(e)}")
         return []
 
-# В файле main.py добавьте эти функции для работы с daily buzz
-
-# В файле main.py добавьте эти функции для работы с daily buzz
-
 def get_daily_buzz():
     """Get the daily buzz article about Israel-Iran conflict"""
     try:
@@ -349,106 +344,6 @@ def get_daily_buzz():
     except Exception as e:
         logger.error(f"Error getting daily buzz: {str(e)}")
         return None
-
-# Убедитесь, что этот маршрут определен только один раз в вашем коде
-# Удаляем дублирующийся маршрут /daily-buzz, оставляем только один
-@app.route('/daily-buzz', methods=['GET'])
-def daily_buzz():
-    """Get the daily buzz article with voting information"""
-    try:
-        article = get_daily_buzz()
-        if not article:
-            # Если статья не найдена, создаем статью по умолчанию о конфликте Израиля и Ирана
-            default_article = {
-                'id': 0,
-                'title': 'Israel-Iran Conflict: Current Situation Analysis',
-                'source': 'Media Credibility Index',
-                'url': '#',
-                'short_summary': 'Ongoing tensions between Israel and Iran continue to escalate. The international community watches closely as diplomatic efforts intensify.',
-                'credibility_level': 'Medium',
-                'analysis_date': datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
-                'content': 'The conflict between Israel and Iran has reached a critical point with recent escalations in military and diplomatic tensions. Both countries have increased their rhetoric while international mediators attempt to broker peace talks.',
-                'integrity': 0.75,
-                'fact_check': 0.25,
-                'sentiment': 0.4,
-                'bias': 0.3,
-                'index_of_credibility': 0.65
-            }
-
-            # Сохраняем эту статью по умолчанию в базу данных
-            with get_db_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute('''
-                    INSERT INTO news
-                    (title, source, content, integrity, fact_check, sentiment, bias,
-                     credibility_level, index_of_credibility, url, analysis_date, short_summary)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (
-                    default_article['title'],
-                    default_article['source'],
-                    default_article['content'],
-                    default_article['integrity'],
-                    default_article['fact_check'],
-                    default_article['sentiment'],
-                    default_article['bias'],
-                    default_article['credibility_level'],
-                    default_article['index_of_credibility'],
-                    default_article['url'],
-                    default_article['analysis_date'],
-                    default_article['short_summary']
-                ))
-                conn.commit()
-                cursor.execute('SELECT id FROM news WHERE url = ?', (default_article['url'],))
-                article = cursor.fetchone()
-
-            votes = {
-                'upvotes': 0,
-                'downvotes': 0,
-                'avg_rating': 0,
-                'rating_count': 0
-            }
-
-            response_data = {
-                'status': 'success',
-                'article': {
-                    'id': article['id'],
-                    'title': default_article['title'],
-                    'source': default_article['source'],
-                    'url': default_article['url'],
-                    'short_summary': default_article['short_summary'],
-                    'credibility_level': default_article['credibility_level'],
-                    'analysis_date': default_article['analysis_date']
-                },
-                'votes': votes
-            }
-
-            return jsonify(response_data)
-
-        votes = get_article_votes(article['id'])
-
-        response_data = {
-            'status': 'success',
-            'article': {
-                'id': article['id'],
-                'title': article['title'],
-                'source': article['source'],
-                'url': article['url'],
-                'short_summary': article['short_summary'],
-                'credibility_level': article['credibility_level'],
-                'analysis_date': article['analysis_date']
-            },
-            'votes': votes
-        }
-
-        return jsonify(response_data)
-
-    except Exception as e:
-        logger.error(f"Error in daily_buzz endpoint: {str(e)}")
-        return jsonify({
-            'status': 'error',
-            'message': 'An error occurred while fetching daily buzz'
-        }), 500
-
 
 def get_article_votes(article_id):
     """Get votes for an article"""
@@ -687,10 +582,71 @@ def daily_buzz():
     try:
         article = get_daily_buzz()
         if not article:
-            return jsonify({
-                'status': 'error',
-                'message': 'No daily buzz article available'
-            }), 404
+            # Если статья не найдена, создаем статью по умолчанию о конфликте Израиля и Ирана
+            default_article = {
+                'id': 0,
+                'title': 'Israel-Iran Conflict: Current Situation Analysis',
+                'source': 'Media Credibility Index',
+                'url': '#',
+                'short_summary': 'Ongoing tensions between Israel and Iran continue to escalate. The international community watches closely as diplomatic efforts intensify.',
+                'credibility_level': 'Medium',
+                'analysis_date': datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
+                'content': 'The conflict between Israel and Iran has reached a critical point with recent escalations in military and diplomatic tensions. Both countries have increased their rhetoric while international mediators attempt to broker peace talks.',
+                'integrity': 0.75,
+                'fact_check': 0.25,
+                'sentiment': 0.4,
+                'bias': 0.3,
+                'index_of_credibility': 0.65
+            }
+
+            # Сохраняем эту статью по умолчанию в базу данных
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    INSERT INTO news
+                    (title, source, content, integrity, fact_check, sentiment, bias,
+                     credibility_level, index_of_credibility, url, analysis_date, short_summary)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    default_article['title'],
+                    default_article['source'],
+                    default_article['content'],
+                    default_article['integrity'],
+                    default_article['fact_check'],
+                    default_article['sentiment'],
+                    default_article['bias'],
+                    default_article['credibility_level'],
+                    default_article['index_of_credibility'],
+                    default_article['url'],
+                    default_article['analysis_date'],
+                    default_article['short_summary']
+                ))
+                conn.commit()
+                cursor.execute('SELECT id FROM news WHERE url = ?', (default_article['url'],))
+                article = cursor.fetchone()
+
+            votes = {
+                'upvotes': 0,
+                'downvotes': 0,
+                'avg_rating': 0,
+                'rating_count': 0
+            }
+
+            response_data = {
+                'status': 'success',
+                'article': {
+                    'id': article['id'],
+                    'title': default_article['title'],
+                    'source': default_article['source'],
+                    'url': default_article['url'],
+                    'short_summary': default_article['short_summary'],
+                    'credibility_level': default_article['credibility_level'],
+                    'analysis_date': default_article['analysis_date']
+                },
+                'votes': votes
+            }
+
+            return jsonify(response_data)
 
         votes = get_article_votes(article['id'])
 
@@ -1406,4 +1362,3 @@ def format_analysis_results(title, source, analysis, credibility):
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
-
