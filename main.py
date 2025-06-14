@@ -304,8 +304,12 @@ def get_analysis_history():
         logger.error(f"Error getting analysis history: {str(e)}")
         return []
 
+# В файле main.py добавьте эти функции для работы с daily buzz
+
+# В файле main.py добавьте эти функции для работы с daily buzz
+
 def get_daily_buzz():
-    """Get the daily buzz article"""
+    """Get the daily buzz article about Israel-Iran conflict"""
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor()
@@ -313,39 +317,136 @@ def get_daily_buzz():
             # Get today's date
             today = datetime.now(timezone.utc).date().strftime('%Y-%m-%d')
 
-            # Try to get today's buzz article
+            # Try to get today's buzz article about Israel-Iran conflict
             cursor.execute('''
                 SELECT n.*
                 FROM news n
                 JOIN daily_buzz d ON n.id = d.article_id
-                WHERE d.date = ?
+                WHERE d.date = ? AND
+                (n.content LIKE '%Israel%' OR n.content LIKE '%Iran%' OR
+                 n.content LIKE '%conflict%' OR n.content LIKE '%Middle East%')
             ''', (today,))
             article = cursor.fetchone()
 
             # If no article is selected for today, pick one about Israel-Iran conflict
             if not article:
                 cursor.execute('''
-                    SELECT id FROM news
+                    SELECT * FROM news
                     WHERE content LIKE '%Israel%' OR content LIKE '%Iran%'
                     ORDER BY RANDOM()
                     LIMIT 1
                 ''')
-                conflict_article = cursor.fetchone()
-                if conflict_article:
-                    cursor.execute('''
-                        INSERT INTO daily_buzz (article_id, date)
-                        VALUES (?, ?)
-                    ''', (conflict_article['id'], today))
-                    conn.commit()
+                article = cursor.fetchone()
 
-                    # Get the full article data
-                    cursor.execute('SELECT * FROM news WHERE id = ?', (conflict_article['id'],))
-                    article = cursor.fetchone()
+                if article:
+                    cursor.execute('''
+                        INSERT OR REPLACE INTO daily_buzz (article_id, date)
+                        VALUES (?, ?)
+                    ''', (article['id'], today))
+                    conn.commit()
 
             return article
     except Exception as e:
         logger.error(f"Error getting daily buzz: {str(e)}")
         return None
+
+@app.route('/daily-buzz', methods=['GET'])
+def daily_buzz():
+    """Get the daily buzz article with voting information"""
+    try:
+        article = get_daily_buzz()
+
+        if not article:
+            # If no article found, create a default one about Israel-Iran conflict
+            default_article = {
+                'id': 0,
+                'title': 'Israel-Iran Conflict: Current Situation Analysis',
+                'source': 'Media Credibility Index',
+                'url': '#',
+                'short_summary': 'Ongoing tensions between Israel and Iran continue to escalate. The international community watches closely as diplomatic efforts intensify.',
+                'credibility_level': 'Medium',
+                'analysis_date': datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
+                'content': 'The conflict between Israel and Iran has reached a critical point...',
+                'integrity': 0.75,
+                'fact_check': 0.25,
+                'sentiment': 0.4,
+                'bias': 0.3,
+                'index_of_credibility': 0.65
+            }
+
+            # Save this default article to database
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    INSERT INTO news
+                    (title, source, content, integrity, fact_check, sentiment, bias,
+                     credibility_level, index_of_credibility, url, analysis_date, short_summary)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    default_article['title'],
+                    default_article['source'],
+                    default_article['content'],
+                    default_article['integrity'],
+                    default_article['fact_check'],
+                    default_article['sentiment'],
+                    default_article['bias'],
+                    default_article['credibility_level'],
+                    default_article['index_of_credibility'],
+                    default_article['url'],
+                    default_article['analysis_date'],
+                    default_article['short_summary']
+                ))
+                conn.commit()
+                cursor.execute('SELECT id FROM news WHERE url = ?', (default_article['url'],))
+                article = cursor.fetchone()
+
+            votes = {
+                'upvotes': 0,
+                'downvotes': 0,
+                'avg_rating': 0,
+                'rating_count': 0
+            }
+
+            response_data = {
+                'status': 'success',
+                'article': {
+                    'id': article['id'],
+                    'title': default_article['title'],
+                    'source': default_article['source'],
+                    'url': default_article['url'],
+                    'short_summary': default_article['short_summary'],
+                    'credibility_level': default_article['credibility_level'],
+                    'analysis_date': default_article['analysis_date']
+                },
+                'votes': votes
+            }
+
+            return jsonify(response_data)
+
+        votes = get_article_votes(article['id'])
+
+        response_data = {
+            'status': 'success',
+            'article': {
+                'id': article['id'],
+                'title': article['title'],
+                'source': article['source'],
+                'url': article['url'],
+                'short_summary': article['short_summary'],
+                'credibility_level': article['credibility_level'],
+                'analysis_date': article['analysis_date']
+            },
+            'votes': votes
+        }
+
+        return jsonify(response_data)
+
+    except Exception as e:
+        logger.error(f"Error in daily_buzz endpoint: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': 'An error occurred while fetching daily buzz'
+        }), 500
 
 def get_article_votes(article_id):
     """Get votes for an article"""
