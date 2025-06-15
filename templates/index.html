@@ -224,6 +224,23 @@
             border-left: 4px solid var(--primary-color);
         }
 
+        /* News Feed */
+        .news-feed-container {
+            background-color: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            padding: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .news-article {
+            background-color: var(--secondary-color);
+            border-radius: var(--border-radius);
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-left: 4px solid var(--primary-color);
+        }
+
         /* Loading Indicator */
         .loading-container {
             text-align: center;
@@ -255,21 +272,29 @@
             margin: 1rem 0;
         }
 
-        /* News Feed */
-        .news-feed-container {
-            background-color: white;
-            border-radius: var(--border-radius);
-            box-shadow: var(--box-shadow);
-            padding: 1.5rem;
-            margin-top: 1.5rem;
+        /* Article Credibility */
+        .article-credibility {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-left: 0.5rem;
         }
 
-        .news-article {
-            background-color: var(--secondary-color);
-            border-radius: var(--border-radius);
-            padding: 1rem;
-            margin-bottom: 1rem;
-            border-left: 4px solid var(--primary-color);
+        .article-credibility.high {
+            background-color: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+        }
+
+        .article-credibility.medium {
+            background-color: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+        }
+
+        .article-credibility.low {
+            background-color: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
         }
 
         /* Footer */
@@ -353,13 +378,13 @@
                     </div>
                 </div>
 
-                <!-- News Feed -->
+                <!-- News Feed from analyzed articles -->
                 <div class="news-feed-container">
-                    <h2 class="analysis-title">Latest News Feed</h2>
+                    <h2 class="analysis-title">Analyzed News Feed</h2>
                     <div id="newsFeed">
                         <div class="loading-container">
                             <div class="spinner"></div>
-                            <p>Loading news feed...</p>
+                            <p>Loading analyzed news feed...</p>
                         </div>
                     </div>
                 </div>
@@ -593,9 +618,11 @@
                         <h4><a href="${article.url}" target="_blank">${article.title}</a></h4>
                         <div class="article-meta">
                             <span class="article-source"><i class="bi bi-newspaper"></i> ${article.source}</span>
-                            <span class="article-credibility">Credibility: ${Math.round(article.credibility * 100)}%</span>
+                            <span class="article-credibility ${(article.credibility_level || 'Medium').toLowerCase()}">
+                                ${article.credibility_level || 'Medium'} Credibility
+                            </span>
                         </div>
-                        <p>${article.description}</p>
+                        <p>${article.description || article.short_summary || 'No description available'}</p>
                     </div>
                 `).join('');
 
@@ -606,20 +633,20 @@
             }
         }
 
-        // Load news feed
+        // Load news feed from analyzed articles
         async function loadNewsFeed() {
             try {
-                const response = await fetch('/news-feed');
+                const response = await fetch('/analysis-history');
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
                     throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
                 }
-                const data = await response.json();
 
-                if (data.status === 'success' && data.articles) {
-                    renderNewsFeed(data.articles);
+                const data = await response.json();
+                if (data.status === 'success' && data.history && data.history.length > 0) {
+                    renderNewsFeed(data.history);
                 } else {
-                    showError('newsFeed', data.message || 'Failed to load news feed');
+                    showError('newsFeed', data.message || 'No analyzed articles found');
                 }
             } catch (error) {
                 console.error('Error loading news feed:', error);
@@ -627,36 +654,44 @@
             }
         }
 
-        // Render news feed
+        // Render news feed from analyzed articles
         function renderNewsFeed(articles) {
             if (!articles || articles.length === 0) {
-                elements.newsFeed.innerHTML = '<p>No articles found</p>';
+                elements.newsFeed.innerHTML = '<p>No analyzed articles found</p>';
                 return;
             }
 
-            const articlesHtml = articles.map(article => `
-                <div class="news-article">
-                    <h4><a href="${article.url}" target="_blank">${article.title}</a></h4>
-                    <div class="article-meta">
-                        <span class="article-source"><i class="bi bi-newspaper"></i> ${article.source}</span>
-                        <span class="article-date"><i class="bi bi-calendar"></i> ${article.published_at}</span>
+            const articlesHtml = articles.map(article => {
+                const credibilityClass = (article.credibility || 'Medium').toLowerCase();
+                const publishedDate = article.date ? new Date(article.date).toLocaleString() : 'N/A';
+
+                return `
+                    <div class="news-article">
+                        <h4><a href="${article.url || '#'}" target="_blank">${article.title || 'No title'}</a></h4>
+                        <div class="article-meta">
+                            <span class="article-source"><i class="bi bi-newspaper"></i> ${article.source || 'Unknown source'}</span>
+                            <span class="article-date"><i class="bi bi-calendar"></i> ${publishedDate}</span>
+                            <span class="article-credibility ${credibilityClass}">
+                                <i class="bi bi-shield-check"></i> ${article.credibility || 'Medium'} Credibility
+                            </span>
+                        </div>
+                        <p>${article.summary || 'No summary available'}</p>
                     </div>
-                    <p>${article.description}</p>
-                    ${article.image_url ? `<img src="${article.image_url}" alt="${article.title}" style="max-width: 100%; height: auto; margin-top: 0.5rem;">` : ''}
-                </div>
-            `).join('');
+                `;
+            }).join('');
 
             elements.newsFeed.innerHTML = articlesHtml;
         }
 
         // Show error message
         function showError(elementId, message) {
-            document.getElementById(elementId).innerHTML = `
+            const errorHtml = `
                 <div class="error-message">
                     <i class="bi bi-exclamation-triangle-fill"></i>
                     <span>${message}</span>
                 </div>
             `;
+            document.getElementById(elementId).innerHTML = errorHtml;
         }
 
         // Load daily buzz article
@@ -667,13 +702,15 @@
                     const errorData = await response.json().catch(() => ({}));
                     throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
                 }
-                const data = await response.json();
 
+                const data = await response.json();
                 if (data.status === 'success' && data.article) {
                     displayDailyBuzz(data.article);
                     displayAnalysisResults(data);
                     loadSourceCredibilityChart();
-                    loadSimilarArticles(data.article.analysis ? data.article.analysis.topics : []);
+                    if (data.article.analysis && data.article.analysis.topics) {
+                        loadSimilarArticles(data.article.analysis.topics);
+                    }
                 } else {
                     showError('dailyBuzzContent', data.message || 'Failed to load daily buzz article');
                 }
@@ -685,6 +722,9 @@
 
         // Display daily buzz article
         function displayDailyBuzz(article) {
+            const publishedDate = article.analysis_date ? new Date(article.analysis_date).toLocaleString() : 'N/A';
+            const credibilityClass = (article.credibility_level || 'Medium').toLowerCase();
+
             const articleHtml = `
                 <div class="buzz-header">
                     <h3>${article.title || 'No title available'}</h3>
@@ -692,8 +732,11 @@
                         <span class="buzz-source">
                             <i class="bi bi-newspaper"></i> ${article.source || 'Unknown source'}
                         </span>
-                        <span class="buzz-credibility ${(article.credibility_level || 'Medium').toLowerCase()}">
-                            ${article.credibility_level || 'Medium'} Credibility
+                        <span class="buzz-date">
+                            <i class="bi bi-calendar"></i> ${publishedDate}
+                        </span>
+                        <span class="buzz-credibility ${credibilityClass}">
+                            <i class="bi bi-shield-check"></i> ${article.credibility_level || 'Medium'} Credibility
                         </span>
                     </div>
                 </div>
@@ -757,8 +800,11 @@
                         const data = await response.json();
                         if (data.status === 'success') {
                             displayAnalysisResults(data);
-                            loadSimilarArticles(data.same_topic_articles || []);
+                            if (data.same_topic_articles) {
+                                loadSimilarArticles(data.same_topic_articles);
+                            }
                             loadSourceCredibilityChart();
+                            loadNewsFeed(); // Refresh news feed after analysis
                         } else {
                             throw new Error(data.message || 'Analysis failed');
                         }
@@ -772,4 +818,3 @@
     </script>
 </body>
 </html>
-
