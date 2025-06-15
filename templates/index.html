@@ -454,8 +454,16 @@
                 return;
             }
 
+            // Используем данные из article или значения по умолчанию
             const analysis = article.analysis || {};
 
+            // Проверяем, есть ли данные анализа
+            if (!analysis || Object.keys(analysis).length === 0) {
+                showError('analysisOutput', 'No analysis data available');
+                return;
+            }
+
+            // Формируем HTML для отображения анализа
             const analysisHtml = `
                 <div class="analysis-section">
                     <h2>Article Information</h2>
