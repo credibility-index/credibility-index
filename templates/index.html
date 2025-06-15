@@ -280,6 +280,10 @@
             .analysis-column, .form-column {
                 width: 100%;
             }
+
+            .navbar-links {
+                display: none;
+            }
         }
     </style>
 </head>
@@ -400,83 +404,58 @@
         async function loadDailyBuzz() {
             try {
                 const response = await fetch('/daily-buzz');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
                 const data = await response.json();
 
-                if (data.status === 'success') {
-                    const article = data.article || {};
-                    const votes = data.votes || {};
-                    const analysis = article.analysis || {};
-
-                    const articleHtml = `
-                        <div class="buzz-header">
-                            <h3 class="buzz-title">${article.title || 'Israel-Iran Conflict Analysis'}</h3>
-                            <div class="buzz-meta">
-                                <span class="buzz-source">
-                                    <i class="bi bi-newspaper"></i> ${article.source || 'Media Credibility Index'}
-                                </span>
-                                <span class="buzz-credibility ${(article.credibility_level || 'Medium').toLowerCase()}">
-                                    ${article.credibility_level || 'Medium'} Credibility
-                                </span>
-                            </div>
-                        </div>
-                        <div class="buzz-content">
-                            <p>${article.short_summary || 'Ongoing tensions between Israel and Iran continue to escalate.'}</p>
-                            <p>${article.content || ''}</p>
-                        </div>
-                    `;
-
-                    elements.dailyBuzzContent.innerHTML = articleHtml;
-                    currentArticleId = article.id || 0;
-
-                    // Display analysis results
-                    displayAnalysisResults(article);
-
-                    // Load source credibility chart
+                if (data.status === 'success' && data.article) {
+                    displayDailyBuzz(data.article);
+                    displayAnalysisResults(data.article);
                     loadSourceCredibilityChart();
-
-                    // Load similar articles
-                    loadSimilarArticles(analysis);
+                    loadSimilarArticles(data.article.analysis);
                 } else {
-                    elements.dailyBuzzContent.innerHTML = `
-                        <div class="alert alert-warning">
-                            <i class="bi bi-exclamation-triangle"></i>
-                            <span>${data.message || 'Failed to load daily buzz article'}</span>
-                        </div>
-                    `;
+                    showError('dailyBuzzContent', data.message || 'Failed to load daily buzz article');
                 }
             } catch (error) {
                 console.error('Error loading daily buzz:', error);
-                elements.dailyBuzzContent.innerHTML = `
-                    <div class="alert alert-danger">
-                        <i class="bi bi-exclamation-triangle-fill"></i>
-                        <span>Error loading daily buzz article. Please try again later.</span>
-                    </div>
-                `;
+                showError('dailyBuzzContent', error.message || 'Error loading daily buzz article');
             }
+        }
+
+        // Display daily buzz article
+        function displayDailyBuzz(article) {
+            const articleHtml = `
+                <div class="buzz-header">
+                    <h3 class="buzz-title">${article.title || 'Israel-Iran Conflict Analysis'}</h3>
+                    <div class="buzz-meta">
+                        <span class="buzz-source">
+                            <i class="bi bi-newspaper"></i> ${article.source || 'Media Credibility Index'}
+                        </span>
+                        <span class="buzz-credibility ${(article.credibility_level || 'Medium').toLowerCase()}">
+                            ${article.credibility_level || 'Medium'} Credibility
+                        </span>
+                    </div>
+                </div>
+                <div class="buzz-content">
+                    <p>${article.short_summary || 'Ongoing tensions between Israel and Iran continue to escalate.'}</p>
+                    <p>${article.content || ''}</p>
+                </div>
+            `;
+
+            elements.dailyBuzzContent.innerHTML = articleHtml;
+            currentArticleId = article.id || 0;
         }
 
         // Display analysis results
         function displayAnalysisResults(article) {
             if (!article) {
-                console.error('No article data provided');
+                showError('analysisOutput', 'No article data provided');
                 return;
             }
 
-            // Используем данные из article или значения по умолчанию
             const analysis = article.analysis || {};
 
-            // Проверяем, есть ли данные для отображения
-            if (!article.analysis || Object.keys(article.analysis).length === 0) {
-                document.getElementById('analysisOutput').innerHTML = `
-                    <div class="alert alert-warning">
-                        <i class="bi bi-exclamation-triangle"></i>
-                        <span>No analysis data available</span>
-                    </div>
-                `;
-                return;
-            }
-
-            // Формируем HTML для отображения анализа
             const analysisHtml = `
                 <div class="analysis-section">
                     <h2>Article Information</h2>
@@ -536,9 +515,7 @@
                     <div class="detail-item">
                         <h3>Topics</h3>
                         <div class="topics-list">
-                            ${(analysis.topics || []).map(topic =>
-                                `<span class="badge bg-primary">${topic}</span>`
-                            ).join(' ')}
+                            ${(analysis.topics || []).map(topic => `<span class="badge bg-primary">${topic}</span>`).join(' ')}
                         </div>
                     </div>
                 </div>
@@ -551,33 +528,26 @@
         async function loadSourceCredibilityChart() {
             try {
                 const response = await fetch('/source-credibility-chart');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
                 const data = await response.json();
 
                 if (data.status === 'success' && data.data) {
                     renderSourceCredibilityChart(data.data);
                 } else {
-                    document.getElementById('sourceCredibilityChart').innerHTML = `
-                        <div class="alert alert-warning">
-                            <i class="bi bi-exclamation-triangle"></i>
-                            <span>Failed to load source credibility chart</span>
-                        </div>
-                    `;
+                    showError('sourceCredibilityChart', data.message || 'Failed to load source credibility chart');
                 }
             } catch (error) {
                 console.error('Error loading source credibility chart:', error);
-                document.getElementById('sourceCredibilityChart').innerHTML = `
-                    <div class="alert alert-danger">
-                        <i class="bi bi-exclamation-triangle-fill"></i>
-                        <span>Error loading source credibility chart</span>
-                    </div>
-                `;
+                showError('sourceCredibilityChart', error.message || 'Error loading source credibility chart');
             }
         }
 
         // Render source credibility chart
         function renderSourceCredibilityChart(data) {
             if (!data || !data.sources || !data.credibility_scores) {
-                console.error('Invalid chart data');
+                showError('sourceCredibilityChart', 'Invalid chart data');
                 return;
             }
 
@@ -629,7 +599,6 @@
         async function loadSimilarArticles(analysis) {
             try {
                 // В реальном приложении здесь будет запрос к API для получения похожих статей
-                // Для демонстрации используем тестовые данные
                 const similarArticles = [
                     {
                         title: "UN Calls for Urgent Peace Talks in Middle East",
@@ -661,20 +630,25 @@
                             <span class="article-source"><i class="bi bi-newspaper"></i> ${article.source}</span>
                             <span class="article-credibility">Credibility: ${Math.round(article.credibility * 100)}%</span>
                         </div>
-                        <p class="article-description">${article.description}</p>
+                        <p>${article.description}</p>
                     </div>
                 `).join('');
 
                 elements.similarArticles.innerHTML = articlesHtml;
             } catch (error) {
                 console.error('Error loading similar articles:', error);
-                elements.similarArticles.innerHTML = `
-                    <div class="alert alert-danger">
-                        <i class="bi bi-exclamation-triangle-fill"></i>
-                        <span>Error loading similar articles</span>
-                    </div>
-                `;
+                showError('similarArticles', error.message || 'Error loading similar articles');
             }
+        }
+
+        // Show error message
+        function showError(elementId, message) {
+            document.getElementById(elementId).innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    <span>${message}</span>
+                </div>
+            `;
         }
 
         // Initialize the page
@@ -683,7 +657,7 @@
 
             // Analysis form submission
             if (elements.analysisForm) {
-                elements.analysisForm.addEventListener('submit', function(e) {
+                elements.analysisForm.addEventListener('submit', async function(e) {
                     e.preventDefault();
                     const inputText = elements.articleInput.value.trim();
                     const sourceName = elements.sourceName.value.trim();
@@ -698,35 +672,30 @@
                         return;
                     }
 
-                    // Show loading indicator
-                    elements.analysisOutput.innerHTML = `
-                        <div class="loading-container">
-                            <div class="spinner"></div>
-                            <p>Analyzing article content...</p>
-                        </div>
-                    `;
+                    try {
+                        elements.analysisOutput.innerHTML = `
+                            <div class="loading-container">
+                                <div class="spinner"></div>
+                                <p>Analyzing article content...</p>
+                            </div>
+                        `;
 
-                    // Prepare request data
-                    const requestData = {
-                        input_text: inputText,
-                        source_name_manual: sourceName
-                    };
+                        const response = await fetch('/analyze', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                input_text: inputText,
+                                source_name_manual: sourceName
+                            })
+                        });
 
-                    // Send request to server for analysis
-                    fetch('/analyze', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(requestData)
-                    })
-                    .then(response => {
                         if (!response.ok) {
                             throw new Error(`HTTP error! status: ${response.status}`);
                         }
-                        return response.json();
-                    })
-                    .then(data => {
+
+                        const data = await response.json();
                         if (data.status === 'success') {
                             displayAnalysisResults(data.article);
                             loadSourceCredibilityChart();
@@ -734,16 +703,10 @@
                         } else {
                             throw new Error(data.error || 'Analysis failed');
                         }
-                    })
-                    .catch(error => {
+                    } catch (error) {
                         console.error('Error:', error);
-                        elements.analysisOutput.innerHTML = `
-                            <div class="alert alert-danger">
-                                <i class="bi bi-exclamation-triangle-fill"></i>
-                                <span>Error: ${error.message}</span>
-                            </div>
-                        `;
-                    });
+                        showError('analysisOutput', error.message || 'Analysis failed');
+                    }
                 });
             }
         });
