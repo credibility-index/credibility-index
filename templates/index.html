@@ -403,8 +403,8 @@
                 const data = await response.json();
 
                 if (data.status === 'success') {
-                    const article = data.article;
-                    const votes = data.votes;
+                    const article = data.article || {};
+                    const votes = data.votes || {};
                     const analysis = article.analysis || {};
 
                     const articleHtml = `
@@ -457,8 +457,26 @@
 
         // Display analysis results
         function displayAnalysisResults(article) {
+            if (!article) {
+                console.error('No article data provided');
+                return;
+            }
+
+            // Используем данные из article или значения по умолчанию
             const analysis = article.analysis || {};
 
+            // Проверяем, есть ли данные для отображения
+            if (!article.analysis || Object.keys(article.analysis).length === 0) {
+                document.getElementById('analysisOutput').innerHTML = `
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <span>No analysis data available</span>
+                    </div>
+                `;
+                return;
+            }
+
+            // Формируем HTML для отображения анализа
             const analysisHtml = `
                 <div class="analysis-section">
                     <h2>Article Information</h2>
@@ -537,13 +555,20 @@
 
                 if (data.status === 'success' && data.data) {
                     renderSourceCredibilityChart(data.data);
+                } else {
+                    document.getElementById('sourceCredibilityChart').innerHTML = `
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <span>Failed to load source credibility chart</span>
+                        </div>
+                    `;
                 }
             } catch (error) {
                 console.error('Error loading source credibility chart:', error);
                 document.getElementById('sourceCredibilityChart').innerHTML = `
-                    <div class="alert alert-warning">
-                        <i class="bi bi-exclamation-triangle"></i>
-                        <span>Failed to load source credibility chart</span>
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <span>Error loading source credibility chart</span>
                     </div>
                 `;
             }
@@ -551,6 +576,11 @@
 
         // Render source credibility chart
         function renderSourceCredibilityChart(data) {
+            if (!data || !data.sources || !data.credibility_scores) {
+                console.error('Invalid chart data');
+                return;
+            }
+
             const chartData = [{
                 x: data.sources,
                 y: data.credibility_scores,
@@ -639,9 +669,9 @@
             } catch (error) {
                 console.error('Error loading similar articles:', error);
                 elements.similarArticles.innerHTML = `
-                    <div class="alert alert-warning">
-                        <i class="bi bi-exclamation-triangle"></i>
-                        <span>Failed to load similar articles</span>
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <span>Error loading similar articles</span>
                     </div>
                 `;
             }
@@ -690,7 +720,12 @@
                         },
                         body: JSON.stringify(requestData)
                     })
-                    .then(response => response.json())
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
                     .then(data => {
                         if (data.status === 'success') {
                             displayAnalysisResults(data.article);
@@ -715,4 +750,3 @@
     </script>
 </body>
 </html>
-
