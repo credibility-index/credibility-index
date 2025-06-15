@@ -14,6 +14,7 @@
             --border-color: #e2e8f0;
             --border-radius: 8px;
             --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --transition: all 0.3s ease;
         }
 
         * {
@@ -35,24 +36,142 @@
             padding: 0 1rem;
         }
 
+        /* Navigation */
+        .navbar {
+            background-color: white;
+            padding: 1rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .navbar-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .navbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--text-color);
+            text-decoration: none;
+        }
+
+        .navbar-links {
+            display: flex;
+            gap: 1.5rem;
+            list-style: none;
+        }
+
+        .navbar-link {
+            color: var(--text-color);
+            font-weight: 500;
+            text-decoration: none;
+            transition: var(--transition);
+        }
+
+        .navbar-link:hover {
+            color: var(--primary-color);
+        }
+
+        /* Main Layout */
         .main-container {
             display: flex;
             gap: 2rem;
             margin-top: 2rem;
         }
 
-        .analysis-column, .form-column {
+        /* Left Column - Analysis */
+        .analysis-column {
             flex: 1;
             display: flex;
             flex-direction: column;
             gap: 1.5rem;
         }
 
+        /* Right Column - Form and Charts */
+        .form-column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        /* Analysis Section */
         .analysis-section {
             background-color: white;
             border-radius: var(--border-radius);
             box-shadow: var(--box-shadow);
             padding: 1.5rem;
+        }
+
+        .analysis-title {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: var(--text-color);
+        }
+
+        /* Score Items */
+        .score-item {
+            margin-bottom: 1.5rem;
+        }
+
+        .score-name {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .score-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+
+        /* Credibility Badge */
+        .credibility-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .credibility-badge.high {
+            background-color: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+        }
+
+        .credibility-badge.medium {
+            background-color: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+        }
+
+        .credibility-badge.low {
+            background-color: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+
+        /* Form Elements */
+        .analysis-form {
+            background-color: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            padding: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
         }
 
         .form-control {
@@ -74,8 +193,38 @@
             border-radius: 4px;
             font-weight: 500;
             cursor: pointer;
+            transition: var(--transition);
         }
 
+        .btn:hover {
+            background-color: #1d4ed8;
+        }
+
+        /* Chart Container */
+        .chart-container {
+            background-color: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            padding: 1.5rem;
+        }
+
+        /* Similar Articles */
+        .similar-articles-container {
+            background-color: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            padding: 1.5rem;
+        }
+
+        .similar-article {
+            background-color: var(--secondary-color);
+            border-radius: var(--border-radius);
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-left: 4px solid var(--primary-color);
+        }
+
+        /* Loading Indicator */
         .loading-container {
             text-align: center;
             margin: 1rem 0;
@@ -97,6 +246,7 @@
             100% { transform: rotate(360deg); }
         }
 
+        /* Error Display */
         .error-message {
             color: #ef4444;
             background-color: rgba(239, 68, 68, 0.1);
@@ -105,31 +255,45 @@
             margin: 1rem 0;
         }
 
-        .similar-article {
-            background-color: var(--secondary-color);
-            border-radius: var(--border-radius);
-            padding: 1rem;
-            margin-bottom: 1rem;
-            border-left: 4px solid var(--primary-color);
-        }
-
+        /* Responsive */
         @media (max-width: 768px) {
             .main-container {
                 flex-direction: column;
+            }
+
+            .navbar-links {
+                display: none;
             }
         }
     </style>
 </head>
 <body>
+    <nav class="navbar">
+        <div class="container navbar-container">
+            <a href="/" class="navbar-brand">
+                <i class="bi bi-newspaper"></i>
+                <span>Media Credibility Index</span>
+            </a>
+            <ul class="navbar-links">
+                <li><a href="/" class="navbar-link">Home</a></li>
+                <li><a href="/faq" class="navbar-link">FAQ</a></li>
+                <li><a href="/feedback" class="navbar-link">Feedback</a></li>
+                <li><a href="/privacy" class="navbar-link">Privacy</a></li>
+                <li><a href="/terms" class="navbar-link">Terms</a></li>
+                <li><a href="/contact" class="navbar-link">Contact</a></li>
+            </ul>
+        </div>
+    </nav>
+
     <div class="container">
         <div class="main-container">
             <!-- Left Column - Analysis -->
             <div class="analysis-column">
                 <!-- Daily Buzz Section -->
                 <div class="analysis-section">
-                    <h2>Today's Featured Analysis: Iran Situation</h2>
+                    <h2 class="analysis-title">Today's Featured Analysis: Iran Situation</h2>
                     <div id="dailyBuzzContent">
-                        <div class="loading-container">
+                        <div class="buzz-loading">
                             <div class="spinner"></div>
                             <p>Loading today's analysis of Iran situation...</p>
                         </div>
@@ -138,7 +302,7 @@
 
                 <!-- Analysis Results -->
                 <div class="analysis-section">
-                    <h2>Analysis Results</h2>
+                    <h2 class="analysis-title">Analysis Results</h2>
                     <div id="analysisOutput">
                         <div class="loading-container">
                             <div class="spinner"></div>
@@ -151,16 +315,16 @@
             <!-- Right Column - Form and Charts -->
             <div class="form-column">
                 <!-- Analysis Form -->
-                <div class="analysis-section">
+                <div class="analysis-form">
                     <h2>Analyze Article Content</h2>
                     <form id="analysisForm">
                         <div class="form-group">
-                            <label for="articleInput">Article URL or Text</label>
+                            <label for="articleInput" class="form-label">Article URL or Text</label>
                             <textarea class="form-control" id="articleInput" rows="8"
                                     placeholder="Paste article URL or text content here for analysis..."></textarea>
                         </div>
                         <div class="form-group">
-                            <label for="sourceName">Source Name (optional)</label>
+                            <label for="sourceName" class="form-label">Source Name (optional)</label>
                             <input type="text" class="form-control" id="sourceName"
                                     placeholder="e.g., bbc.com, reuters.com">
                         </div>
@@ -171,13 +335,13 @@
                 </div>
 
                 <!-- Source Credibility Chart -->
-                <div class="analysis-section">
+                <div class="chart-container">
                     <h2>Source Credibility Comparison</h2>
                     <div id="sourceCredibilityChart"></div>
                 </div>
 
                 <!-- Similar Articles -->
-                <div class="analysis-section">
+                <div class="similar-articles-container">
                     <h2>Similar Articles on Iran</h2>
                     <div id="similarArticles">
                         <div class="loading-container">
