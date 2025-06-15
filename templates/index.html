@@ -255,6 +255,31 @@
             margin: 1rem 0;
         }
 
+        /* Footer */
+        .footer {
+            background-color: white;
+            padding: 1.5rem 0;
+            margin-top: 3rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem;
+            list-style: none;
+            margin-bottom: 1rem;
+        }
+
+        .footer-link {
+            color: var(--text-color);
+            text-decoration: none;
+        }
+
+        .footer-link:hover {
+            color: var(--primary-color);
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .main-container {
@@ -353,6 +378,17 @@
             </div>
         </div>
     </div>
+
+    <footer class="footer">
+        <div class="container">
+            <ul class="footer-links">
+                <li><a href="/privacy" class="footer-link">Privacy Policy</a></li>
+                <li><a href="/terms" class="footer-link">Terms of Service</a></li>
+                <li><a href="/contact" class="footer-link">Contact Us</a></li>
+            </ul>
+            <p style="text-align: center;">&copy; 2025 Media Credibility Index. All rights reserved.</p>
+        </div>
+    </footer>
 
     <script>
         // Global variables
@@ -517,26 +553,25 @@
         // Load similar articles about Iran
         async function loadSimilarArticles() {
             try {
-                // В реальном приложении здесь будет запрос к API для получения похожих статей об Иране
                 const similarArticles = [
                     {
                         title: "Iran's Nuclear Program: Latest Developments",
                         source: "BBC News",
-                        url: "#",
+                        url: "/article/iran-nuclear-program",
                         description: "Recent updates on Iran's nuclear capabilities and international reactions.",
                         credibility: 0.92
                     },
                     {
                         title: "Economic Sanctions Against Iran: Impact Analysis",
                         source: "Reuters",
-                        url: "#",
+                        url: "/article/iran-sanctions",
                         description: "How recent sanctions are affecting Iran's economy and global oil markets.",
                         credibility: 0.88
                     },
                     {
                         title: "Iran-Israel Tensions: Regional Security Concerns",
                         source: "Al Jazeera",
-                        url: "#",
+                        url: "/article/iran-israel-tensions",
                         description: "Escalating tensions between Iran and Israel and their impact on Middle East stability.",
                         credibility: 0.85
                     }
@@ -573,7 +608,6 @@
         // Load initial Iran analysis
         async function loadIranAnalysis() {
             try {
-                // В реальном приложении здесь будет запрос к API для получения анализа по Ирану
                 const iranAnalysis = {
                     article: {
                         title: "Comprehensive Analysis of Iran's Current Situation",
