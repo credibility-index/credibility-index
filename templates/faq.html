@@ -3,17 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Index Credibility FAQ</title>
+    <title>Index Credibility | FAQ</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <style>
         :root {
-            --primary-color: #2563eb;
-            --secondary-color: #f8fafc;
-            --text-color: #1f2937;
-            --border-color: #e2e8f0;
-            --border-radius: 8px;
-            --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            --transition: all 0.3s ease;
+            --primary-color: #212529;
+            --secondary-color: #f8f9fa;
+            --text-color: #212529;
+            --text-light: #6c757d;
+            --border-color: #dee2e6;
+            --border-radius: 4px;
+            --box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.05);
+            --transition: all 0.2s ease;
+            --spacing-unit: 1rem;
         }
 
         * {
@@ -23,8 +25,8 @@
         }
 
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f8f9fa;
             color: var(--text-color);
             line-height: 1.6;
         }
@@ -39,7 +41,7 @@
         .navbar {
             background-color: white;
             padding: 1rem;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
             position: sticky;
             top: 0;
             z-index: 1000;
@@ -72,16 +74,33 @@
             font-weight: 500;
             text-decoration: none;
             transition: var(--transition);
+            position: relative;
+            padding: 0.5rem 0;
         }
 
         .navbar-link:hover {
             color: var(--primary-color);
         }
 
+        .navbar-link::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background-color: var(--primary-color);
+            transition: width 0.3s ease;
+        }
+
+        .navbar-link:hover::after {
+            width: 100%;
+        }
+
         /* Main content */
         .faq-container {
             max-width: 800px;
-            margin: 2rem auto;
+            margin: 3rem auto;
             padding: 2rem;
             background-color: white;
             border-radius: var(--border-radius);
@@ -90,17 +109,46 @@
 
         .faq-title {
             font-size: 2rem;
-            margin-bottom: 1.5rem;
+            margin-bottom: 2rem;
             color: var(--primary-color);
             text-align: center;
+            font-weight: 700;
+            position: relative;
+            padding-bottom: 0.5rem;
+        }
+
+        .faq-title::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 3px;
+            background-color: var(--primary-color);
+        }
+
+        .faq-intro {
+            text-align: center;
+            margin-bottom: 3rem;
+            color: var(--text-light);
+            font-size: 1.1rem;
         }
 
         .faq-section {
             margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 2rem;
+        }
+
+        .faq-section:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+            margin-bottom: 0;
         }
 
         .faq-question {
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             font-weight: 600;
             margin-bottom: 0.5rem;
             color: var(--primary-color);
@@ -108,82 +156,138 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 0.5rem 0;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .faq-answer {
-            padding: 0.5rem 0 1rem;
-            line-height: 1.6;
-            display: none;
-        }
-
-        .faq-question.active .faq-answer {
-            display: block;
+            padding: 1rem 0;
+            transition: var(--transition);
         }
 
         .faq-question:hover {
-            color: #1d4ed8;
+            color: #000;
+        }
+
+        .faq-question-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
         }
 
         .faq-icon {
             transition: transform 0.3s ease;
+            color: var(--primary-color);
+            font-size: 1.2rem;
         }
 
         .faq-question.active .faq-icon {
             transform: rotate(180deg);
         }
 
+        .faq-answer {
+            padding: 0 0 1rem;
+            line-height: 1.6;
+            display: none;
+            color: var(--text-light);
+            animation: fadeIn 0.3s ease;
+        }
+
+        .faq-question.active .faq-answer {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Back link */
+        .back-link-container {
+            text-align: center;
+            margin-top: 3rem;
+        }
+
         .back-link {
             display: inline-block;
-            margin-top: 2rem;
             padding: 0.75rem 1.5rem;
             background-color: var(--primary-color);
             color: white;
-            border-radius: 4px;
+            border-radius: var(--border-radius);
             text-decoration: none;
             font-weight: 500;
             transition: var(--transition);
+            border: none;
+            cursor: pointer;
         }
 
         .back-link:hover {
-            background-color: #1d4ed8;
+            background-color: #000;
+            color: white;
+        }
+
+        .back-link i {
+            margin-right: 0.5rem;
         }
 
         /* Footer */
         .footer {
-            background-color: white;
-            padding: 1.5rem 0;
-            margin-top: 3rem;
-            border-top: 1px solid var(--border-color);
+            background-color: #343a40;
+            padding: 2rem 0;
+            margin-top: 4rem;
+            color: white;
+        }
+
+        .footer-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
 
         .footer-links {
             display: flex;
-            justify-content: center;
-            gap: 1.5rem;
+            gap: 2rem;
             list-style: none;
-            margin-bottom: 1rem;
+            margin-bottom: 1.5rem;
         }
 
         .footer-link {
-            color: var(--text-color);
+            color: white;
             text-decoration: none;
+            transition: var(--transition);
         }
 
         .footer-link:hover {
-            color: var(--primary-color);
+            color: #adb5bd;
+            text-decoration: underline;
+        }
+
+        .footer-copyright {
+            color: #adb5bd;
+            font-size: 0.9rem;
         }
 
         /* Responsive */
         @media (max-width: 768px) {
             .faq-container {
                 margin: 1rem;
-                padding: 1rem;
+                padding: 1.5rem;
+            }
+
+            .faq-title {
+                font-size: 1.8rem;
             }
 
             .navbar-links {
                 display: none;
+            }
+
+            .footer-links {
+                flex-direction: column;
+                gap: 1rem;
+                text-align: center;
             }
         }
     </style>
@@ -193,7 +297,7 @@
         <div class="container navbar-container">
             <a href="/" class="navbar-brand">
                 <i class="bi bi-newspaper"></i>
-                <span>Media Credibility Index</span>
+                <span>Index Credibility</span>
             </a>
             <ul class="navbar-links">
                 <li><a href="/" class="navbar-link">Home</a></li>
@@ -208,143 +312,160 @@
 
     <div class="container">
         <div class="faq-container">
-            <h1 class="faq-title">Index Credibility FAQ</h1>
+            <h1 class="faq-title">Frequently Asked Questions</h1>
+            <p class="faq-intro">Find answers to common questions about our news credibility analysis service</p>
 
             <div class="faq-section">
                 <div class="faq-question">
-                    <span>What is the Index Credibility and what are we trying to do?</span>
-                    <i class="bi bi-chevron-down faq-icon"></i>
+                    <div class="faq-question-container">
+                        <span>What is Index Credibility and what are we trying to achieve?</span>
+                        <i class="bi bi-chevron-down faq-icon"></i>
+                    </div>
                 </div>
                 <div class="faq-answer">
-                    <p>We built this tool because we're tired of all the fake news and biased reporting out there. Our app helps you figure out which news articles you can actually trust.</p>
-                    <p>We don't tell you what to think - we just give you the facts about where the news is coming from and how reliable it seems to be. Then you can decide for yourself what to believe.</p>
+                    <p>Index Credibility is an advanced news analysis platform designed to help users evaluate the reliability and trustworthiness of news articles. Our mission is to combat misinformation by providing objective analysis of news content, allowing users to make informed decisions about what they read.</p>
+                    <p>We utilize sophisticated AI algorithms to analyze multiple factors including source reliability, factual accuracy, and potential bias. Our system doesn't tell users what to think, but rather provides them with the tools to critically evaluate news content.</p>
                 </div>
             </div>
 
             <div class="faq-section">
                 <div class="faq-question">
-                    <span>How does the Index Credibility show the full picture?</span>
-                    <i class="bi bi-chevron-down faq-icon"></i>
+                    <div class="faq-question-container">
+                        <span>How does Index Credibility provide comprehensive analysis?</span>
+                        <i class="bi bi-chevron-down faq-icon"></i>
+                    </div>
                 </div>
                 <div class="faq-answer">
-                    <p>One of the key features of our tool is showing you similar news articles from different sources. This helps you:</p>
-                    <ul>
-                        <li>See how different news outlets cover the same story</li>
-                        <li>Compare different perspectives on the same event</li>
-                        <li>Spot when important facts might be missing from one source</li>
-                        <li>Understand how different media organizations frame the news</li>
-                        <li>Get a more complete picture of what's really happening</li>
-                    </ul>
-                    <p>This way, you're not just getting one side of the story - you're seeing how multiple reliable sources are reporting on the same event.</p>
-                </div>
-            </div>
-
-            <div class="faq-section">
-                <div class="faq-question">
-                    <span>What is the "Credibility Index"?</span>
-                    <i class="bi bi-chevron-down faq-icon"></i>
-                </div>
-                <div class="faq-answer">
-                    <p>The Credibility Index is a score we give to news articles based on how trustworthy they seem. We look at:</p>
-                    <ul>
-                        <li>How accurate the facts seem to be</li>
-                        <li>Whether the article seems biased or fair</li>
-                        <li>How reliable the news source usually is</li>
-                        <li>If the article gives you enough background information</li>
-                        <li>How current the information is</li>
-                    </ul>
-                    <p>We combine all these factors to give each article a score from 0-100. Higher scores mean more trustworthy news.</p>
-                </div>
-            </div>
-
-            <div class="faq-section">
-                <div class="faq-question">
-                    <span>How does the Index Credibility help me?</span>
-                    <i class="bi bi-chevron-down faq-icon"></i>
-                </div>
-                <div class="faq-answer">
-                    <p>Our tool helps you in several ways:</p>
-                    <ul>
-                        <li>You can spot articles that might be biased or missing important facts</li>
-                        <li>You can see which news sources are generally more reliable</li>
-                        <li>You can compare how different news outlets cover the same story using our similar articles feature</li>
-                        <li>You can learn to think more critically about what you read</li>
-                        <li>You can avoid sharing fake news with your friends and family</li>
-                    </ul>
-                    <p>Basically, it gives you a quick way to check if that article you're reading is probably trustworthy or if you should be skeptical.</p>
-                </div>
-            </div>
-
-            <div class="faq-section">
-                <div class="faq-question">
-                    <span>How do you ensure your scores are fair?</span>
-                    <i class="bi bi-chevron-down faq-icon"></i>
-                </div>
-                <div class="faq-answer">
-                    <p>We work hard to keep our analysis fair:</p>
-                    <ul>
-                        <li>We train our AI on diverse news sources, not just one side</li>
-                        <li>We're transparent about how we calculate our scores</li>
-                        <li>We regularly check our system for any biases</li>
-                        <li>We have real journalists review tricky cases</li>
-                        <li>We listen to user feedback about our analysis</li>
-                        <li>We show you articles from multiple sources so you can compare different viewpoints</li>
-                    </ul>
-                    <p>We also show you exactly how we came up with each score, so you can decide for yourself if you think we're being fair.</p>
-                </div>
-            </div>
-
-            <div class="faq-section">
-                <div class="faq-question">
-                    <span>What's your vision for the future?</span>
-                    <i class="bi bi-chevron-down faq-icon"></i>
-                </div>
-                <div class="faq-answer">
-                    <p>We'd love to see a world where:</p>
-                    <ul>
-                        <li>News organizations are transparent about who owns them and who funds them</li>
-                        <li>Everyone learns how to think critically about what they read online</li>
-                        <li>Social media shows you why you're seeing certain posts, not just what they want you to see</li>
-                        <li>Good journalism gets the support it deserves</li>
-                        <li>You can easily find different viewpoints on any topic</li>
-                        <li>Technology helps us understand things better, not just manipulate us</li>
-                    </ul>
-                    <p>It's not about agreeing with everything you read - it's about having the tools to decide what to believe. And seeing multiple perspectives helps with that!</p>
-                </div>
-            </div>
-
-            <div class="faq-section">
-                <div class="faq-question">
-                    <span>How does the "same topic articles" feature work?</span>
-                    <i class="bi bi-chevron-down faq-icon"></i>
-                </div>
-                <div class="faq-answer">
-                    <p>Our "similar articles" feature works by:</p>
+                    <p>Our platform employs several key features to provide comprehensive analysis:</p>
                     <ol>
-                        <li>When you analyze an article, our system identifies the key topics and facts</li>
-                        <li>At the same time it searches for other articles covering the same topic from different reliable sources</li>
-                        <li>We show you these articles ranked by how relevant they are and how trustworthy their sources are</li>
-                        <li>You can compare how different news outlets are reporting on the same event</li>
-                        <li>This helps you see the full picture, not just one side of the story</li>
+                        <li><strong>Multi-source comparison:</strong> We show how different reputable news outlets cover the same story, allowing users to compare perspectives.</li>
+                        <li><strong>Credibility scoring:</strong> Each article receives a credibility score based on multiple factors including source reliability, factual accuracy, and potential bias.</li>
+                        <li><strong>Contextual analysis:</strong> We provide background information and related articles to give users a complete picture of the news topic.</li>
+                        <li><strong>Bias detection:</strong> Our AI identifies potential biases in reporting to help users recognize when a particular viewpoint might be influencing the coverage.</li>
                     </ol>
-                    <p>It's like getting a second (and third, and fourth) opinion on the news you're reading!</p>
+                    <p>This comprehensive approach ensures users get a well-rounded understanding of news topics rather than just one perspective.</p>
                 </div>
             </div>
 
-            <a href="/" class="back-link">
-                <i class="bi bi-arrow-left"></i> Back to Analyzer
-            </a>
+            <div class="faq-section">
+                <div class="faq-question">
+                    <div class="faq-question-container">
+                        <span>What is the Credibility Index and how is it calculated?</span>
+                        <i class="bi bi-chevron-down faq-icon"></i>
+                    </div>
+                </div>
+                <div class="faq-answer">
+                    <p>The Credibility Index is our proprietary scoring system that evaluates news articles based on several key factors:</p>
+                    <ul>
+                        <li><strong>Source reliability (30% weight):</strong> Historical accuracy and reputation of the news source</li>
+                        <li><strong>Factual accuracy (25% weight):</strong> Verification of claims and statements in the article</li>
+                        <li><strong>Bias detection (20% weight):</strong> Identification of potential political or ideological bias</li>
+                        <li><strong>Context completeness (15% weight):</strong> Whether the article provides sufficient background information</li>
+                        <li><strong>Timeliness (10% weight):</strong> How current and up-to-date the information is</li>
+                    </ul>
+                    <p>These factors are combined using a weighted algorithm to produce a score from 0-100, with higher scores indicating more trustworthy news content. The exact weighting and calculation methodology is regularly reviewed by our team of journalists and data scientists to ensure fairness and accuracy.</p>
+                </div>
+            </div>
+
+            <div class="faq-section">
+                <div class="faq-question">
+                    <div class="faq-question-container">
+                        <span>How does Index Credibility benefit users?</span>
+                        <i class="bi bi-chevron-down faq-icon"></i>
+                    </div>
+                </div>
+                <div class="faq-answer">
+                    <p>Our platform provides several key benefits to users:</p>
+                    <ul>
+                        <li><strong>Critical thinking development:</strong> Helps users develop skills to evaluate news content more critically</li>
+                        <li><strong>Bias recognition:</strong> Enables users to identify potential biases in news reporting</li>
+                        <li><strong>Source comparison:</strong> Allows comparison of how different news outlets cover the same story</li>
+                        <li><strong>Misinformation prevention:</strong> Reduces the likelihood of users sharing false or misleading information</li>
+                        <li><strong>Comprehensive understanding:</strong> Provides a more complete picture of news events through multiple perspectives</li>
+                    </ul>
+                    <p>These benefits combine to create a more informed news consumer who can navigate the complex media landscape with greater confidence and discernment.</p>
+                </div>
+            </div>
+
+            <div class="faq-section">
+                <div class="faq-question">
+                    <div class="faq-question-container">
+                        <span>How does Index Credibility ensure fairness in analysis?</span>
+                        <i class="bi bi-chevron-down faq-icon"></i>
+                    </div>
+                </div>
+                <div class="faq-answer">
+                    <p>Ensuring fairness in our analysis is a top priority. We maintain fairness through:</p>
+                    <ul>
+                        <li><strong>Diverse training data:</strong> Our AI models are trained on news content from across the political spectrum and from various geographic regions</li>
+                        <li><strong>Transparent methodology:</strong> We openly publish our scoring criteria and calculation methods</li>
+                        <li><strong>Regular audits:</strong> Our algorithms are regularly reviewed for potential biases by both our technical team and independent journalists</li>
+                        <li><strong>User feedback:</strong> We incorporate user reports and feedback to continuously improve our system</li>
+                        <li><strong>Multiple perspectives:</strong> We always show content from various sources to provide balanced viewpoints</li>
+                        <li><strong>Human oversight:</strong> Complex cases are reviewed by our team of professional journalists</li>
+                    </ul>
+                    <p>This multi-layered approach helps ensure our analysis remains as objective and fair as possible, while still providing users with the tools to make their own judgments about news content.</p>
+                </div>
+            </div>
+
+            <div class="faq-section">
+                <div class="faq-question">
+                    <div class="faq-question-container">
+                        <span>What is Index Credibility's vision for the future?</span>
+                        <i class="bi bi-chevron-down faq-icon"></i>
+                    </div>
+                </div>
+                <div class="faq-answer">
+                    <p>Our vision for the future of news consumption includes:</p>
+                    <ul>
+                        <li><strong>Transparency:</strong> News organizations being fully transparent about ownership, funding sources, and potential conflicts of interest</li>
+                        <li><strong>Media literacy:</strong> A population equipped with critical thinking skills to evaluate news content</li>
+                        <li><strong>Algorithmic accountability:</strong> Social media platforms clearly explaining why users see specific content</li>
+                        <li><strong>Quality journalism:</strong> Sustainable business models that support high-quality, investigative journalism</li>
+                        <li><strong>Diverse perspectives:</strong> Easy access to multiple viewpoints on any given topic</li>
+                        <li><strong>Technological empowerment:</strong> Tools that help users understand complex issues rather than manipulate them</li>
+                    </ul>
+                    <p>We believe technology should empower users to make informed decisions about what they read and share, rather than simply feeding them content based on engagement algorithms.</p>
+                </div>
+            </div>
+
+            <div class="faq-section">
+                <div class="faq-question">
+                    <div class="faq-question-container">
+                        <span>How does the "similar articles" feature work?</span>
+                        <i class="bi bi-chevron-down faq-icon"></i>
+                    </div>
+                </div>
+                <div class="faq-answer">
+                    <p>Our "similar articles" feature operates through a sophisticated multi-step process:</p>
+                    <ol>
+                        <li><strong>Content analysis:</strong> When you submit an article, our AI identifies key topics, entities, and facts mentioned in the content</li>
+                        <li><strong>Semantic matching:</strong> We search our database of analyzed articles for content covering the same or similar topics</li>
+                        <li><strong>Source evaluation:</strong> Articles are ranked based on both relevance to the original article and the credibility of their sources</li>
+                        <li><strong>Diversity algorithm:</strong> We ensure the results include articles from different perspectives and political leanings when available</li>
+                        <li><strong>Presentation:</strong> Results are displayed with clear credibility indicators and source information</li>
+                    </ol>
+                    <p>This feature helps users understand how different news organizations cover the same event, providing a more complete picture of the news landscape.</p>
+                </div>
+            </div>
+
+            <div class="back-link-container">
+                <a href="/" class="back-link">
+                    <i class="bi bi-arrow-left"></i> Return to Analysis
+                </a>
+            </div>
         </div>
     </div>
 
     <footer class="footer">
-        <div class="container">
+        <div class="container footer-content">
             <ul class="footer-links">
                 <li><a href="/privacy" class="footer-link">Privacy Policy</a></li>
                 <li><a href="/terms" class="footer-link">Terms of Service</a></li>
                 <li><a href="/contact" class="footer-link">Contact Us</a></li>
+                <li><a href="/about" class="footer-link">About Us</a></li>
             </ul>
-            <p style="text-align: center;">&copy; 2025 Media Credibility Index. All rights reserved.</p>
+            <p class="footer-copyright">&copy; 2025 Index Credibility. All rights reserved.</p>
         </div>
     </footer>
 
@@ -355,6 +476,13 @@
             questions.forEach(question => {
                 question.addEventListener('click', function() {
                     this.classList.toggle('active');
+
+                    // Close other open questions
+                    questions.forEach(otherQuestion => {
+                        if (otherQuestion !== this && otherQuestion.classList.contains('active')) {
+                            otherQuestion.classList.remove('active');
+                        }
+                    });
                 });
             });
         });
