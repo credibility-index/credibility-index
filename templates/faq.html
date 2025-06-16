@@ -3,231 +3,361 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FAQ - News Credibility Analyzer</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Index Credibility FAQ</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #f8fafc;
+            --text-color: #1f2937;
+            --border-color: #e2e8f0;
+            --border-radius: 8px;
+            --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+            color: var(--text-color);
             line-height: 1.6;
-            color: #333;
-            background-color: #f8f9fa;
-            padding: 20px;
         }
 
         .container {
-            max-width: 800px;
+            max-width: 1200px;
             margin: 0 auto;
+            padding: 0 1rem;
+        }
+
+        /* Navigation */
+        .navbar {
             background-color: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            padding: 1rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
         }
 
-        h1 {
-            color: #2c3e50;
-            margin-bottom: 30px;
-            text-align: center;
-        }
-
-        .faq-item {
-            margin-bottom: 20px;
-            padding: 15px;
-            background-color: #f8f9fa;
-            border-radius: 8px;
-        }
-
-        .faq-question {
-            font-weight: bold;
-            color: #2c3e50;
-            cursor: pointer;
+        .navbar-container {
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
-        .faq-answer {
-            margin-top: 10px;
-            padding-top: 10px;
-            display: none;
-        }
-
-        .back-button {
-            display: block;
-            width: 200px;
-            margin: 30px auto 0;
-            padding: 10px;
-            background-color: #4e73df;
-            color: white;
-            text-align: center;
-            border-radius: 5px;
+        .navbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--text-color);
             text-decoration: none;
         }
 
-        .mission-section {
-            background-color: #e3f2fd;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 30px;
+        .navbar-links {
+            display: flex;
+            gap: 1.5rem;
+            list-style: none;
         }
 
-        .feature-highlight {
-            background-color: #e8f4f8;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 20px 0;
+        .navbar-link {
+            color: var(--text-color);
+            font-weight: 500;
+            text-decoration: none;
+            transition: var(--transition);
+        }
+
+        .navbar-link:hover {
+            color: var(--primary-color);
+        }
+
+        /* Main content */
+        .faq-container {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background-color: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+        }
+
+        .faq-title {
+            font-size: 2rem;
+            margin-bottom: 1.5rem;
+            color: var(--primary-color);
+            text-align: center;
+        }
+
+        .faq-section {
+            margin-bottom: 2rem;
+        }
+
+        .faq-question {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--primary-color);
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .faq-answer {
+            padding: 0.5rem 0 1rem;
+            line-height: 1.6;
+            display: none;
+        }
+
+        .faq-question.active .faq-answer {
+            display: block;
+        }
+
+        .faq-question:hover {
+            color: #1d4ed8;
+        }
+
+        .faq-icon {
+            transition: transform 0.3s ease;
+        }
+
+        .faq-question.active .faq-icon {
+            transform: rotate(180deg);
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 2rem;
+            padding: 0.75rem 1.5rem;
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: var(--transition);
+        }
+
+        .back-link:hover {
+            background-color: #1d4ed8;
+        }
+
+        /* Footer */
+        .footer {
+            background-color: white;
+            padding: 1.5rem 0;
+            margin-top: 3rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem;
+            list-style: none;
+            margin-bottom: 1rem;
+        }
+
+        .footer-link {
+            color: var(--text-color);
+            text-decoration: none;
+        }
+
+        .footer-link:hover {
+            color: var(--primary-color);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .faq-container {
+                margin: 1rem;
+                padding: 1rem;
+            }
+
+            .navbar-links {
+                display: none;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>News Credibility Analyzer FAQ</h1>
-
-        <div class="mission-section">
-            <h3>What we're trying to do</h3>
-            <p>We built this tool because we're tired of all the fake news and biased reporting out there. Our app helps you figure out which news articles you can actually trust.</p>
-            <p>We don't tell you what to think - we just give you the facts about where the news is coming from and how reliable it seems to be. Then you can decide for yourself what to believe.</p>
-        </div>
-
-        <div class="feature-highlight">
-            <h4>How we show you the full picture</h4>
-            <p>One of the coolest things our tool does is show you similar news articles from different sources. This helps you:</p>
-            <ul>
-                <li>See how different news outlets cover the same story</li>
-                <li>Compare different perspectives on the same event</li>
-                <li>Spot when important facts might be missing from one source</li>
-                <li>Understand how different media organizations frame the news</li>
-                <li>Get a more complete picture of what's really happening</li>
+    <nav class="navbar">
+        <div class="container navbar-container">
+            <a href="/" class="navbar-brand">
+                <i class="bi bi-newspaper"></i>
+                <span>Media Credibility Index</span>
+            </a>
+            <ul class="navbar-links">
+                <li><a href="/" class="navbar-link">Home</a></li>
+                <li><a href="/faq" class="navbar-link">FAQ</a></li>
+                <li><a href="/feedback" class="navbar-link">Feedback</a></li>
+                <li><a href="/privacy" class="navbar-link">Privacy</a></li>
+                <li><a href="/terms" class="navbar-link">Terms</a></li>
+                <li><a href="/contact" class="navbar-link">Contact</a></li>
             </ul>
-            <p>This way, you're not just getting one side of the story - you're seeing how multiple reliable sources are reporting on the same event.</p>
         </div>
+    </nav>
 
-        <div class="faq-item">
-            <div class="faq-question" onclick="toggleAnswer('answer1')">
-                <span>What is this "Credibility Index" thing?</span>
-                <span id="toggle1">+</span>
+    <div class="container">
+        <div class="faq-container">
+            <h1 class="faq-title">Index Credibility FAQ</h1>
+
+            <div class="faq-section">
+                <div class="faq-question">
+                    <span>What is the Index Credibility and what are we trying to do?</span>
+                    <i class="bi bi-chevron-down faq-icon"></i>
+                </div>
+                <div class="faq-answer">
+                    <p>We built this tool because we're tired of all the fake news and biased reporting out there. Our app helps you figure out which news articles you can actually trust.</p>
+                    <p>We don't tell you what to think - we just give you the facts about where the news is coming from and how reliable it seems to be. Then you can decide for yourself what to believe.</p>
+                </div>
             </div>
-            <div class="faq-answer" id="answer1">
-                <p>The Credibility Index is basically a score we give to news articles based on how trustworthy they seem. We look at:</p>
-                <ul>
-                    <li>How accurate the facts seem to be</li>
-                    <li>Whether the article seems biased or fair</li>
-                    <li>How reliable the news source usually is</li>
-                    <li>If the article gives you enough background info</li>
-                    <li>How current the information is</li>
-                </ul>
-                <p>We combine all these factors to give each article a score from 0-100. Higher scores mean more trustworthy news.</p>
+
+            <div class="faq-section">
+                <div class="faq-question">
+                    <span>How does the Index Credibility show the full picture?</span>
+                    <i class="bi bi-chevron-down faq-icon"></i>
+                </div>
+                <div class="faq-answer">
+                    <p>One of the key features of our tool is showing you similar news articles from different sources. This helps you:</p>
+                    <ul>
+                        <li>See how different news outlets cover the same story</li>
+                        <li>Compare different perspectives on the same event</li>
+                        <li>Spot when important facts might be missing from one source</li>
+                        <li>Understand how different media organizations frame the news</li>
+                        <li>Get a more complete picture of what's really happening</li>
+                    </ul>
+                    <p>This way, you're not just getting one side of the story - you're seeing how multiple reliable sources are reporting on the same event.</p>
+                </div>
             </div>
+
+            <div class="faq-section">
+                <div class="faq-question">
+                    <span>What is the "Credibility Index"?</span>
+                    <i class="bi bi-chevron-down faq-icon"></i>
+                </div>
+                <div class="faq-answer">
+                    <p>The Credibility Index is a score we give to news articles based on how trustworthy they seem. We look at:</p>
+                    <ul>
+                        <li>How accurate the facts seem to be</li>
+                        <li>Whether the article seems biased or fair</li>
+                        <li>How reliable the news source usually is</li>
+                        <li>If the article gives you enough background information</li>
+                        <li>How current the information is</li>
+                    </ul>
+                    <p>We combine all these factors to give each article a score from 0-100. Higher scores mean more trustworthy news.</p>
+                </div>
+            </div>
+
+            <div class="faq-section">
+                <div class="faq-question">
+                    <span>How does the Index Credibility help me?</span>
+                    <i class="bi bi-chevron-down faq-icon"></i>
+                </div>
+                <div class="faq-answer">
+                    <p>Our tool helps you in several ways:</p>
+                    <ul>
+                        <li>You can spot articles that might be biased or missing important facts</li>
+                        <li>You can see which news sources are generally more reliable</li>
+                        <li>You can compare how different news outlets cover the same story using our similar articles feature</li>
+                        <li>You can learn to think more critically about what you read</li>
+                        <li>You can avoid sharing fake news with your friends and family</li>
+                    </ul>
+                    <p>Basically, it gives you a quick way to check if that article you're reading is probably trustworthy or if you should be skeptical.</p>
+                </div>
+            </div>
+
+            <div class="faq-section">
+                <div class="faq-question">
+                    <span>How do you ensure your scores are fair?</span>
+                    <i class="bi bi-chevron-down faq-icon"></i>
+                </div>
+                <div class="faq-answer">
+                    <p>We work hard to keep our analysis fair:</p>
+                    <ul>
+                        <li>We train our AI on diverse news sources, not just one side</li>
+                        <li>We're transparent about how we calculate our scores</li>
+                        <li>We regularly check our system for any biases</li>
+                        <li>We have real journalists review tricky cases</li>
+                        <li>We listen to user feedback about our analysis</li>
+                        <li>We show you articles from multiple sources so you can compare different viewpoints</li>
+                    </ul>
+                    <p>We also show you exactly how we came up with each score, so you can decide for yourself if you think we're being fair.</p>
+                </div>
+            </div>
+
+            <div class="faq-section">
+                <div class="faq-question">
+                    <span>What's your vision for the future?</span>
+                    <i class="bi bi-chevron-down faq-icon"></i>
+                </div>
+                <div class="faq-answer">
+                    <p>We'd love to see a world where:</p>
+                    <ul>
+                        <li>News organizations are transparent about who owns them and who funds them</li>
+                        <li>Everyone learns how to think critically about what they read online</li>
+                        <li>Social media shows you why you're seeing certain posts, not just what they want you to see</li>
+                        <li>Good journalism gets the support it deserves</li>
+                        <li>You can easily find different viewpoints on any topic</li>
+                        <li>Technology helps us understand things better, not just manipulate us</li>
+                    </ul>
+                    <p>It's not about agreeing with everything you read - it's about having the tools to decide what to believe. And seeing multiple perspectives helps with that!</p>
+                </div>
+            </div>
+
+            <div class="faq-section">
+                <div class="faq-question">
+                    <span>How does the "same topic articles" feature work?</span>
+                    <i class="bi bi-chevron-down faq-icon"></i>
+                </div>
+                <div class="faq-answer">
+                    <p>Our "similar articles" feature works by:</p>
+                    <ol>
+                        <li>When you analyze an article, our system identifies the key topics and facts</li>
+                        <li>At the same time it searches for other articles covering the same topic from different reliable sources</li>
+                        <li>We show you these articles ranked by how relevant they are and how trustworthy their sources are</li>
+                        <li>You can compare how different news outlets are reporting on the same event</li>
+                        <li>This helps you see the full picture, not just one side of the story</li>
+                    </ol>
+                    <p>It's like getting a second (and third, and fourth) opinion on the news you're reading!</p>
+                </div>
+            </div>
+
+            <a href="/" class="back-link">
+                <i class="bi bi-arrow-left"></i> Back to Analyzer
+            </a>
         </div>
-
-        <div class="faq-item">
-            <div class="faq-question" onclick="toggleAnswer('answer2')">
-                <span>How does this actually help me?</span>
-                <span id="toggle2">+</span>
-            </div>
-            <div class="faq-answer" id="answer2">
-                <p>It helps you in a few ways:</p>
-                <ul>
-                    <li>You can spot articles that might be biased or missing important facts</li>
-                    <li>You can see which news sources are generally more reliable</li>
-                    <li>You can compare how different news outlets cover the same story (using our similar articles feature)</li>
-                    <li>You can learn to think more critically about what you read</li>
-                    <li>You can avoid sharing fake news with your friends and family</li>
-                </ul>
-                <p>Basically, it gives you a quick way to check if that article you're reading is probably trustworthy or if you should be skeptical.</p>
-            </div>
-        </div>
-
-        <div class="faq-item">
-            <div class="faq-question" onclick="toggleAnswer('answer3')">
-                <span>How do you make sure your scores are fair?</span>
-                <span id="toggle3">+</span>
-            </div>
-            <div class="faq-answer" id="answer3">
-                <p>Good question! We work hard to keep our analysis fair:</p>
-                <ul>
-                    <li>We train our AI on lots of different news sources, not just one side</li>
-                    <li>We're totally open about how we calculate our scores</li>
-                    <li>We regularly check our system for any biases</li>
-                    <li>We have real journalists review tricky cases</li>
-                    <li>We listen to user feedback about our analysis</li>
-                    <li>We show you articles from multiple sources so you can compare different viewpoints</li>
-                </ul>
-                <p>We also show you exactly how we came up with each score, so you can decide for yourself if you think we're being fair.</p>
-            </div>
-        </div>
-
-        <div class="faq-item">
-            <div class="faq-question" onclick="toggleAnswer('answer4')">
-                <span>What's your big dream for the future?</span>
-                <span id="toggle4">+</span>
-            </div>
-            <div class="faq-answer" id="answer4">
-                <p>We'd love to see a world where:</p>
-                <ul>
-                    <li>News organizations are totally open about who owns them and who funds them</li>
-                    <li>Everyone learns how to think critically about what they read online</li>
-                    <li>Social media shows you why you're seeing certain posts, not just what they want you to see</li>
-                    <li>Good journalism gets the support it deserves</li>
-                    <li>You can easily find different viewpoints on any topic (which is why we show similar articles from multiple sources)</li>
-                    <li>Technology helps us understand things better, not just manipulate us</li>
-                </ul>
-                <p>Basically, we want people to have both the freedom to read whatever they want AND the tools to figure out what's actually true.</p>
-            </div>
-        </div>
-
-        <div class="faq-item">
-            <div class="faq-question" onclick="toggleAnswer('answer5')">
-                <span>How can I help with this?</span>
-                <span id="toggle5">+</span>
-            </div>
-            <div class="faq-answer" id="answer5">
-                <p>You can help in a few simple ways:</p>
-                <ul>
-                    <li>Think critically about what you read online</li>
-                    <li>Check sources before sharing news on social media</li>
-                    <li>Support good journalism by subscribing to reliable news sources</li>
-                    <li>Read news from different places to get different viewpoints (use our similar articles feature to find them!)</li>
-                    <li>Tell your friends about our tool so they can check news too</li>
-                    <li>Let us know if you think our analysis is wrong about something</li>
-                </ul>
-                <p>It's not about agreeing with everything you read - it's about having the tools to decide what to believe. And seeing multiple perspectives helps with that!</p>
-            </div>
-        </div>
-
-        <div class="faq-item">
-            <div class="faq-question" onclick="toggleAnswer('answer6')">
-                <span>How does the "similar articles" feature work?</span>
-                <span id="toggle6">+</span>
-            </div>
-            <div class="faq-answer" id="answer6">
-                <p>Our "similar articles" feature is pretty cool - here's how it works:</p>
-                <ol>
-                    <li>When you analyze an article, our system identifies the key topics and facts</li>
-                    <li>At the same time it searches for other articles covering the same topic from different reliable sources</li>
-                    <li>We show you these articles ranked by how relevant they are and how trustworthy their sources are</li>
-                    <li>You can compare how different news outlets are reporting on the same event</li>
-                    <li>This helps you see the full picture, not just one side of the story</li>
-                </ol>
-                <p>It's like getting a second (and third, and fourth) opinion on the news you're reading!</p>
-            </div>
-        </div>
-
-        <a href="/" class="back-button">Back to Analyzer</a>
     </div>
 
-    <script>
-        function toggleAnswer(id) {
-            const answer = document.getElementById(id);
-            const toggle = document.getElementById('toggle' + id.slice(-1));
+    <footer class="footer">
+        <div class="container">
+            <ul class="footer-links">
+                <li><a href="/privacy" class="footer-link">Privacy Policy</a></li>
+                <li><a href="/terms" class="footer-link">Terms of Service</a></li>
+                <li><a href="/contact" class="footer-link">Contact Us</a></li>
+            </ul>
+            <p style="text-align: center;">&copy; 2025 Media Credibility Index. All rights reserved.</p>
+        </div>
+    </footer>
 
-            if (answer.style.display === 'block') {
-                answer.style.display = 'none';
-                toggle.textContent = '+';
-            } else {
-                answer.style.display = 'block';
-                toggle.textContent = '-';
-            }
-        }
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const questions = document.querySelectorAll('.faq-question');
+
+            questions.forEach(question => {
+                question.addEventListener('click', function() {
+                    this.classList.toggle('active');
+                });
+            });
+        });
     </script>
 </body>
 </html>
