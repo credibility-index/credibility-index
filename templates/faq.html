@@ -136,9 +136,9 @@
         }
 
         .faq-section {
-            margin-bottom: 2rem;
+            margin-bottom: 1.5rem;
             border-bottom: 1px solid var(--border-color);
-            padding-bottom: 2rem;
+            padding-bottom: 1.5rem;
         }
 
         .faq-section:last-child {
@@ -147,28 +147,28 @@
             margin-bottom: 0;
         }
 
-        .faq-question {
-            font-size: 1.1rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-            color: var(--primary-color);
+        .faq-question-container {
             cursor: pointer;
+            width: 100%;
+        }
+
+        .faq-question {
             display: flex;
             justify-content: space-between;
             align-items: center;
             padding: 1rem 0;
             transition: var(--transition);
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--primary-color);
         }
 
         .faq-question:hover {
             color: #000;
         }
 
-        .faq-question-container {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            width: 100%;
+        .faq-question-content {
+            width: 90%;
         }
 
         .faq-icon {
@@ -182,26 +182,17 @@
         }
 
         .faq-answer {
-            padding: 0 0 1rem;
+            padding: 1rem 0;
             line-height: 1.6;
-            display: none;
             color: var(--text-light);
-            animation: fadeIn 0.3s ease;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease, padding 0.3s ease;
         }
 
         .faq-question.active .faq-answer {
-            display: block;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            max-height: 2000px;
+            padding: 1rem 0;
         }
 
         /* Back link */
@@ -316,136 +307,150 @@
             <p class="faq-intro">Find answers to common questions about our news credibility analysis service</p>
 
             <div class="faq-section">
-                <div class="faq-question">
-                    <div class="faq-question-container">
-                        <span>What is Index Credibility and what are we trying to achieve?</span>
+                <div class="faq-question-container">
+                    <div class="faq-question">
+                        <div class="faq-question-content">
+                            <span>What is Index Credibility and what are we trying to achieve?</span>
+                        </div>
                         <i class="bi bi-chevron-down faq-icon"></i>
                     </div>
-                </div>
-                <div class="faq-answer">
-                    <p>Index Credibility is an advanced news analysis platform designed to help users evaluate the reliability and trustworthiness of news articles. Our mission is to combat misinformation by providing objective analysis of news content, allowing users to make informed decisions about what they read.</p>
-                    <p>We utilize sophisticated AI algorithms to analyze multiple factors including source reliability, factual accuracy, and potential bias. Our system doesn't tell users what to think, but rather provides them with the tools to critically evaluate news content.</p>
+                    <div class="faq-answer">
+                        <p>Index Credibility is an advanced news analysis platform designed to help users evaluate the reliability and trustworthiness of news articles. Our mission is to combat misinformation by providing objective analysis of news content, allowing users to make informed decisions about what they read.</p>
+                        <p>We utilize sophisticated AI algorithms to analyze multiple factors including source reliability, factual accuracy, and potential bias. Our system doesn't tell users what to think, but rather provides them with the tools to critically evaluate news content.</p>
+                    </div>
                 </div>
             </div>
 
             <div class="faq-section">
-                <div class="faq-question">
-                    <div class="faq-question-container">
-                        <span>How does Index Credibility provide comprehensive analysis?</span>
+                <div class="faq-question-container">
+                    <div class="faq-question">
+                        <div class="faq-question-content">
+                            <span>How does Index Credibility provide comprehensive analysis?</span>
+                        </div>
                         <i class="bi bi-chevron-down faq-icon"></i>
                     </div>
-                </div>
-                <div class="faq-answer">
-                    <p>Our platform employs several key features to provide comprehensive analysis:</p>
-                    <ol>
-                        <li><strong>Multi-source comparison:</strong> We show how different reputable news outlets cover the same story, allowing users to compare perspectives.</li>
-                        <li><strong>Credibility scoring:</strong> Each article receives a credibility score based on multiple factors including source reliability, factual accuracy, and potential bias.</li>
-                        <li><strong>Contextual analysis:</strong> We provide background information and related articles to give users a complete picture of the news topic.</li>
-                        <li><strong>Bias detection:</strong> Our AI identifies potential biases in reporting to help users recognize when a particular viewpoint might be influencing the coverage.</li>
-                    </ol>
-                    <p>This comprehensive approach ensures users get a well-rounded understanding of news topics rather than just one perspective.</p>
+                    <div class="faq-answer">
+                        <p>Our platform employs several key features to provide comprehensive analysis:</p>
+                        <ol>
+                            <li><strong>Multi-source comparison:</strong> We show how different reputable news outlets cover the same story, allowing users to compare perspectives.</li>
+                            <li><strong>Credibility scoring:</strong> Each article receives a credibility score based on multiple factors including source reliability, factual accuracy, and potential bias.</li>
+                            <li><strong>Contextual analysis:</strong> We provide background information and related articles to give users a complete picture of the news topic.</li>
+                            <li><strong>Bias detection:</strong> Our AI identifies potential biases in reporting to help users recognize when a particular viewpoint might be influencing the coverage.</li>
+                        </ol>
+                        <p>This comprehensive approach ensures users get a well-rounded understanding of news topics rather than just one perspective.</p>
+                    </div>
                 </div>
             </div>
 
             <div class="faq-section">
-                <div class="faq-question">
-                    <div class="faq-question-container">
-                        <span>What is the Credibility Index and how is it calculated?</span>
+                <div class="faq-question-container">
+                    <div class="faq-question">
+                        <div class="faq-question-content">
+                            <span>What is the Credibility Index and how is it calculated?</span>
+                        </div>
                         <i class="bi bi-chevron-down faq-icon"></i>
                     </div>
-                </div>
-                <div class="faq-answer">
-                    <p>The Credibility Index is our proprietary scoring system that evaluates news articles based on several key factors:</p>
-                    <ul>
-                        <li><strong>Source reliability (30% weight):</strong> Historical accuracy and reputation of the news source</li>
-                        <li><strong>Factual accuracy (25% weight):</strong> Verification of claims and statements in the article</li>
-                        <li><strong>Bias detection (20% weight):</strong> Identification of potential political or ideological bias</li>
-                        <li><strong>Context completeness (15% weight):</strong> Whether the article provides sufficient background information</li>
-                        <li><strong>Timeliness (10% weight):</strong> How current and up-to-date the information is</li>
-                    </ul>
-                    <p>These factors are combined using a weighted algorithm to produce a score from 0-100, with higher scores indicating more trustworthy news content. The exact weighting and calculation methodology is regularly reviewed by our team of journalists and data scientists to ensure fairness and accuracy.</p>
+                    <div class="faq-answer">
+                        <p>The Credibility Index is our proprietary scoring system that evaluates news articles based on several key factors:</p>
+                        <ul>
+                            <li><strong>Source reliability (30% weight):</strong> Historical accuracy and reputation of the news source</li>
+                            <li><strong>Factual accuracy (25% weight):</strong> Verification of claims and statements in the article</li>
+                            <li><strong>Bias detection (20% weight):</strong> Identification of potential political or ideological bias</li>
+                            <li><strong>Context completeness (15% weight):</strong> Whether the article provides sufficient background information</li>
+                            <li><strong>Timeliness (10% weight):</strong> How current and up-to-date the information is</li>
+                        </ul>
+                        <p>These factors are combined using a weighted algorithm to produce a score from 0-100, with higher scores indicating more trustworthy news content. The exact weighting and calculation methodology is regularly reviewed by our team of journalists and data scientists to ensure fairness and accuracy.</p>
+                    </div>
                 </div>
             </div>
 
             <div class="faq-section">
-                <div class="faq-question">
-                    <div class="faq-question-container">
-                        <span>How does Index Credibility benefit users?</span>
+                <div class="faq-question-container">
+                    <div class="faq-question">
+                        <div class="faq-question-content">
+                            <span>How does Index Credibility benefit users?</span>
+                        </div>
                         <i class="bi bi-chevron-down faq-icon"></i>
                     </div>
-                </div>
-                <div class="faq-answer">
-                    <p>Our platform provides several key benefits to users:</p>
-                    <ul>
-                        <li><strong>Critical thinking development:</strong> Helps users develop skills to evaluate news content more critically</li>
-                        <li><strong>Bias recognition:</strong> Enables users to identify potential biases in news reporting</li>
-                        <li><strong>Source comparison:</strong> Allows comparison of how different news outlets cover the same story</li>
-                        <li><strong>Misinformation prevention:</strong> Reduces the likelihood of users sharing false or misleading information</li>
-                        <li><strong>Comprehensive understanding:</strong> Provides a more complete picture of news events through multiple perspectives</li>
-                    </ul>
-                    <p>These benefits combine to create a more informed news consumer who can navigate the complex media landscape with greater confidence and discernment.</p>
+                    <div class="faq-answer">
+                        <p>Our platform provides several key benefits to users:</p>
+                        <ul>
+                            <li><strong>Critical thinking development:</strong> Helps users develop skills to evaluate news content more critically</li>
+                            <li><strong>Bias recognition:</strong> Enables users to identify potential biases in news reporting</li>
+                            <li><strong>Source comparison:</strong> Allows comparison of how different news outlets cover the same story</li>
+                            <li><strong>Misinformation prevention:</strong> Reduces the likelihood of users sharing false or misleading information</li>
+                            <li><strong>Comprehensive understanding:</strong> Provides a more complete picture of news events through multiple perspectives</li>
+                        </ul>
+                        <p>These benefits combine to create a more informed news consumer who can navigate the complex media landscape with greater confidence and discernment.</p>
+                    </div>
                 </div>
             </div>
 
             <div class="faq-section">
-                <div class="faq-question">
-                    <div class="faq-question-container">
-                        <span>How does Index Credibility ensure fairness in analysis?</span>
+                <div class="faq-question-container">
+                    <div class="faq-question">
+                        <div class="faq-question-content">
+                            <span>How does Index Credibility ensure fairness in analysis?</span>
+                        </div>
                         <i class="bi bi-chevron-down faq-icon"></i>
                     </div>
-                </div>
-                <div class="faq-answer">
-                    <p>Ensuring fairness in our analysis is a top priority. We maintain fairness through:</p>
-                    <ul>
-                        <li><strong>Diverse training data:</strong> Our AI models are trained on news content from across the political spectrum and from various geographic regions</li>
-                        <li><strong>Transparent methodology:</strong> We openly publish our scoring criteria and calculation methods</li>
-                        <li><strong>Regular audits:</strong> Our algorithms are regularly reviewed for potential biases by both our technical team and independent journalists</li>
-                        <li><strong>User feedback:</strong> We incorporate user reports and feedback to continuously improve our system</li>
-                        <li><strong>Multiple perspectives:</strong> We always show content from various sources to provide balanced viewpoints</li>
-                        <li><strong>Human oversight:</strong> Complex cases are reviewed by our team of professional journalists</li>
-                    </ul>
-                    <p>This multi-layered approach helps ensure our analysis remains as objective and fair as possible, while still providing users with the tools to make their own judgments about news content.</p>
+                    <div class="faq-answer">
+                        <p>Ensuring fairness in our analysis is a top priority. We maintain fairness through:</p>
+                        <ul>
+                            <li><strong>Diverse training data:</strong> Our AI models are trained on news content from across the political spectrum and from various geographic regions</li>
+                            <li><strong>Transparent methodology:</strong> We openly publish our scoring criteria and calculation methods</li>
+                            <li><strong>Regular audits:</strong> Our algorithms are regularly reviewed for potential biases by both our technical team and independent journalists</li>
+                            <li><strong>User feedback:</strong> We incorporate user reports and feedback to continuously improve our system</li>
+                            <li><strong>Multiple perspectives:</strong> We always show content from various sources to provide balanced viewpoints</li>
+                            <li><strong>Human oversight:</strong> Complex cases are reviewed by our team of professional journalists</li>
+                        </ul>
+                        <p>This multi-layered approach helps ensure our analysis remains as objective and fair as possible, while still providing users with the tools to make their own judgments about news content.</p>
+                    </div>
                 </div>
             </div>
 
             <div class="faq-section">
-                <div class="faq-question">
-                    <div class="faq-question-container">
-                        <span>What is Index Credibility's vision for the future?</span>
+                <div class="faq-question-container">
+                    <div class="faq-question">
+                        <div class="faq-question-content">
+                            <span>What is Index Credibility's vision for the future?</span>
+                        </div>
                         <i class="bi bi-chevron-down faq-icon"></i>
                     </div>
-                </div>
-                <div class="faq-answer">
-                    <p>Our vision for the future of news consumption includes:</p>
-                    <ul>
-                        <li><strong>Transparency:</strong> News organizations being fully transparent about ownership, funding sources, and potential conflicts of interest</li>
-                        <li><strong>Media literacy:</strong> A population equipped with critical thinking skills to evaluate news content</li>
-                        <li><strong>Algorithmic accountability:</strong> Social media platforms clearly explaining why users see specific content</li>
-                        <li><strong>Quality journalism:</strong> Sustainable business models that support high-quality, investigative journalism</li>
-                        <li><strong>Diverse perspectives:</strong> Easy access to multiple viewpoints on any given topic</li>
-                        <li><strong>Technological empowerment:</strong> Tools that help users understand complex issues rather than manipulate them</li>
-                    </ul>
-                    <p>We believe technology should empower users to make informed decisions about what they read and share, rather than simply feeding them content based on engagement algorithms.</p>
+                    <div class="faq-answer">
+                        <p>Our vision for the future of news consumption includes:</p>
+                        <ul>
+                            <li><strong>Transparency:</strong> News organizations being fully transparent about ownership, funding sources, and potential conflicts of interest</li>
+                            <li><strong>Media literacy:</strong> A population equipped with critical thinking skills to evaluate news content</li>
+                            <li><strong>Algorithmic accountability:</strong> Social media platforms clearly explaining why users see specific content</li>
+                            <li><strong>Quality journalism:</strong> Sustainable business models that support high-quality, investigative journalism</li>
+                            <li><strong>Diverse perspectives:</strong> Easy access to multiple viewpoints on any given topic</li>
+                            <li><strong>Technological empowerment:</strong> Tools that help users understand complex issues rather than manipulate them</li>
+                        </ul>
+                        <p>We believe technology should empower users to make informed decisions about what they read and share, rather than simply feeding them content based on engagement algorithms.</p>
+                    </div>
                 </div>
             </div>
 
             <div class="faq-section">
-                <div class="faq-question">
-                    <div class="faq-question-container">
-                        <span>How does the "similar articles" feature work?</span>
+                <div class="faq-question-container">
+                    <div class="faq-question">
+                        <div class="faq-question-content">
+                            <span>How does the "similar articles" feature work?</span>
+                        </div>
                         <i class="bi bi-chevron-down faq-icon"></i>
                     </div>
-                </div>
-                <div class="faq-answer">
-                    <p>Our "similar articles" feature operates through a sophisticated multi-step process:</p>
-                    <ol>
-                        <li><strong>Content analysis:</strong> When you submit an article, our AI identifies key topics, entities, and facts mentioned in the content</li>
-                        <li><strong>Semantic matching:</strong> We search our database of analyzed articles for content covering the same or similar topics</li>
-                        <li><strong>Source evaluation:</strong> Articles are ranked based on both relevance to the original article and the credibility of their sources</li>
-                        <li><strong>Diversity algorithm:</strong> We ensure the results include articles from different perspectives and political leanings when available</li>
-                        <li><strong>Presentation:</strong> Results are displayed with clear credibility indicators and source information</li>
-                    </ol>
-                    <p>This feature helps users understand how different news organizations cover the same event, providing a more complete picture of the news landscape.</p>
+                    <div class="faq-answer">
+                        <p>Our "Same topic articles" feature operates through a sophisticated multi-step process:</p>
+                        <ol>
+                            <li><strong>Content analysis:</strong> When you submit an article, our AI identifies key topics, entities, and facts mentioned in the content</li>
+                            <li><strong>Semantic matching:</strong> We search our database of analyzed articles for content covering the same or similar topics</li>
+                            <li><strong>Source evaluation:</strong> Articles are ranked based on both relevance to the original article and the credibility of their sources</li>
+                            <li><strong>Diversity algorithm:</strong> We ensure the results include articles from different perspectives and political leanings when available</li>
+                            <li><strong>Presentation:</strong> Results are displayed with clear credibility indicators and source information</li>
+                        </ol>
+                        <p>This feature helps users understand how different news organizations cover the same event, providing a more complete picture of the news landscape.</p>
+                    </div>
                 </div>
             </div>
 
@@ -471,21 +476,36 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const questions = document.querySelectorAll('.faq-question');
+            const questionContainers = document.querySelectorAll('.faq-question-container');
 
-            questions.forEach(question => {
+            questionContainers.forEach(container => {
+                const question = container.querySelector('.faq-question');
+                const answer = container.querySelector('.faq-answer');
+
                 question.addEventListener('click', function() {
-                    this.classList.toggle('active');
-
-                    // Close other open questions
-                    questions.forEach(otherQuestion => {
-                        if (otherQuestion !== this && otherQuestion.classList.contains('active')) {
-                            otherQuestion.classList.remove('active');
+                    // Close all other answers first
+                    document.querySelectorAll('.faq-answer').forEach(otherAnswer => {
+                        if (otherAnswer !== answer) {
+                            otherAnswer.style.maxHeight = '0';
+                            otherAnswer.style.padding = '0';
+                            otherAnswer.previousElementSibling.classList.remove('active');
                         }
                     });
+
+                    // Toggle current answer
+                    this.classList.toggle('active');
+
+                    if (this.classList.contains('active')) {
+                        answer.style.maxHeight = answer.scrollHeight + 'px';
+                        answer.style.padding = '1rem 0';
+                    } else {
+                        answer.style.maxHeight = '0';
+                        answer.style.padding = '0';
+                    }
                 });
             });
         });
     </script>
 </body>
 </html>
+
