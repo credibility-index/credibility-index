@@ -323,6 +323,25 @@ user_agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36
 config = Config()
 config.browser_user_agent = user_agent
 config.request_timeout = 30
+# В вашем main.py добавьте эти обработчики CORS и ошибок:
+
+@app.after_request
+def after_request(response):
+    """Add CORS headers to all responses"""
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    return response
+
+@app.errorhandler(404)
+def page_not_found(e):
+    """Handle 404 errors"""
+    return render_template('404.html'), 404
+
+@app.errorhandler(500)
+def internal_server_error(e):
+    """Handle 500 errors"""
+    return render_template('500.html'), 500
 
 @app.before_request
 def before_request():
@@ -370,31 +389,44 @@ def contact():
     """Contact Us page"""
     return render_template('contact.html')
 
+from flask import Flask, request, jsonify, render_template, make_response
+
 @app.route('/feedback', methods=['GET', 'POST'])
 def feedback():
     """Feedback page and form handler"""
     if request.method == 'POST':
         try:
+            # Check if request has JSON content
+            if not request.is_json:
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Request must be JSON'
+                }), 400
+
             data = request.get_json()
             name = data.get('name')
             email = data.get('email')
             feedback_type = data.get('type')
             message = data.get('message')
 
+            # Validate required fields
             if not all([name, email, feedback_type, message]):
                 return jsonify({
                     'status': 'error',
                     'message': 'All fields are required'
                 }), 400
 
+            # Validate email format
             if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
                 return jsonify({
                     'status': 'error',
                     'message': 'Invalid email address'
                 }), 400
 
+            # Save feedback to database
             with get_db_connection() as conn:
-                conn.execute('''
+                cursor = conn.cursor()
+                cursor.execute('''
                     INSERT INTO feedback (name, email, type, message, date)
                     VALUES (?, ?, ?, ?, ?)
                 ''', (name, email, feedback_type, message, datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')))
@@ -402,20 +434,19 @@ def feedback():
 
             return jsonify({
                 'status': 'success',
-                'message': 'Feedback submitted successfully'
+                'message': 'Thank you for your feedback! We appreciate your input.'
             })
 
         except Exception as e:
             logger.error(f'Error saving feedback: {str(e)}')
             return jsonify({
                 'status': 'error',
-                'message': 'Error saving feedback'
+                'message': 'An error occurred while processing your feedback. Please try again later.'
             }), 500
 
-    return jsonify({
-        'status': 'error',
-        'message': 'Method not allowed'
-    }), 405
+    # For GET requests, return the feedback page template
+    return render_template('feedback.html')
+
 
 @app.route('/daily-buzz', methods=['GET'])
 def daily_buzz():
