@@ -3,80 +3,515 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Feedback - News Credibility Analyzer</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Contact & Feedback | Index Credibility</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --primary-color: #212529;
+            --secondary-color: #f8f9fa;
+            --text-color: #212529;
+            --text-light: #6c757d;
+            --border-color: #dee2e6;
+            --border-radius: 4px;
+            --box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.05);
+            --transition: all 0.2s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f8f9fa;
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1rem;
+        }
+
+        /* Navigation */
+        .navbar {
+            background-color: white;
+            padding: 1rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .navbar-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .navbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--text-color);
+            text-decoration: none;
+        }
+
+        .navbar-links {
+            display: flex;
+            gap: 1.5rem;
+            list-style: none;
+        }
+
+        .navbar-link {
+            color: var(--text-color);
+            font-weight: 500;
+            text-decoration: none;
+            transition: var(--transition);
+            position: relative;
+            padding: 0.5rem 0;
+        }
+
+        .navbar-link:hover {
+            color: var(--primary-color);
+        }
+
+        .navbar-link::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background-color: var(--primary-color);
+            transition: width 0.3s ease;
+        }
+
+        .navbar-link:hover::after {
+            width: 100%;
+        }
+
+        /* Main content */
+        .page-container {
+            max-width: 1000px;
+            margin: 3rem auto;
+            padding: 0 1rem;
+        }
+
+        .page-title {
+            font-size: 2rem;
+            margin-bottom: 1.5rem;
+            color: var(--primary-color);
+            text-align: center;
+            font-weight: 700;
+            position: relative;
+            padding-bottom: 0.5rem;
+        }
+
+        .page-title::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 3px;
+            background-color: var(--primary-color);
+        }
+
+        .page-intro {
+            text-align: center;
+            margin-bottom: 3rem;
+            color: var(--text-light);
+            font-size: 1.1rem;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* Contact and Feedback Sections */
+        .contact-feedback-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .contact-section, .feedback-section {
+            flex: 1;
+            min-width: 300px;
+            background-color: white;
+            padding: 2rem;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            color: var(--primary-color);
+            font-weight: 600;
+            position: relative;
+            padding-bottom: 0.5rem;
+        }
+
+        .section-title::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 40px;
+            height: 2px;
+            background-color: var(--primary-color);
+        }
+
+        /* Contact Information */
+        .contact-info {
+            margin-bottom: 1.5rem;
+        }
+
+        .contact-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .contact-icon {
+            margin-right: 1rem;
+            color: var(--primary-color);
+            font-size: 1.2rem;
+        }
+
+        .contact-text {
+            font-size: 1rem;
+        }
+
+        /* Feedback Form */
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--primary-color);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+            transition: var(--transition);
+        }
+
+        .form-control:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(33, 37, 41, 0.1);
+            outline: none;
+        }
+
+        .form-select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+            background-color: white;
+            transition: var(--transition);
+        }
+
+        .form-select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(33, 37, 41, 0.1);
+            outline: none;
+        }
+
+        textarea.form-control {
+            min-height: 150px;
+            resize: vertical;
+        }
+
+        .submit-btn {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: var(--border-radius);
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition);
+            width: 100%;
+        }
+
+        .submit-btn:hover {
+            background-color: #000;
+        }
+
+        .form-text {
+            font-size: 0.85rem;
+            color: var(--text-light);
+            margin-top: 0.25rem;
+        }
+
+        /* Alert messages */
+        .alert {
+            padding: 1rem;
+            margin-top: 1rem;
+            border-radius: var(--border-radius);
+        }
+
+        .alert-success {
+            background-color: rgba(25, 135, 84, 0.1);
+            border-left: 4px solid #198754;
+            color: #198754;
+        }
+
+        .alert-danger {
+            background-color: rgba(220, 53, 69, 0.1);
+            border-left: 4px solid #dc3545;
+            color: #dc3545;
+        }
+
+        /* Footer */
+        .footer {
+            background-color: #343a40;
+            padding: 2rem 0;
+            margin-top: 4rem;
+            color: white;
+        }
+
+        .footer-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+            margin-bottom: 1.5rem;
+        }
+
+        .footer-link {
+            color: white;
+            text-decoration: none;
+            transition: var(--transition);
+        }
+
+        .footer-link:hover {
+            color: #adb5bd;
+            text-decoration: underline;
+        }
+
+        .footer-copyright {
+            color: #adb5bd;
+            font-size: 0.9rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .contact-feedback-container {
+                flex-direction: column;
+            }
+
+            .page-title {
+                font-size: 1.8rem;
+            }
+
+            .navbar-links {
+                display: none;
+            }
+
+            .footer-links {
+                flex-direction: column;
+                gap: 1rem;
+                text-align: center;
+            }
+        }
+    </style>
 </head>
 <body>
-    <div class="container my-5">
-        <div class="row justify-content-center">
-            <div class="col-md-8">
-                <div class="card">
-                    <div class="card-header">
-                        <h2 class="text-center">Feedback Form</h2>
+    <nav class="navbar">
+        <div class="container navbar-container">
+            <a href="/" class="navbar-brand">
+                <i class="bi bi-newspaper"></i>
+                <span>Index Credibility</span>
+            </a>
+            <ul class="navbar-links">
+                <li><a href="/" class="navbar-link">Home</a></li>
+                <li><a href="/faq" class="navbar-link">FAQ</a></li>
+                <li><a href="/feedback" class="navbar-link">Feedback</a></li>
+                <li><a href="/privacy" class="navbar-link">Privacy</a></li>
+                <li><a href="/terms" class="navbar-link">Terms</a></li>
+                <li><a href="/contact" class="navbar-link">Contact</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="page-container">
+        <h1 class="page-title">Contact & Feedback</h1>
+        <p class="page-intro">We value your input and are here to help. Please use the form below to send us your feedback or questions.</p>
+
+        <div class="contact-feedback-container">
+            <div class="contact-section">
+                <h2 class="section-title">Contact Information</h2>
+
+                <div class="contact-info">
+                    <div class="contact-item">
+                        <i class="bi bi-geo-alt contact-icon"></i>
+                        <span class="contact-text">Index Credibility HQ<br>123 Media Street<br>New York, NY 10001</span>
                     </div>
-                    <div class="card-body">
-                        <form id="feedbackForm">
-                            <div class="mb-3">
-                                <label for="feedbackName" class="form-label">Your Name</label>
-                                <input type="text" class="form-control" id="feedbackName" required>
-                            </div>
-                            <div class="mb-3">
-                                <label for="feedbackEmail" class="form-label">Email Address</label>
-                                <input type="email" class="form-control" id="feedbackEmail" required>
-                            </div>
-                            <div class="mb-3">
-                                <label for="feedbackType" class="form-label">Feedback Type</label>
-                                <select class="form-select" id="feedbackType" required>
-                                    <option value="" selected disabled>Select feedback type</option>
-                                    <option value="bug">Report a Bug</option>
-                                    <option value="suggestion">Suggestion</option>
-                                    <option value="question">Question</option>
-                                    <option value="other">Other</option>
-                                </select>
-                            </div>
-                            <div class="mb-3">
-                                <label for="feedbackMessage" class="form-label">Your Feedback</label>
-                                <textarea class="form-control" id="feedbackMessage" rows="5" required></textarea>
-                            </div>
-                            <div class="d-grid gap-2">
-                                <button type="submit" class="btn btn-primary">Submit Feedback</button>
-                            </div>
-                        </form>
-                        <div id="feedbackResponse" class="mt-3"></div>
+
+                    <div class="contact-item">
+                        <i class="bi bi-envelope contact-icon"></i>
+                        <span class="contact-text">support@indexcredibility.com</span>
+                    </div>
+
+                    <div class="contact-item">
+                        <i class="bi bi-telephone contact-icon"></i>
+                        <span class="contact-text">+1 (555) 123-4567</span>
+                    </div>
+
+                    <div class="contact-item">
+                        <i class="bi bi-clock contact-icon"></i>
+                        <span class="contact-text">Monday - Friday<br>9:00 AM - 5:00 PM EST</span>
                     </div>
                 </div>
+            </div>
+
+            <div class="feedback-section">
+                <h2 class="section-title">Feedback Form</h2>
+
+                <form id="feedbackForm">
+                    <div class="form-group">
+                        <label for="feedbackName" class="form-label">Your Name</label>
+                        <input type="text" class="form-control" id="feedbackName" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="feedbackEmail" class="form-label">Email Address</label>
+                        <input type="email" class="form-control" id="feedbackEmail" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="feedbackType" class="form-label">Feedback Type</label>
+                        <select class="form-select" id="feedbackType" required>
+                            <option value="" selected disabled>Select feedback type</option>
+                            <option value="bug">Report a Bug</option>
+                            <option value="suggestion">Suggestion</option>
+                            <option value="question">Question</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="feedbackMessage" class="form-label">Your Feedback</label>
+                        <textarea class="form-control" id="feedbackMessage" rows="5" required></textarea>
+                        <div class="form-text">Please provide as much detail as possible about your feedback</div>
+                    </div>
+
+                    <button type="submit" class="submit-btn">Submit Feedback</button>
+                </form>
+
+                <div id="feedbackResponse"></div>
             </div>
         </div>
     </div>
 
+    <footer class="footer">
+        <div class="container footer-content">
+            <ul class="footer-links">
+                <li><a href="/privacy" class="footer-link">Privacy Policy</a></li>
+                <li><a href="/terms" class="footer-link">Terms of Service</a></li>
+                <li><a href="/about" class="footer-link">About Us</a></li>
+            </ul>
+            <p class="footer-copyright">&copy; 2025 Index Credibility. All rights reserved.</p>
+        </div>
+    </footer>
+
     <script>
-        document.getElementById('feedbackForm').addEventListener('submit', function(e) {
-            e.preventDefault();
+        document.addEventListener('DOMContentLoaded', function() {
+            const feedbackForm = document.getElementById('feedbackForm');
+            const feedbackResponse = document.getElementById('feedbackResponse');
 
-            const formData = {
-                name: document.getElementById('feedbackName').value,
-                email: document.getElementById('feedbackEmail').value,
-                type: document.getElementById('feedbackType').value,
-                message: document.getElementById('feedbackMessage').value
-            };
+            feedbackForm.addEventListener('submit', function(e) {
+                e.preventDefault();
 
-            fetch('/feedback', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(formData)
-            })
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('feedbackResponse').innerHTML =
-                    `<div class="alert alert-success">${data.message}</div>`;
-                document.getElementById('feedbackForm').reset();
-            })
-            .catch(error => {
-                document.getElementById('feedbackResponse').innerHTML =
-                    `<div class="alert alert-danger">Error submitting feedback. Please try again.</div>`;
-                console.error('Error:', error);
+                const formData = {
+                    name: document.getElementById('feedbackName').value.trim(),
+                    email: document.getElementById('feedbackEmail').value.trim(),
+                    type: document.getElementById('feedbackType').value,
+                    message: document.getElementById('feedbackMessage').value.trim()
+                };
+
+                // Basic validation
+                if (!formData.name || !formData.email || !formData.type || !formData.message) {
+                    feedbackResponse.innerHTML = `
+                        <div class="alert alert-danger">
+                            Please fill in all required fields.
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Email validation
+                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+                    feedbackResponse.innerHTML = `
+                        <div class="alert alert-danger">
+                            Please enter a valid email address.
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Show loading state
+                const submitBtn = feedbackForm.querySelector('.submit-btn');
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Submitting...';
+
+                fetch('/feedback', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(err => { throw err; });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    feedbackResponse.innerHTML = `
+                        <div class="alert alert-success">
+                            Thank you for your feedback! We appreciate your input and will review it shortly.
+                        </div>
+                    `;
+                    feedbackForm.reset();
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    feedbackResponse.innerHTML = `
+                        <div class="alert alert-danger">
+                            There was an error submitting your feedback. Please try again later.
+                        </div>
+                    `;
+                })
+                .finally(() => {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Submit Feedback';
+                });
             });
         });
     </script>
