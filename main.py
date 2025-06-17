@@ -384,11 +384,6 @@ def terms():
     """Terms of Service page"""
     return render_template('terms.html')
 
-@app.route('/contact')
-def contact():
-    """Contact Us page"""
-    return render_template('contact.html')
-
 from flask import Flask, request, jsonify, render_template, make_response
 
 @app.route('/feedback', methods=['GET', 'POST'])
