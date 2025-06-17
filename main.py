@@ -6,18 +6,18 @@ import requests
 import html
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse, urlunparse
-from flask import Flask, request, jsonify, render_template, session, make_response
+from flask import Flask, request, jsonify, render_template, make_response
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_cors import CORS
 import anthropic
 from newspaper import Article, Config
 from stop_words import get_stop_words
-from pg_database import PostgresDB  # Импортируем наш класс для работы с PostgreSQL
+from pg_database import PostgresDB
 
 # Initialize Flask application
 app = Flask(__name__, static_folder='static', template_folder='templates')
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
-app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-here')
+app.secret_key = os.getenv('SECRET_KEY')
 
 # Configure CORS for Railway
 CORS(app, resources={
@@ -28,14 +28,12 @@ CORS(app, resources={
     }
 })
 
-# Environment variables
-ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
-MODEL_NAME = os.getenv('ANTHROPIC_MODEL', 'claude-3-opus-20240229')
-NEWS_API_KEY = os.getenv('NEWS_API_KEY')
+# Initialize API clients
+anthropic_client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=getattr(logging, os.getenv('LOG_LEVEL', 'INFO').upper(), logging.INFO),
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
@@ -54,30 +52,11 @@ INITIAL_SOURCE_COUNTS = {
     'apnews.com': {'high': 18, 'medium': 2, 'low': 0}
 }
 
-media_owners = {
-    'bbc.com': 'BBC',
-    'reuters.com': 'Thomson Reuters',
-    'foxnews.com': 'Fox Corporation',
-    'cnn.com': 'Warner Bros. Discovery',
-    'nytimes.com': 'The New York Times Company',
-    'theguardian.com': 'Guardian Media Group',
-    'apnews.com': 'Associated Press',
-    'aljazeera.com': 'Al Jazeera Media Network',
-    'wsj.com': 'News Corp'
-}
-
 predefined_trust_scores = {
     'bbc.com': 0.9, 'bbc.co.uk': 0.9, 'reuters.com': 0.95, 'apnews.com': 0.93,
     'nytimes.com': 0.88, 'theguardian.com': 0.85, 'wsj.com': 0.82,
     'cnn.com': 0.70, 'foxnews.com': 0.40, 'aljazeera.com': 0.80
 }
-
-TRUSTED_NEWS_SOURCES_IDS = [
-    'bbc-news', 'reuters', 'associated-press', 'the-new-york-times',
-    'the-guardian-uk', 'the-wall-street-journal', 'cnn', 'al-jazeera-english',
-    'bloomberg', 'the-washington-post', 'fox-news', 'nbc-news', 'cbs-news',
-    'abc-news', 'usa-today', 'the-verge', 'techcrunch', 'wired'
-]
 
 stop_words_en = get_stop_words('en')
 
@@ -118,392 +97,141 @@ def before_request():
         response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
         return response
 
-@app.after_request
-def add_security_headers(response):
-    """Add security headers"""
-    response.headers['X-Content-Type-Options'] = 'nosniff'
-    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
-    response.headers['X-XSS-Protection'] = '1; mode=block'
-    return response
-
 @app.route('/')
 def home():
-    """Home page"""
-    return render_template('index.html')
-
-@app.route('/faq')
-def faq():
-    """FAQ page"""
-    return render_template('faq.html')
-
-@app.route('/privacy')
-def privacy():
-    """Privacy Policy page"""
-    return render_template('privacy.html')
-
-@app.route('/terms')
-def terms():
-    """Terms of Service page"""
-    return render_template('terms.html')
-
-@app.route('/feedback', methods=['GET', 'POST'])
-def feedback():
-    """Feedback page and form handler"""
-    if request.method == 'POST':
-        try:
-            # Check if request has JSON content
-            if not request.is_json:
-                return jsonify({
-                    'status': 'error',
-                    'message': 'Request must be JSON'
-                }), 400
-
-            data = request.get_json()
-            name = data.get('name')
-            email = data.get('email')
-            feedback_type = data.get('type')
-            message = data.get('message')
-
-            # Validate required fields
-            if not all([name, email, feedback_type, message]):
-                return jsonify({
-                    'status': 'error',
-                    'message': 'All fields are required'
-                }), 400
-
-            # Validate email format
-            if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
-                return jsonify({
-                    'status': 'error',
-                    'message': 'Invalid email address'
-                }), 400
-
-            # Save feedback to database
-            try:
-                conn = pg_db.get_conn()
-                with conn.cursor() as cursor:
-                    cursor.execute('''
-                        INSERT INTO media_credibility.feedback (name, email, type, message)
-                        VALUES (%s, %s, %s, %s)
-                    ''', (name, email, feedback_type, message))
-                conn.commit()
-                pg_db.release_conn(conn)
-
-                return jsonify({
-                    'status': 'success',
-                    'message': 'Thank you for your feedback! We appreciate your input.'
-                })
-            except Exception as e:
-                logger.error(f'Database error saving feedback: {str(e)}')
-                return jsonify({
-                    'status': 'error',
-                    'message': 'Database error occurred. Please try again later.'
-                }), 500
-
-        except Exception as e:
-            logger.error(f'Error saving feedback: {str(e)}')
-            return jsonify({
-                'status': 'error',
-                'message': 'An unexpected error occurred. Please try again later.'
-            }), 500
-
-    # For GET requests, return the feedback page template
-    return render_template('feedback.html')
-
-@app.route('/daily-buzz', methods=['GET'])
-def daily_buzz():
-    """Get the daily buzz article with full analysis"""
+    """Home page with Buzz Feed analysis"""
     try:
-        # Get today's buzz article
-        article = pg_db.get_buzz_article()
+        # Get buzz analysis
+        buzz_analysis = get_buzz_analysis()
 
-        if article:
-            votes = get_article_votes(article['id'])
-            return jsonify({
-                'status': 'success',
-                'article': article,
-                'votes': votes
-            })
-        else:
-            # Create default article if none exists
-            default_article = {
-                'id': 0,
-                'title': 'Israel-Iran Conflict: Current Situation Analysis',
-                'source': 'Media Credibility Index',
-                'url': '#',
-                'short_summary': 'Ongoing tensions between Israel and Iran continue to escalate.',
-                'credibility_level': 'Medium',
-                'analysis_date': datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
-                'content': 'The conflict between Israel and Iran has reached a critical point with recent escalations in military and diplomatic tensions.',
-                'analysis': {
-                    'news_integrity': 0.75,
-                    'fact_check_needed_score': 0.25,
-                    'sentiment_score': 0.4,
-                    'bias_score': 0.3,
-                    'topics': ['Israel-Iran conflict', 'Middle East tensions'],
-                    'key_arguments': [
-                        'The conflict has reached a critical point',
-                        'International mediators are attempting to broker peace'
-                    ],
-                    'mentioned_facts': [
-                        'Recent military exercises conducted by both nations',
-                        'Diplomatic efforts led by the United Nations'
-                    ],
-                    'author_purpose': 'To inform about the current state of Israel-Iran relations',
-                    'potential_biases_identified': [
-                        'Possible pro-Western perspective'
-                    ],
-                    'short_summary': 'Ongoing tensions between Israel and Iran continue to escalate.',
-                    'index_of_credibility': 0.65
-                }
-            }
+        # Get analyzed articles
+        analyzed_articles = get_analyzed_articles()
 
-            # Save default article to database
-            try:
-                conn = pg_db.get_conn()
-                with conn.cursor() as cursor:
-                    # Save article
-                    cursor.execute('''
-                        INSERT INTO media_credibility.news
-                        (title, source, content, integrity, fact_check, sentiment, bias,
-                         credibility_level, index_of_credibility, url, analysis_date, short_summary)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                        RETURNING id
-                    ''', (
-                        default_article['title'],
-                        default_article['source'],
-                        default_article['content'],
-                        default_article['analysis']['news_integrity'],
-                        default_article['analysis']['fact_check_needed_score'],
-                        default_article['analysis']['sentiment_score'],
-                        default_article['analysis']['bias_score'],
-                        default_article['credibility_level'],
-                        default_article['analysis']['index_of_credibility'],
-                        default_article['url'],
-                        datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
-                        default_article['short_summary']
-                    ))
-                    article_id = cursor.fetchone()['id']
+        # Get source credibility data for chart
+        source_credibility_data = get_source_credibility_data()
 
-                    # Set as today's buzz article
-                    today = datetime.now(timezone.utc).date()
-                    cursor.execute('''
-                        INSERT INTO media_credibility.daily_buzz (article_id, date)
-                        VALUES (%s, %s)
-                    ''', (article_id, today))
-
-                    # Get the article with votes
-                    cursor.execute('''
-                        SELECT n.*, s.high, s.medium, s.low, s.total_analyzed
-                        FROM media_credibility.news n
-                        LEFT JOIN media_credibility.source_stats s ON n.source = s.source
-                        WHERE n.id = %s
-                    ''', (article_id,))
-                    article = cursor.fetchone()
-
-                conn.commit()
-                pg_db.release_conn(conn)
-
-                votes = get_article_votes(article_id)
-
-                return jsonify({
-                    'status': 'success',
-                    'article': article,
-                    'votes': votes
-                })
-            except Exception as e:
-                logger.error(f"Error creating default buzz article: {str(e)}")
-                return jsonify({
-                    'status': 'error',
-                    'message': 'Error creating default buzz article'
-                }), 500
+        return render_template('index.html',
+                             buzz_analysis=buzz_analysis,
+                             analyzed_articles=analyzed_articles,
+                             source_credibility_data=source_credibility_data)
 
     except Exception as e:
-        logger.error(f"Error in daily_buzz endpoint: {str(e)}")
-        return jsonify({
-            'status': 'error',
-            'message': 'An error occurred while fetching daily buzz'
-        }), 500
+        logger.error(f"Error loading home page: {str(e)}")
+        return render_template('error.html', message="Failed to load home page")
 
-def get_article_votes(article_id):
-    """Get votes for an article"""
+def get_buzz_analysis():
+    """Get the current buzz analysis from database or create default"""
     try:
         conn = pg_db.get_conn()
         with conn.cursor() as cursor:
-            # Get votes
-            cursor.execute('''
-                SELECT
-                    COUNT(*) FILTER (WHERE vote_type = 'upvote') as upvotes,
-                    COUNT(*) FILTER (WHERE vote_type = 'downvote') as downvotes
-                FROM media_credibility.article_votes
-                WHERE article_id = %s
-            ''', (article_id,))
-            votes = cursor.fetchone()
+            cursor.execute("""
+                SELECT an.analysis_data
+                FROM media_credibility.analysis an
+                JOIN media_credibility.news a ON an.article_id = a.id
+                WHERE an.analysis_type = 'comprehensive'
+                ORDER BY an.created_at DESC
+                LIMIT 1
+            """)
+            analysis = cursor.fetchone()
 
-            # Get credibility ratings
-            cursor.execute('''
-                SELECT
-                    AVG(credibility_rating) as avg_rating,
-                    COUNT(*) as rating_count
-                FROM media_credibility.credibility_votes
-                WHERE article_id = %s
-            ''', (article_id,))
-            credibility = cursor.fetchone()
+            if analysis:
+                return analysis['analysis_data']
 
-            return {
-                'upvotes': votes['upvotes'] if votes else 0,
-                'downvotes': votes['downvotes'] if votes else 0,
-                'avg_rating': credibility['avg_rating'] if credibility else 0,
-                'rating_count': credibility['rating_count'] if credibility else 0
+            # Create default analysis
+            default_analysis = {
+                "western_perspective": {
+                    "summary": "Western perspective on the situation",
+                    "details": ""
+                },
+                "iranian_perspective": {
+                    "summary": "Iranian perspective on the situation",
+                    "details": ""
+                },
+                "israeli_perspective": {
+                    "summary": "Israeli perspective on the situation",
+                    "details": ""
+                },
+                "neutral_perspective": {
+                    "summary": "Neutral perspective on the situation",
+                    "details": ""
+                },
+                "historical_context": {
+                    "summary": "Historical background of the situation",
+                    "details": ""
+                },
+                "balanced_summary": "Balanced summary of the situation",
+                "common_points": [],
+                "disagreements": [],
+                "potential_solutions": [],
+                "credibility_assessment": "Medium credibility"
             }
+
+            cursor.execute("""
+                INSERT INTO media_credibility.news
+                (title, source, content, short_summary, is_buzz_article)
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id
+            """, (
+                "Comprehensive Analysis: Current Situation",
+                "Media Credibility Index",
+                "Default comprehensive analysis content",
+                "Default comprehensive analysis summary",
+                True
+            ))
+            article_id = cursor.fetchone()['id']
+
+            cursor.execute("""
+                INSERT INTO media_credibility.analysis
+                (article_id, analysis_data, analysis_type)
+                VALUES (%s, %s, %s)
+            """, (
+                article_id,
+                json.dumps(default_analysis),
+                'comprehensive'
+            ))
+
+            conn.commit()
+            return default_analysis
+
     except Exception as e:
-        logger.error(f"Error getting article votes: {str(e)}")
+        logger.error(f"Error getting buzz analysis: {str(e)}")
         return {
-            'upvotes': 0,
-            'downvotes': 0,
-            'avg_rating': 0,
-            'rating_count': 0
+            "western_perspective": {"summary": "Western perspective on the situation"},
+            "iranian_perspective": {"summary": "Iranian perspective on the situation"},
+            "israeli_perspective": {"summary": "Israeli perspective on the situation"},
+            "neutral_perspective": {"summary": "Neutral perspective on the situation"},
+            "historical_context": {"summary": "Historical background of the situation"},
+            "balanced_summary": "Balanced summary of the situation",
+            "common_points": [],
+            "disagreements": [],
+            "potential_solutions": [],
+            "credibility_assessment": "Medium credibility"
         }
     finally:
         pg_db.release_conn(conn)
 
-@app.route('/vote', methods=['POST'])
-def vote():
-    """Vote for an article"""
+def get_analyzed_articles(limit=5):
+    """Get recently analyzed articles"""
     try:
-        data = request.get_json()
-        article_id = data.get('article_id')
-        user_id = data.get('user_id')
-        vote_type = data.get('vote_type')
-
-        if not all([article_id, user_id, vote_type]):
-            return jsonify({
-                'status': 'error',
-                'message': 'Missing required parameters'
-            }), 400
-
-        if vote_type not in ['upvote', 'downvote']:
-            return jsonify({
-                'status': 'error',
-                'message': 'Invalid vote type'
-            }), 400
-
-        try:
-            conn = pg_db.get_conn()
-            with conn.cursor() as cursor:
-                # Check if user already voted
-                cursor.execute('''
-                    SELECT id FROM media_credibility.article_votes
-                    WHERE article_id = %s AND user_id = %s
-                ''', (article_id, user_id))
-                existing_vote = cursor.fetchone()
-
-                if existing_vote:
-                    # Update existing vote
-                    cursor.execute('''
-                        UPDATE media_credibility.article_votes
-                        SET vote_type = %s, created_at = CURRENT_TIMESTAMP
-                        WHERE id = %s
-                    ''', (vote_type, existing_vote['id']))
-                else:
-                    # Add new vote
-                    cursor.execute('''
-                        INSERT INTO media_credibility.article_votes (article_id, user_id, vote_type)
-                        VALUES (%s, %s, %s)
-                    ''', (article_id, user_id, vote_type))
-
-                conn.commit()
-
-            votes = get_article_votes(article_id)
-            return jsonify({
-                'status': 'success',
-                'message': 'Vote recorded successfully',
-                'votes': votes
-            })
-        except Exception as e:
-            logger.error(f"Error voting for article: {str(e)}")
-            return jsonify({
-                'status': 'error',
-                'message': 'Failed to record vote'
-            }), 500
-
+        conn = pg_db.get_conn()
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT id, title, source, short_summary, credibility_level, url
+                FROM media_credibility.news
+                WHERE content IS NOT NULL
+                ORDER BY analysis_date DESC
+                LIMIT %s
+            """, (limit,))
+            articles = cursor.fetchall()
+            return articles
     except Exception as e:
-        logger.error(f"Error in vote endpoint: {str(e)}")
-        return jsonify({
-            'status': 'error',
-            'message': 'An error occurred while processing vote'
-        }), 500
+        logger.error(f"Error getting analyzed articles: {str(e)}")
+        return []
+    finally:
+        pg_db.release_conn(conn)
 
-@app.route('/rate-credibility', methods=['POST'])
-def rate_credibility_endpoint():
-    """Rate article credibility"""
-    try:
-        data = request.get_json()
-        article_id = data.get('article_id')
-        user_id = data.get('user_id')
-        rating = data.get('rating')
-
-        if not all([article_id, user_id, rating]):
-            return jsonify({
-                'status': 'error',
-                'message': 'Missing required parameters'
-            }), 400
-
-        if not isinstance(rating, int) or rating < 1 or rating > 5:
-            return jsonify({
-                'status': 'error',
-                'message': 'Rating must be an integer between 1 and 5'
-            }), 400
-
-        try:
-            conn = pg_db.get_conn()
-            with conn.cursor() as cursor:
-                # Check if user already rated
-                cursor.execute('''
-                    SELECT id FROM media_credibility.credibility_votes
-                    WHERE article_id = %s AND user_id = %s
-                ''', (article_id, user_id))
-                existing_rating = cursor.fetchone()
-
-                if existing_rating:
-                    # Update existing rating
-                    cursor.execute('''
-                        UPDATE media_credibility.credibility_votes
-                        SET credibility_rating = %s, created_at = CURRENT_TIMESTAMP
-                        WHERE id = %s
-                    ''', (rating, existing_rating['id']))
-                else:
-                    # Add new rating
-                    cursor.execute('''
-                        INSERT INTO media_credibility.credibility_votes (article_id, user_id, credibility_rating)
-                        VALUES (%s, %s, %s)
-                    ''', (article_id, user_id, rating))
-
-                conn.commit()
-
-            votes = get_article_votes(article_id)
-            return jsonify({
-                'status': 'success',
-                'message': 'Rating recorded successfully',
-                'votes': votes
-            })
-        except Exception as e:
-            logger.error(f"Error rating article credibility: {str(e)}")
-            return jsonify({
-                'status': 'error',
-                'message': 'Failed to record rating'
-            }), 500
-
-    except Exception as e:
-        logger.error(f"Error in rate_credibility endpoint: {str(e)}")
-        return jsonify({
-            'status': 'error',
-            'message': 'An error occurred while processing rating'
-        }), 500
-
-@app.route('/source-credibility-chart', methods=['GET'])
-def source_credibility_chart():
-    """Endpoint for getting source credibility chart data"""
+def get_source_credibility_data():
+    """Get source credibility data for chart"""
     try:
         conn = pg_db.get_conn()
         with conn.cursor() as cursor:
@@ -516,258 +244,105 @@ def source_credibility_chart():
             data = cursor.fetchall()
             sources = []
             credibility_scores = []
-            high_counts = []
-            medium_counts = []
-            low_counts = []
-            total_counts = []
 
             for source, high, medium, low, total in data:
                 total_current = high + medium + low
-                if total_current > 0:
-                    score = (high * 1.0 + medium * 0.5 + low * 0.0) / total_current
-                else:
-                    score = 0.5
+                score = (high * 1.0 + medium * 0.5 + low * 0.0) / total_current if total_current > 0 else 0.5
 
                 sources.append(source)
                 credibility_scores.append(round(score, 2))
-                high_counts.append(high)
-                medium_counts.append(medium)
-                low_counts.append(low)
-                total_counts.append(total_current)
 
-            return jsonify({
-                'status': 'success',
-                'data': {
-                    'sources': sources,
-                    'credibility_scores': credibility_scores,
-                    'high_counts': high_counts,
-                    'medium_counts': medium_counts,
-                    'low_counts': low_counts,
-                    'total_counts': total_counts
-                }
-            })
+            return {
+                'sources': sources,
+                'credibility_scores': credibility_scores
+            }
     except Exception as e:
-        logger.error(f"Error in source_credibility_chart endpoint: {str(e)}")
-        return jsonify({
-            'error': 'An error occurred while fetching chart data',
-            'status': 500,
-            'details': str(e)
-        }), 500
+        logger.error(f"Error getting source credibility data: {str(e)}")
+        return {
+            'sources': [],
+            'credibility_scores': []
+        }
     finally:
         pg_db.release_conn(conn)
 
-@app.route('/analysis-history', methods=['GET'])
-def analysis_history():
-    """Endpoint for getting analysis history"""
+@app.route('/analyze', methods=['POST'])
+def analyze_article():
+    """Analyze article endpoint"""
     try:
-        conn = pg_db.get_conn()
-        with conn.cursor() as cursor:
-            cursor.execute('''
-                SELECT id, title, source, credibility_level, short_summary,
-                       analysis_date::TEXT as formatted_date, url
-                FROM media_credibility.news
-                ORDER BY analysis_date DESC
-                LIMIT 15
-            ''')
-
-            rows = cursor.fetchall()
-            history = []
-
-            for row in rows:
-                history.append({
-                    'id': row['id'],
-                    'url': row['url'],
-                    'title': row['title'],
-                    'source': row['source'],
-                    'credibility': row['credibility_level'],
-                    'summary': row['short_summary'],
-                    'date': row['formatted_date']
-                })
-
-            return jsonify({
-                'status': 'success',
-                'history': history
-            })
-    except Exception as e:
-        logger.error(f"Error in analysis_history endpoint: {str(e)}")
-        return jsonify({
-            'error': 'An error occurred while fetching analysis history',
-            'status': 500,
-            'details': str(e)
-        }), 500
-    finally:
-        pg_db.release_conn(conn)
-
-@app.route('/analyze', methods=['POST', 'OPTIONS'])
-def analyze():
-    """Analyze article endpoint with comprehensive error handling"""
-    if request.method == 'OPTIONS':
-        response = make_response()
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
-        return response
-
-    try:
-        # Validate request content type
-        if not request.is_json:
-            return jsonify({
-                'error': 'Request must be JSON',
-                'status': 400,
-                'details': 'Content-Type header must be application/json'
-            }), 400
-
-        # Get and validate data
         data = request.get_json()
-        if not data:
-            return jsonify({
-                'error': 'Empty request body',
-                'status': 400
-            }), 400
-
-        if 'input_text' not in data:
-            return jsonify({
-                'error': 'Missing input text',
-                'status': 400,
-                'details': 'input_text field is required'
-            }), 400
-
-        input_text = data['input_text'].strip()
-        source_name = data.get('source_name_manual', 'Direct Input').strip()
+        input_text = data.get('input_text', '').strip()
+        source_name = data.get('source_name', 'Direct Input').strip()
 
         if not input_text:
             return jsonify({
-                'error': 'Empty input text',
-                'status': 400,
-                'details': 'Input text cannot be empty'
+                'status': 'error',
+                'message': 'Input text is required'
             }), 400
 
         # Process article
         if input_text.startswith(('http://', 'https://')):
-            try:
-                content, source, title = extract_text_from_url(input_text)
-                if not content:
-                    return jsonify({
-                        'error': 'Could not extract article content',
-                        'status': 400,
-                        'details': 'Failed to download or parse the article from the provided URL'
-                    }), 400
-            except Exception as e:
-                logger.error(f"Error processing URL: {str(e)}")
+            content, source, title = extract_text_from_url(input_text)
+            if not content:
                 return jsonify({
-                    'error': 'Error processing URL',
-                    'status': 400,
-                    'details': str(e)
+                    'status': 'error',
+                    'message': 'Could not extract article content'
                 }), 400
         else:
             if len(input_text) < 100:
                 return jsonify({
-                    'error': 'Content too short',
-                    'status': 400,
-                    'details': 'Minimum 100 characters required'
+                    'status': 'error',
+                    'message': 'Content too short, minimum 100 characters required'
                 }), 400
             content = input_text
             title = 'User-provided Text'
+            source = source_name
 
         # Analyze with Claude
-        try:
-            analyzer = ClaudeNewsAnalyzer()
-            analysis = analyzer.analyze_article_text(content, source)
-        except ValueError as e:
-            return jsonify({
-                'error': str(e),
-                'status': 400
-            }), 400
-        except Exception as e:
-            logger.error(f"Analysis failed: {str(e)}")
-            return jsonify({
-                'error': 'Analysis failed',
-                'status': 500,
-                'details': str(e)
-            }), 500
+        analysis = analyze_with_claude(content, source)
 
         # Save to database
-        try:
-            article_id = pg_db.save_article(
-                title=title,
-                source=source,
-                content=content,
-                url=input_text if input_text.startswith(('http://', 'https://')) else None
-            )
-            pg_db.save_analysis(article_id, analysis)
-            credibility = analysis.get('credibility_level', 'Medium')
-        except Exception as e:
-            logger.error(f"Failed to save analysis: {str(e)}")
-            return jsonify({
-                'error': 'Failed to save analysis',
-                'status': 500,
-                'details': str(e)
-            }), 500
+        article_id = pg_db.save_article(
+            title=title,
+            source=source,
+            content=content,
+            url=input_text if input_text.startswith(('http://', 'https://')) else None
+        )
+        pg_db.save_analysis(article_id, analysis)
 
-        # Get similar articles
-        try:
-            same_topic_articles = fetch_same_topic_articles(analysis)
-            same_topic_html = render_same_topic_articles_html(same_topic_articles)
-        except Exception as e:
-            logger.error(f"Failed to fetch similar articles: {str(e)}")
-            same_topic_html = '<p>Could not fetch similar articles at this time.</p>'
+        # Get related articles
+        related_articles = fetch_related_articles(analysis)
 
-        # Get source credibility data
-        source_credibility_data = get_source_credibility_data()
-
-        # Get analysis history
-        analysis_history = get_analysis_history()
-
-        # Prepare response
-        response_data = {
+        return jsonify({
             'status': 'success',
             'analysis': analysis,
-            'credibility': credibility,
             'title': title,
             'source': source,
-            'source_credibility_data': source_credibility_data,
-            'analysis_history': analysis_history,
-            'same_topic_articles': same_topic_articles,
-            'same_topic_html': same_topic_html,
-            'output': format_analysis_results(title, source, analysis, credibility)
-        }
-
-        return jsonify(response_data)
+            'related_articles': related_articles
+        })
 
     except Exception as e:
-        logger.error(f"Unexpected error in analyze endpoint: {str(e)}")
+        logger.error(f"Error analyzing article: {str(e)}")
         return jsonify({
-            'error': 'Internal server error',
-            'status': 500,
-            'details': str(e)
+            'status': 'error',
+            'message': str(e)
         }), 500
 
 def extract_text_from_url(url):
-    """Extract text from URL with improved error handling"""
+    """Extract text from URL"""
     try:
-        # Normalize URL
         parsed = urlparse(url)
         clean_url = urlunparse(parsed._replace(scheme=parsed.scheme.lower(), netloc=parsed.netloc.lower()))
 
-        # Check for video content
         if any(domain in url for domain in ['youtube.com', 'vimeo.com']):
             return "Video content detected", parsed.netloc.replace('www.', ''), "Video: " + url
 
-        # Configure article with timeout and user agent
         article = Article(clean_url, config=config)
-
-        # Download and parse article
         article.download()
-        if article.download_state != 2:
-            logger.error(f"Failed to download article from {url}")
-            return None, None, None
-
         article.parse()
+
         if not article.text or len(article.text.strip()) < 100:
-            logger.warning(f"Short or empty content from {url}")
             return None, None, None
 
-        # Extract domain and title
         domain = parsed.netloc.replace('www.', '')
         title = article.title.strip() if article.title else "No title"
 
@@ -777,30 +352,10 @@ def extract_text_from_url(url):
         logger.error(f"Error extracting article from {url}: {str(e)}")
         return None, None, None
 
-class ClaudeNewsAnalyzer:
-    """Class for interacting with Anthropic Claude API"""
-    def __init__(self):
-        if not ANTHROPIC_API_KEY:
-            raise ValueError("Anthropic API key is not configured")
-
-        self.client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-        self.model_name = MODEL_NAME
-
-    def analyze_article_text(self, article_text_content, source_name_for_context):
-        """Analyze article text using Claude API with improved error handling"""
-        try:
-            # Validate input
-            if not article_text_content or not isinstance(article_text_content, str):
-                raise ValueError("Invalid article content")
-
-            # Limit the article length
-            max_chars = 10000
-            if len(article_text_content) > max_chars:
-                article_text_content = article_text_content[:max_chars]
-                logger.warning(f"Article content truncated to {max_chars} characters")
-
-            # Create prompt for analysis
-            prompt = f"""Analyze this news article and provide a JSON response with these fields:
+def analyze_with_claude(content, source):
+    """Analyze content with Claude API"""
+    try:
+        prompt = f"""Analyze this news article and provide a JSON response with these fields:
 - news_integrity (0.0-1.0)
 - fact_check_needed_score (0.0-1.0)
 - sentiment_score (0.0-1.0)
@@ -814,287 +369,242 @@ class ClaudeNewsAnalyzer:
 - index_of_credibility (0.0-1.0)
 
 Article content:
-{article_text_content[:5000]}..."""
+{content[:5000]}..."""
 
-            # Make API request with error handling
-            try:
-                response = self.client.messages.create(
-                    model=self.model_name,
-                    max_tokens=2000,
-                    messages=[{"role": "user", "content": prompt}]
-                )
-
-                response_text = response.content[0].text.strip()
-
-                # Try to find and parse JSON in the response
-                json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
-                if json_match:
-                    try:
-                        return json.loads(json_match.group(0))
-                    except json.JSONDecodeError as e:
-                        logger.error(f"Failed to parse JSON: {str(e)}. Response was: {response_text}")
-                        raise ValueError("Invalid JSON in response")
-
-                try:
-                    return json.loads(response_text)
-                except json.JSONDecodeError as e:
-                    logger.error(f"Failed to parse response as JSON: {str(e)}. Response was: {response_text}")
-                    raise ValueError("Response is not valid JSON")
-
-            except anthropic.APIError as e:
-                logger.error(f"Anthropic API error: {str(e)}")
-                raise ValueError(f"API Error: {str(e)}")
-
-        except Exception as e:
-            logger.error(f"Analysis error: {str(e)}")
-            raise ValueError(f"Analysis failed: {str(e)}")
-
-def calculate_credibility(integrity, fact_check, sentiment, bias):
-    """Calculate credibility level"""
-    fact_check_score = 1.0 - fact_check
-    sentiment_score = 1.0 - abs(sentiment - 0.5) * 2
-    bias_score = 1.0 - bias
-
-    score = (integrity * 0.45) + (fact_check_score * 0.35) + (sentiment_score * 0.10) + (bias_score * 0.10)
-
-    if score >= 0.75:
-        return 'High'
-    if score >= 0.5:
-        return 'Medium'
-    return 'Low'
-
-def generate_query(analysis_result):
-    """Generate query for finding similar articles"""
-    topics = analysis_result.get('topics', [])
-    key_arguments = analysis_result.get('key_arguments', [])
-    mentioned_facts = analysis_result.get('mentioned_facts', [])
-
-    all_terms = []
-    for phrase_list in [topics, key_arguments]:
-        for phrase in phrase_list:
-            if not phrase.strip():
-                continue
-            if ' ' in phrase.strip() and len(phrase.strip().split()) > 1:
-                all_terms.append('"' + phrase.strip() + '"')
-            else:
-                all_terms.append(phrase.strip())
-
-    for fact in mentioned_facts:
-        if not fact.strip():
-            continue
-        words = [word for word in fact.lower().split() if word not in stop_words_en and len(word) > 2]
-        all_terms.extend(words)
-
-    unique_terms = list(set(all_terms))
-
-    if len(unique_terms) >= 3:
-        query = ' AND '.join(unique_terms)
-    elif unique_terms:
-        query = ' OR '.join(unique_terms)
-    else:
-        query = 'Israel OR Iran OR conflict'
-
-    return query
-
-def make_newsapi_request(params):
-    """Make request to NewsAPI"""
-    url = 'https://newsapi.org/v2/everything'
-    try:
-        response = requests.get(url, params=params, timeout=15)
-        response.raise_for_status()
-        return response.json().get('articles', [])
-    except Exception as e:
-        logger.error(f'NewsAPI Request Error: {str(e)}')
-        return []
-
-def fetch_same_topic_articles(analysis_result, page=1, per_page=3):
-    """Fetch similar articles by topic with pagination"""
-    if not NEWS_API_KEY:
-        logger.warning('NEWS_API_KEY is not configured. Skipping similar news search.')
-        return []
-
-    query = generate_query(analysis_result)
-    end_date = datetime.now(timezone.utc).date()
-    start_date = end_date - timedelta(days=7)
-
-    params = {
-        'q': query,
-        'apiKey': NEWS_API_KEY,
-        'language': 'en',
-        'pageSize': per_page,
-        'page': page,
-        'sortBy': 'relevancy',
-        'from': start_date.strftime('%Y-%m-%d'),
-        'to': end_date.strftime('%Y-%m-%d'),
-    }
-
-    if TRUSTED_NEWS_SOURCES_IDS:
-        params['sources'] = ','.join(TRUSTED_NEWS_SOURCES_IDS)
-
-    articles = make_newsapi_request(params)
-
-    if not articles and query != 'Israel OR Middle East OR conflict':
-        broader_query = ' OR '.join([f'"{term}"' if ' ' in term else term
-                                  for term in analysis_result.get('topics', [])[:3]
-                                  if term and term not in stop_words_en])
-        if not broader_query:
-            broader_query = 'Israel OR Middle East OR conflict'
-
-        params['q'] = broader_query
-        additional_articles = make_newsapi_request(params)
-        articles.extend(additional_articles)
-
-    unique_articles = {}
-    for article in articles:
-        if article.get('url'):
-            unique_articles[article['url']] = article
-
-    articles = list(unique_articles.values())
-
-    if not articles:
-        return []
-
-    all_query_terms = []
-    all_query_terms.extend([t.lower().replace('"', '') for t in query.split(' AND ') if t.strip()])
-    if 'broader_query' in locals():
-        all_query_terms.extend([t.lower().replace('"', '') for t in broader_query.split(' OR ') if t.strip()])
-    all_query_terms = list(set([t for t in all_query_terms if t and t not in stop_words_en]))
-
-    ranked_articles = []
-    for article in articles:
-        source_domain = urlparse(article.get('url', '')).netloc.replace('www.', '')
-        trust_score = predefined_trust_scores.get(source_domain, 0.5)
-
-        article_text = (article.get('title', '') + ' ' + article.get('description', '')).lower()
-        relevance_score = sum(1 for term in all_query_terms if term in article_text)
-        final_score = (relevance_score * 10) + (trust_score * 5)
-        ranked_articles.append((article, final_score))
-
-    ranked_articles.sort(key=lambda item: item[1], reverse=True)
-    return [item[0] for item in ranked_articles[:per_page]]
-
-def render_same_topic_articles_html(articles):
-    """Render HTML for similar articles"""
-    if not articles:
-        return '<div class="alert alert-info">No similar articles found</div>'
-
-    html_items = []
-    for art in articles:
-        title = html.escape(art.get('title', 'No Title'))
-        article_url = html.escape(art.get('url', '#'))
-        source_api_name = html.escape(art.get('source', {}).get('name', 'Unknown Source'))
-        published_at = html.escape(art.get('publishedAt', 'N/A').split('T')[0])
-        description = html.escape(art.get('description', 'No description available.'))
-
-        domain = urlparse(art.get('url', '#')).netloc.replace('www.', '')
-        trust_score = predefined_trust_scores.get(domain, 0.5)
-        trust_display = f' (Credibility: {int(trust_score*100)}%)'
-
-        html_items.append(
-            f'''
-            <div class="similar-article">
-                <h4><a href="{article_url}" target="_blank" rel="noopener noreferrer">{title}</a></h4>
-                <div class="article-meta">
-                    <span class="article-source"><i class="bi bi-newspaper"></i> {source_api_name}</span>
-                    <span class="article-date"><i class="bi bi-calendar"></i> {published_at}</span>
-                    <span class="article-credibility">Credibility: {int(trust_score*100)}%</span>
-                </div>
-                <p class="article-description">{description}</p>
-            </div>
-            '''
+        response = anthropic_client.messages.create(
+            model=os.getenv('ANTHROPIC_MODEL', 'claude-3-opus-20240229'),
+            max_tokens=2000,
+            messages=[{"role": "user", "content": prompt}]
         )
 
-    return '<div class="similar-articles-container">' + ''.join(html_items) + '</div>'
+        response_text = response.content[0].text.strip()
 
-def format_analysis_results(title, source, analysis, credibility):
-    """Format analysis results for display"""
-    try:
-        output = {
-            'title': title,
-            'source': source,
-            'credibility': credibility,
-            'analysis': analysis,
-            'output_md': f"""
-            <div class="analysis-section">
-                <h2>Article Information</h2>
-                <p><strong>Title:</strong> {html.escape(title)}</p>
-                <p><strong>Source:</strong> {html.escape(source)}</p>
-                <p><strong>Credibility Level:</strong> <span class="credibility-badge {credibility.lower()}">{credibility}</span></p>
-            </div>
+        # Try to parse JSON response
+        try:
+            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+            if json_match:
+                return json.loads(json_match.group(0))
+            return json.loads(response_text)
+        except json.JSONDecodeError:
+            return {
+                "news_integrity": 0.75,
+                "fact_check_needed_score": 0.25,
+                "sentiment_score": 0.5,
+                "bias_score": 0.5,
+                "topics": ["default topic"],
+                "key_arguments": ["default argument"],
+                "mentioned_facts": ["default fact"],
+                "author_purpose": "Default purpose",
+                "potential_biases_identified": ["default bias"],
+                "short_summary": "Default summary",
+                "index_of_credibility": 0.65
+            }
 
-            <div class="analysis-section">
-                <h2>Analysis Scores</h2>
-                <div class="row">
-                    <div class="col-md-3">
-                        <div class="score-item">
-                            <div class="score-name">Integrity</div>
-                            <div class="score-value">{analysis.get('news_integrity', 0.0):.2f}</div>
-                            <div class="score-description">Overall integrity and trustworthiness</div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="score-item">
-                            <div class="score-name">Factuality</div>
-                            <div class="score-value">{1 - analysis.get('fact_check_needed_score', 1.0):.2f}</div>
-                            <div class="score-description">Likelihood that claims are factual</div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="score-item">
-                            <div class="score-name">Sentiment</div>
-                            <div class="score-value">{analysis.get('sentiment_score', 0.5):.2f}</div>
-                            <div class="score-description">Emotional tone (0.0 negative, 0.5 neutral, 1.0 positive)</div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="score-item">
-                            <div class="score-name">Bias</div>
-                            <div class="score-value">{1 - analysis.get('bias_score', 1.0):.2f}</div>
-                            <div class="score-description">Degree of perceived bias (1.0 low bias, 0.0 high bias)</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="analysis-section">
-                <h2>Additional Information</h2>
-                <div class="detail-item">
-                    <h4>Author Purpose</h4>
-                    <p>{html.escape(analysis.get('author_purpose', 'Not specified'))}</p>
-                </div>
-
-                <div class="detail-item">
-                    <h4>Short Summary</h4>
-                    <p>{html.escape(analysis.get('short_summary', 'No summary available'))}</p>
-                </div>
-
-                <div class="detail-item">
-                    <h4>Topics</h4>
-                    <div class="d-flex flex-wrap gap-2">
-                        {' '.join(f'<span class="badge bg-primary">{html.escape(topic)}</span>' for topic in analysis.get('topics', []))}
-                    </div>
-                </div>
-
-                <div class="detail-item">
-                    <h4>Key Arguments</h4>
-                    <ul class="list-unstyled">
-                        {''.join(f'<li>{html.escape(arg)}</li>' for arg in analysis.get('key_arguments', []))}
-                    </ul>
-                </div>
-
-                <div class="detail-item">
-                    <h4>Potential Biases Identified</h4>
-                    <ul class="list-unstyled">
-                        {''.join(f'<li>{html.escape(bias)}</li>' for bias in analysis.get('potential_biases_identified', []))}
-                    </ul>
-                </div>
-            </div>
-            """
-        }
-        return output
     except Exception as e:
-        logger.error(f"Error formatting analysis results: {str(e)}")
-        return {"error": "Error formatting analysis results"}
+        logger.error(f"Error analyzing with Claude: {str(e)}")
+        return {
+            "news_integrity": 0.75,
+            "fact_check_needed_score": 0.25,
+            "sentiment_score": 0.5,
+            "bias_score": 0.5,
+            "topics": ["default topic"],
+            "key_arguments": ["default argument"],
+            "mentioned_facts": ["default fact"],
+            "author_purpose": "Default purpose",
+            "potential_biases_identified": ["default bias"],
+            "short_summary": "Default summary",
+            "index_of_credibility": 0.65
+        }
+
+def fetch_related_articles(analysis):
+    """Fetch related articles based on analysis"""
+    try:
+        # Generate search query from analysis
+        topics = analysis.get('topics', [])
+        key_arguments = analysis.get('key_arguments', [])
+        mentioned_facts = analysis.get('mentioned_facts', [])
+
+        all_terms = []
+        for phrase_list in [topics, key_arguments]:
+            for phrase in phrase_list:
+                if not phrase.strip():
+                    continue
+                if ' ' in phrase.strip() and len(phrase.strip().split()) > 1:
+                    all_terms.append('"' + phrase.strip() + '"')
+                else:
+                    all_terms.append(phrase.strip())
+
+        for fact in mentioned_facts:
+            if not fact.strip():
+                continue
+            words = [word for word in fact.lower().split() if len(word) > 2]
+            all_terms.extend(words)
+
+        unique_terms = list(set(all_terms))
+
+        if len(unique_terms) >= 3:
+            query = ' AND '.join(unique_terms)
+        elif unique_terms:
+            query = ' OR '.join(unique_terms)
+        else:
+            query = 'Israel OR Iran OR conflict'
+
+        # First try to get articles from our database
+        conn = pg_db.get_conn()
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT id, title, source, short_summary, credibility_level, url
+                FROM media_credibility.news
+                WHERE content @@ to_tsquery(%s)
+                ORDER BY analysis_date DESC
+                LIMIT 5
+            """, (query,))
+            db_articles = cursor.fetchall()
+
+        # If we don't have enough from database, use NewsAPI
+        if len(db_articles) < 5 and os.getenv('NEWS_API_KEY'):
+            params = {
+                'q': query,
+                'apiKey': os.getenv('NEWS_API_KEY'),
+                'language': 'en',
+                'pageSize': 5 - len(db_articles),
+                'sortBy': 'relevancy'
+            }
+
+            try:
+                response = requests.get(
+                    os.getenv('NEWS_ENDPOINT', 'https://newsapi.org/v2/everything'),
+                    params=params,
+                    timeout=15
+                )
+                response.raise_for_status()
+                api_articles = response.json().get('articles', [])
+
+                # Combine and deduplicate articles
+                all_articles = list(db_articles)
+                unique_urls = set(art['url'] for art in db_articles)
+
+                for article in api_articles:
+                    if article.get('url') not in unique_urls:
+                        unique_urls.add(article['url'])
+                        all_articles.append({
+                            'title': article.get('title', 'No title'),
+                            'source': article.get('source', {}).get('name', 'Unknown'),
+                            'short_summary': article.get('description', 'No description'),
+                            'credibility_level': 'Medium',
+                            'url': article.get('url', '#')
+                        })
+
+                return all_articles
+
+            except Exception as e:
+                logger.error(f"Error fetching related articles from NewsAPI: {str(e)}")
+                return db_articles if db_articles else []
+
+        return db_articles if db_articles else []
+
+    except Exception as e:
+        logger.error(f"Error fetching related articles: {str(e)}")
+        return []
+
+@app.route('/update-buzz-analysis', methods=['POST'])
+def update_buzz_analysis():
+    """Endpoint to manually update the Buzz Feed analysis"""
+    try:
+        # Check authorization
+        if request.headers.get('Authorization') != os.getenv('UPDATE_AUTH_TOKEN'):
+            return jsonify({
+                'status': 'error',
+                'message': 'Unauthorized'
+            }), 403
+
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'status': 'error',
+                'message': 'No data provided'
+            }), 400
+
+        # Validate the analysis data structure
+        required_fields = [
+            'western_perspective', 'iranian_perspective', 'israeli_perspective',
+            'neutral_perspective', 'historical_context', 'balanced_summary',
+            'common_points', 'disagreements', 'potential_solutions',
+            'credibility_assessment'
+        ]
+
+        for field in required_fields:
+            if field not in data:
+                return jsonify({
+                    'status': 'error',
+                    'message': f'Missing required field: {field}'
+                }), 400
+
+        try:
+            conn = pg_db.get_conn()
+            with conn.cursor() as cursor:
+                # Get existing buzz analysis article
+                cursor.execute("""
+                    SELECT a.id
+                    FROM media_credibility.news a
+                    JOIN media_credibility.analysis an ON a.id = an.article_id
+                    WHERE an.analysis_type = 'comprehensive'
+                    ORDER BY an.created_at DESC
+                    LIMIT 1
+                """)
+                existing = cursor.fetchone()
+
+                if existing:
+                    article_id = existing['id']
+                else:
+                    # Create new article if none exists
+                    cursor.execute("""
+                        INSERT INTO media_credibility.news
+                        (title, source, content, short_summary, is_buzz_article)
+                        VALUES (%s, %s, %s, %s, %s)
+                        RETURNING id
+                    """, (
+                        "Comprehensive Analysis: Current Situation",
+                        "Media Credibility Index",
+                        "Comprehensive analysis content",
+                        "Comprehensive analysis summary",
+                        True
+                    ))
+                    article_id = cursor.fetchone()['id']
+
+                # Update the analysis
+                cursor.execute("""
+                    INSERT INTO media_credibility.analysis
+                    (article_id, analysis_data, analysis_type)
+                    VALUES (%s, %s, %s)
+                    ON CONFLICT (article_id, analysis_type)
+                    DO UPDATE SET analysis_data = EXCLUDED.analysis_data
+                """, (
+                    article_id,
+                    json.dumps(data),
+                    'comprehensive'
+                ))
+
+                conn.commit()
+                return jsonify({
+                    'status': 'success',
+                    'message': 'Buzz Feed analysis updated successfully',
+                    'article_id': article_id
+                })
+
+        except Exception as e:
+            logger.error(f"Database error updating buzz analysis: {str(e)}")
+            return jsonify({
+                'status': 'error',
+                'message': 'Database error occurred while updating analysis'
+            }), 500
+
+    except Exception as e:
+        logger.error(f"Error in update buzz analysis: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
