@@ -1,6 +1,5 @@
 import os
 import logging
-import sqlite3
 import re
 import json
 import requests
@@ -13,6 +12,7 @@ from flask_cors import CORS
 import anthropic
 from newspaper import Article, Config
 from stop_words import get_stop_words
+from pg_database import PostgresDB  # Импортируем наш класс для работы с PostgreSQL
 
 # Initialize Flask application
 app = Flask(__name__, static_folder='static', template_folder='templates')
@@ -40,245 +40,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Database configuration
-DB_NAME = 'instance/news_analysis.db'
-
-def get_db_connection():
-    """Create database connection with proper path for Railway"""
-    os.makedirs(os.path.dirname(DB_NAME), exist_ok=True)
-    conn = sqlite3.connect(DB_NAME)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-def initialize_database():
-    """Initialize database schema and populate with test data if empty"""
-    try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-
-            # Create tables for analysis
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS news (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    title TEXT,
-                    source TEXT,
-                    content TEXT,
-                    integrity REAL,
-                    fact_check REAL,
-                    sentiment REAL,
-                    bias REAL,
-                    credibility_level TEXT,
-                    index_of_credibility REAL,
-                    url TEXT UNIQUE,
-                    analysis_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    short_summary TEXT
-                )
-            ''')
-
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS source_stats (
-                    source TEXT PRIMARY KEY,
-                    high INTEGER DEFAULT 0,
-                    medium INTEGER DEFAULT 0,
-                    low INTEGER DEFAULT 0,
-                    total_analyzed INTEGER DEFAULT 0
-                )
-            ''')
-
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS feedback (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT NOT NULL,
-                    email TEXT NOT NULL,
-                    type TEXT NOT NULL,
-                    message TEXT NOT NULL,
-                    date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            ''')
-
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS daily_buzz (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    article_id INTEGER,
-                    date DATE UNIQUE,
-                    FOREIGN KEY (article_id) REFERENCES news (id)
-                )
-            ''')
-
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS article_votes (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    article_id INTEGER,
-                    user_id TEXT,
-                    vote_type TEXT CHECK(vote_type IN ('upvote', 'downvote')),
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (article_id) REFERENCES news (id)
-                )
-            ''')
-
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS credibility_votes (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    article_id INTEGER,
-                    user_id TEXT,
-                    credibility_rating INTEGER CHECK(credibility_rating BETWEEN 1 AND 5),
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (article_id) REFERENCES news (id)
-                )
-            ''')
-
-            # Create tables for news feed
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS news_feed (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    title TEXT NOT NULL,
-                    description TEXT,
-                    url TEXT UNIQUE NOT NULL,
-                    source TEXT NOT NULL,
-                    published_at TIMESTAMP,
-                    content TEXT,
-                    image_url TEXT,
-                    category TEXT,
-                    country TEXT,
-                    language TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            ''')
-
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS news_categories (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT UNIQUE NOT NULL,
-                    description TEXT
-                )
-            ''')
-
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS user_preferences (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_id TEXT NOT NULL,
-                    preferred_categories TEXT,
-                    preferred_sources TEXT,
-                    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            ''')
-
-            # Populate with initial categories if empty
-            cursor.execute("SELECT COUNT(*) FROM news_categories")
-            if cursor.fetchone()[0] == 0:
-                categories = [
-                    ('World', 'Global news and international affairs'),
-                    ('Business', 'Business and financial news'),
-                    ('Technology', 'Technology and science news'),
-                    ('Politics', 'Political news and analysis'),
-                    ('Health', 'Health and medical news'),
-                    ('Entertainment', 'Entertainment and celebrity news'),
-                    ('Sports', 'Sports news and updates')
-                ]
-
-                for name, description in categories:
-                    cursor.execute('''
-                        INSERT INTO news_categories (name, description)
-                        VALUES (?, ?)
-                    ''', (name, description))
-
-            conn.commit()
-
-            # Populate with test data only if tables are empty
-            cursor.execute("SELECT COUNT(*) FROM source_stats")
-            if cursor.fetchone()[0] == 0:
-                populate_test_data()
-
-            logger.info("Database initialized successfully")
-
-    except Exception as e:
-        logger.error(f"Error initializing database: {str(e)}")
-        raise
-
-def populate_test_data():
-    """Populate database with test data for demonstration"""
-    try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-
-            # Test data for various sources
-            test_sources = [
-                ('bbc.com', 45, 10, 5),
-                ('reuters.com', 50, 5, 2),
-                ('foxnews.com', 15, 20, 30),
-                ('cnn.com', 30, 25, 10),
-                ('nytimes.com', 35, 15, 5),
-                ('theguardian.com', 40, 10, 3),
-                ('apnews.com', 48, 5, 2),
-                ('washingtonpost.com', 38, 12, 5),
-                ('bloomberg.com', 42, 8, 5),
-                ('wsj.com', 37, 15, 8),
-                ('aljazeera.com', 28, 18, 10),
-                ('dailymail.co.uk', 12, 25, 30),
-                ('breitbart.com', 8, 15, 40),
-                ('infowars.com', 5, 10, 50),
-                ('rt.com', 10, 20, 35)
-            ]
-
-            for source, high, medium, low in test_sources:
-                total = high + medium + low
-                cursor.execute('''
-                    INSERT INTO source_stats (source, high, medium, low, total_analyzed)
-                    VALUES (?, ?, ?, ?, ?)
-                ''', (source, high, medium, low, total))
-
-            # Test data for news table
-            test_news = [
-                (
-                    "BBC News: Global Climate Summit Begins",
-                    "bbc.com",
-                    "Global leaders gather for climate summit...",
-                    0.92, 0.15, 0.65, 0.20,
-                    "High", 0.88,
-                    "https://bbc.com/climate-summit",
-                    datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
-                    "Global leaders gather to discuss climate change solutions"
-                ),
-                (
-                    "Reuters: Stock Markets Reach Record Highs",
-                    "reuters.com",
-                    "Stock markets worldwide reached record highs...",
-                    0.95, 0.10, 0.70, 0.15,
-                    "High", 0.91,
-                    "https://reuters.com/stock-markets",
-                    datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
-                    "Global stock markets reached new record highs"
-                ),
-                (
-                    "Fox News: Controversial Policy Debate",
-                    "foxnews.com",
-                    "Debate over new policy continues...",
-                    0.65, 0.55, 0.35, 0.60,
-                    "Medium", 0.58,
-                    "https://foxnews.com/policy-debate",
-                    datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
-                    "Ongoing debate about controversial new policy"
-                )
-            ]
-
-            for item in test_news:
-                cursor.execute('''
-                    INSERT INTO news
-                    (title, source, content, integrity, fact_check, sentiment, bias,
-                     credibility_level, index_of_credibility, url, analysis_date, short_summary)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''', item)
-
-            conn.commit()
-            logger.info("Test data added to database successfully")
-
-    except Exception as e:
-        logger.error(f"Error populating test data: {str(e)}")
-        raise
-
-# Initialize database when app starts
-with app.app_context():
-    initialize_database()
+# Initialize PostgreSQL database
+pg_db = PostgresDB()
 
 # Initial data
 INITIAL_SOURCE_COUNTS = {
@@ -323,7 +86,6 @@ user_agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36
 config = Config()
 config.browser_user_agent = user_agent
 config.request_timeout = 30
-# В вашем main.py добавьте эти обработчики CORS и ошибок:
 
 @app.after_request
 def after_request(response):
@@ -384,8 +146,6 @@ def terms():
     """Terms of Service page"""
     return render_template('terms.html')
 
-from flask import Flask, request, jsonify, render_template, make_response
-
 @app.route('/feedback', methods=['GET', 'POST'])
 def feedback():
     """Feedback page and form handler"""
@@ -419,150 +179,144 @@ def feedback():
                 }), 400
 
             # Save feedback to database
-            with get_db_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute('''
-                    INSERT INTO feedback (name, email, type, message, date)
-                    VALUES (?, ?, ?, ?, ?)
-                ''', (name, email, feedback_type, message, datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')))
+            try:
+                conn = pg_db.get_conn()
+                with conn.cursor() as cursor:
+                    cursor.execute('''
+                        INSERT INTO media_credibility.feedback (name, email, type, message)
+                        VALUES (%s, %s, %s, %s)
+                    ''', (name, email, feedback_type, message))
                 conn.commit()
+                pg_db.release_conn(conn)
 
-            return jsonify({
-                'status': 'success',
-                'message': 'Thank you for your feedback! We appreciate your input.'
-            })
+                return jsonify({
+                    'status': 'success',
+                    'message': 'Thank you for your feedback! We appreciate your input.'
+                })
+            except Exception as e:
+                logger.error(f'Database error saving feedback: {str(e)}')
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Database error occurred. Please try again later.'
+                }), 500
 
         except Exception as e:
             logger.error(f'Error saving feedback: {str(e)}')
             return jsonify({
                 'status': 'error',
-                'message': 'An error occurred while processing your feedback. Please try again later.'
+                'message': 'An unexpected error occurred. Please try again later.'
             }), 500
 
     # For GET requests, return the feedback page template
     return render_template('feedback.html')
 
-
 @app.route('/daily-buzz', methods=['GET'])
 def daily_buzz():
     """Get the daily buzz article with full analysis"""
     try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
+        # Get today's buzz article
+        article = pg_db.get_buzz_article()
 
-            # Get today's date
-            today = datetime.now(timezone.utc).date().strftime('%Y-%m-%d')
-
-            # Try to get today's buzz article about Israel-Iran conflict
-            cursor.execute('''
-                SELECT n.*
-                FROM news n
-                JOIN daily_buzz d ON n.id = d.article_id
-                WHERE d.date = ? AND
-                (n.content LIKE '%Israel%' OR n.content LIKE '%Iran%' OR
-                 n.content LIKE '%conflict%' OR n.content LIKE '%Middle East%')
-            ''', (today,))
-            article = cursor.fetchone()
-
-            # If no article is selected for today, pick one about Israel-Iran conflict
-            if not article:
-                cursor.execute('''
-                    SELECT * FROM news
-                    WHERE content LIKE '%Israel%' OR content LIKE '%Iran%'
-                    ORDER BY RANDOM()
-                    LIMIT 1
-                ''')
-                article = cursor.fetchone()
-
-                if article:
-                    cursor.execute('''
-                        INSERT OR REPLACE INTO daily_buzz (article_id, date)
-                        VALUES (?, ?)
-                    ''', (article['id'], today))
-                    conn.commit()
-
-            if article:
-                votes = get_article_votes(article['id'])
-                return jsonify({
-                    'status': 'success',
-                    'article': dict(article),
-                    'votes': votes
-                })
-            else:
-                # Create default article if none exists
-                default_article = {
-                    'id': 0,
-                    'title': 'Israel-Iran Conflict: Current Situation Analysis',
-                    'source': 'Media Credibility Index',
-                    'url': '#',
+        if article:
+            votes = get_article_votes(article['id'])
+            return jsonify({
+                'status': 'success',
+                'article': article,
+                'votes': votes
+            })
+        else:
+            # Create default article if none exists
+            default_article = {
+                'id': 0,
+                'title': 'Israel-Iran Conflict: Current Situation Analysis',
+                'source': 'Media Credibility Index',
+                'url': '#',
+                'short_summary': 'Ongoing tensions between Israel and Iran continue to escalate.',
+                'credibility_level': 'Medium',
+                'analysis_date': datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
+                'content': 'The conflict between Israel and Iran has reached a critical point with recent escalations in military and diplomatic tensions.',
+                'analysis': {
+                    'news_integrity': 0.75,
+                    'fact_check_needed_score': 0.25,
+                    'sentiment_score': 0.4,
+                    'bias_score': 0.3,
+                    'topics': ['Israel-Iran conflict', 'Middle East tensions'],
+                    'key_arguments': [
+                        'The conflict has reached a critical point',
+                        'International mediators are attempting to broker peace'
+                    ],
+                    'mentioned_facts': [
+                        'Recent military exercises conducted by both nations',
+                        'Diplomatic efforts led by the United Nations'
+                    ],
+                    'author_purpose': 'To inform about the current state of Israel-Iran relations',
+                    'potential_biases_identified': [
+                        'Possible pro-Western perspective'
+                    ],
                     'short_summary': 'Ongoing tensions between Israel and Iran continue to escalate.',
-                    'credibility_level': 'Medium',
-                    'analysis_date': datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
-                    'content': 'The conflict between Israel and Iran has reached a critical point with recent escalations in military and diplomatic tensions.',
-                    'analysis': {
-                        'news_integrity': 0.75,
-                        'fact_check_needed_score': 0.25,
-                        'sentiment_score': 0.4,
-                        'bias_score': 0.3,
-                        'topics': ['Israel-Iran conflict', 'Middle East tensions'],
-                        'key_arguments': [
-                            'The conflict has reached a critical point',
-                            'International mediators are attempting to broker peace'
-                        ],
-                        'mentioned_facts': [
-                            'Recent military exercises conducted by both nations',
-                            'Diplomatic efforts led by the United Nations'
-                        ],
-                        'author_purpose': 'To inform about the current state of Israel-Iran relations',
-                        'potential_biases_identified': [
-                            'Possible pro-Western perspective'
-                        ],
-                        'short_summary': 'Ongoing tensions between Israel and Iran continue to escalate.',
-                        'index_of_credibility': 0.65
-                    }
+                    'index_of_credibility': 0.65
                 }
+            }
 
-                # Save default article to database
-                cursor.execute('''
-                    INSERT INTO news
-                    (title, source, content, integrity, fact_check, sentiment, bias,
-                     credibility_level, index_of_credibility, url, analysis_date, short_summary)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (
-                    default_article['title'], default_article['source'], default_article['content'],
-                    default_article['analysis']['news_integrity'],
-                    default_article['analysis']['fact_check_needed_score'],
-                    default_article['analysis']['sentiment_score'],
-                    default_article['analysis']['bias_score'],
-                    default_article['credibility_level'],
-                    default_article['analysis']['index_of_credibility'],
-                    default_article['url'],
-                    default_article['analysis_date'],
-                    default_article['short_summary']
-                ))
+            # Save default article to database
+            try:
+                conn = pg_db.get_conn()
+                with conn.cursor() as cursor:
+                    # Save article
+                    cursor.execute('''
+                        INSERT INTO media_credibility.news
+                        (title, source, content, integrity, fact_check, sentiment, bias,
+                         credibility_level, index_of_credibility, url, analysis_date, short_summary)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        RETURNING id
+                    ''', (
+                        default_article['title'],
+                        default_article['source'],
+                        default_article['content'],
+                        default_article['analysis']['news_integrity'],
+                        default_article['analysis']['fact_check_needed_score'],
+                        default_article['analysis']['sentiment_score'],
+                        default_article['analysis']['bias_score'],
+                        default_article['credibility_level'],
+                        default_article['analysis']['index_of_credibility'],
+                        default_article['url'],
+                        datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
+                        default_article['short_summary']
+                    ))
+                    article_id = cursor.fetchone()['id']
+
+                    # Set as today's buzz article
+                    today = datetime.now(timezone.utc).date()
+                    cursor.execute('''
+                        INSERT INTO media_credibility.daily_buzz (article_id, date)
+                        VALUES (%s, %s)
+                    ''', (article_id, today))
+
+                    # Get the article with votes
+                    cursor.execute('''
+                        SELECT n.*, s.high, s.medium, s.low, s.total_analyzed
+                        FROM media_credibility.news n
+                        LEFT JOIN media_credibility.source_stats s ON n.source = s.source
+                        WHERE n.id = %s
+                    ''', (article_id,))
+                    article = cursor.fetchone()
+
                 conn.commit()
+                pg_db.release_conn(conn)
 
-                # Get the ID of the newly inserted article
-                cursor.execute('SELECT last_insert_rowid()')
-                article_id = cursor.fetchone()[0]
-
-                # Set as today's buzz article
-                cursor.execute('''
-                    INSERT INTO daily_buzz (article_id, date)
-                    VALUES (?, ?)
-                ''', (article_id, today))
-                conn.commit()
-
-                # Get the article with votes
-                cursor.execute('SELECT * FROM news WHERE id = ?', (article_id,))
-                article = cursor.fetchone()
                 votes = get_article_votes(article_id)
 
                 return jsonify({
                     'status': 'success',
-                    'article': dict(article),
+                    'article': article,
                     'votes': votes
                 })
+            except Exception as e:
+                logger.error(f"Error creating default buzz article: {str(e)}")
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Error creating default buzz article'
+                }), 500
 
     except Exception as e:
         logger.error(f"Error in daily_buzz endpoint: {str(e)}")
@@ -574,16 +328,15 @@ def daily_buzz():
 def get_article_votes(article_id):
     """Get votes for an article"""
     try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-
-            # Get upvotes and downvotes
+        conn = pg_db.get_conn()
+        with conn.cursor() as cursor:
+            # Get votes
             cursor.execute('''
                 SELECT
-                    SUM(CASE WHEN vote_type = 'upvote' THEN 1 ELSE 0 END) as upvotes,
-                    SUM(CASE WHEN vote_type = 'downvote' THEN 1 ELSE 0 END) as downvotes
-                FROM article_votes
-                WHERE article_id = ?
+                    COUNT(*) FILTER (WHERE vote_type = 'upvote') as upvotes,
+                    COUNT(*) FILTER (WHERE vote_type = 'downvote') as downvotes
+                FROM media_credibility.article_votes
+                WHERE article_id = %s
             ''', (article_id,))
             votes = cursor.fetchone()
 
@@ -592,8 +345,8 @@ def get_article_votes(article_id):
                 SELECT
                     AVG(credibility_rating) as avg_rating,
                     COUNT(*) as rating_count
-                FROM credibility_votes
-                WHERE article_id = ?
+                FROM media_credibility.credibility_votes
+                WHERE article_id = %s
             ''', (article_id,))
             credibility = cursor.fetchone()
 
@@ -611,6 +364,8 @@ def get_article_votes(article_id):
             'avg_rating': 0,
             'rating_count': 0
         }
+    finally:
+        pg_db.release_conn(conn)
 
 @app.route('/vote', methods=['POST'])
 def vote():
@@ -633,16 +388,40 @@ def vote():
                 'message': 'Invalid vote type'
             }), 400
 
-        success = vote_for_article(article_id, user_id, vote_type)
+        try:
+            conn = pg_db.get_conn()
+            with conn.cursor() as cursor:
+                # Check if user already voted
+                cursor.execute('''
+                    SELECT id FROM media_credibility.article_votes
+                    WHERE article_id = %s AND user_id = %s
+                ''', (article_id, user_id))
+                existing_vote = cursor.fetchone()
 
-        if success:
+                if existing_vote:
+                    # Update existing vote
+                    cursor.execute('''
+                        UPDATE media_credibility.article_votes
+                        SET vote_type = %s, created_at = CURRENT_TIMESTAMP
+                        WHERE id = %s
+                    ''', (vote_type, existing_vote['id']))
+                else:
+                    # Add new vote
+                    cursor.execute('''
+                        INSERT INTO media_credibility.article_votes (article_id, user_id, vote_type)
+                        VALUES (%s, %s, %s)
+                    ''', (article_id, user_id, vote_type))
+
+                conn.commit()
+
             votes = get_article_votes(article_id)
             return jsonify({
                 'status': 'success',
                 'message': 'Vote recorded successfully',
                 'votes': votes
             })
-        else:
+        except Exception as e:
+            logger.error(f"Error voting for article: {str(e)}")
             return jsonify({
                 'status': 'error',
                 'message': 'Failed to record vote'
@@ -654,39 +433,6 @@ def vote():
             'status': 'error',
             'message': 'An error occurred while processing vote'
         }), 500
-
-def vote_for_article(article_id, user_id, vote_type):
-    """Vote for an article"""
-    try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-
-            # Check if user already voted
-            cursor.execute('''
-                SELECT id FROM article_votes
-                WHERE article_id = ? AND user_id = ?
-            ''', (article_id, user_id))
-            existing_vote = cursor.fetchone()
-
-            if existing_vote:
-                # Update existing vote
-                cursor.execute('''
-                    UPDATE article_votes
-                    SET vote_type = ?, created_at = CURRENT_TIMESTAMP
-                    WHERE id = ?
-                ''', (vote_type, existing_vote['id']))
-            else:
-                # Add new vote
-                cursor.execute('''
-                    INSERT INTO article_votes (article_id, user_id, vote_type)
-                    VALUES (?, ?, ?)
-                ''', (article_id, user_id, vote_type))
-
-            conn.commit()
-            return True
-    except Exception as e:
-        logger.error(f"Error voting for article: {str(e)}")
-        return False
 
 @app.route('/rate-credibility', methods=['POST'])
 def rate_credibility_endpoint():
@@ -709,16 +455,40 @@ def rate_credibility_endpoint():
                 'message': 'Rating must be an integer between 1 and 5'
             }), 400
 
-        success = rate_credibility(article_id, user_id, rating)
+        try:
+            conn = pg_db.get_conn()
+            with conn.cursor() as cursor:
+                # Check if user already rated
+                cursor.execute('''
+                    SELECT id FROM media_credibility.credibility_votes
+                    WHERE article_id = %s AND user_id = %s
+                ''', (article_id, user_id))
+                existing_rating = cursor.fetchone()
 
-        if success:
+                if existing_rating:
+                    # Update existing rating
+                    cursor.execute('''
+                        UPDATE media_credibility.credibility_votes
+                        SET credibility_rating = %s, created_at = CURRENT_TIMESTAMP
+                        WHERE id = %s
+                    ''', (rating, existing_rating['id']))
+                else:
+                    # Add new rating
+                    cursor.execute('''
+                        INSERT INTO media_credibility.credibility_votes (article_id, user_id, credibility_rating)
+                        VALUES (%s, %s, %s)
+                    ''', (article_id, user_id, rating))
+
+                conn.commit()
+
             votes = get_article_votes(article_id)
             return jsonify({
                 'status': 'success',
                 'message': 'Rating recorded successfully',
                 'votes': votes
             })
-        else:
+        except Exception as e:
+            logger.error(f"Error rating article credibility: {str(e)}")
             return jsonify({
                 'status': 'error',
                 'message': 'Failed to record rating'
@@ -731,70 +501,15 @@ def rate_credibility_endpoint():
             'message': 'An error occurred while processing rating'
         }), 500
 
-def rate_credibility(article_id, user_id, rating):
-    """Rate article credibility"""
-    try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-
-            # Check if user already rated
-            cursor.execute('''
-                SELECT id FROM credibility_votes
-                WHERE article_id = ? AND user_id = ?
-            ''', (article_id, user_id))
-            existing_rating = cursor.fetchone()
-
-            if existing_rating:
-                # Update existing rating
-                cursor.execute('''
-                    UPDATE credibility_votes
-                    SET credibility_rating = ?, created_at = CURRENT_TIMESTAMP
-                    WHERE id = ?
-                ''', (rating, existing_rating['id']))
-            else:
-                # Add new rating
-                cursor.execute('''
-                    INSERT INTO credibility_votes (article_id, user_id, credibility_rating)
-                    VALUES (?, ?, ?)
-                ''', (article_id, user_id, rating))
-
-            conn.commit()
-            return True
-    except Exception as e:
-        logger.error(f"Error rating article credibility: {str(e)}")
-        return False
-
 @app.route('/source-credibility-chart', methods=['GET'])
 def source_credibility_chart():
     """Endpoint for getting source credibility chart data"""
     try:
-        chart_data = get_source_credibility_data()
-
-        if not chart_data['sources']:
-            populate_test_data()
-            chart_data = get_source_credibility_data()
-
-        return jsonify({
-            'status': 'success',
-            'data': chart_data
-        })
-
-    except Exception as e:
-        logger.error(f"Error in source_credibility_chart endpoint: {str(e)}")
-        return jsonify({
-            'error': 'An error occurred while fetching chart data',
-            'status': 500,
-            'details': str(e)
-        }), 500
-
-def get_source_credibility_data():
-    """Get source credibility data from database"""
-    try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
+        conn = pg_db.get_conn()
+        with conn.cursor() as cursor:
             cursor.execute('''
                 SELECT source, high, medium, low, total_analyzed
-                FROM source_stats
+                FROM media_credibility.source_stats
                 ORDER BY total_analyzed DESC, source ASC
             ''')
 
@@ -820,35 +535,37 @@ def get_source_credibility_data():
                 low_counts.append(low)
                 total_counts.append(total_current)
 
-            return {
-                'sources': sources,
-                'credibility_scores': credibility_scores,
-                'high_counts': high_counts,
-                'medium_counts': medium_counts,
-                'low_counts': low_counts,
-                'total_counts': total_counts
-            }
+            return jsonify({
+                'status': 'success',
+                'data': {
+                    'sources': sources,
+                    'credibility_scores': credibility_scores,
+                    'high_counts': high_counts,
+                    'medium_counts': medium_counts,
+                    'low_counts': low_counts,
+                    'total_counts': total_counts
+                }
+            })
     except Exception as e:
-        logger.error(f"Error getting source credibility data: {str(e)}")
-        return {
-            'sources': [],
-            'credibility_scores': [],
-            'high_counts': [],
-            'medium_counts': [],
-            'low_counts': [],
-            'total_counts': []
-        }
+        logger.error(f"Error in source_credibility_chart endpoint: {str(e)}")
+        return jsonify({
+            'error': 'An error occurred while fetching chart data',
+            'status': 500,
+            'details': str(e)
+        }), 500
+    finally:
+        pg_db.release_conn(conn)
 
 @app.route('/analysis-history', methods=['GET'])
 def analysis_history():
     """Endpoint for getting analysis history"""
     try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
+        conn = pg_db.get_conn()
+        with conn.cursor() as cursor:
             cursor.execute('''
-                SELECT url, title, source, credibility_level, short_summary,
-                       strftime("%Y-%m-%d %H:%M", analysis_date) as formatted_date
-                FROM news
+                SELECT id, title, source, credibility_level, short_summary,
+                       analysis_date::TEXT as formatted_date, url
+                FROM media_credibility.news
                 ORDER BY analysis_date DESC
                 LIMIT 15
             ''')
@@ -858,6 +575,7 @@ def analysis_history():
 
             for row in rows:
                 history.append({
+                    'id': row['id'],
                     'url': row['url'],
                     'title': row['title'],
                     'source': row['source'],
@@ -877,6 +595,8 @@ def analysis_history():
             'status': 500,
             'details': str(e)
         }), 500
+    finally:
+        pg_db.release_conn(conn)
 
 @app.route('/analyze', methods=['POST', 'OPTIONS'])
 def analyze():
@@ -968,13 +688,14 @@ def analyze():
 
         # Save to database
         try:
-            credibility = save_analysis(
-                input_text if input_text.startswith(('http://', 'https://')) else None,
-                title,
-                source,
-                content,
-                analysis
+            article_id = pg_db.save_article(
+                title=title,
+                source=source,
+                content=content,
+                url=input_text if input_text.startswith(('http://', 'https://')) else None
             )
+            pg_db.save_analysis(article_id, analysis)
+            credibility = analysis.get('credibility_level', 'Medium')
         except Exception as e:
             logger.error(f"Failed to save analysis: {str(e)}")
             return jsonify({
@@ -1128,67 +849,6 @@ Article content:
             logger.error(f"Analysis error: {str(e)}")
             raise ValueError(f"Analysis failed: {str(e)}")
 
-def save_analysis(url, title, source, content, analysis):
-    """Save analysis to database"""
-    try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-
-            integrity = analysis.get('news_integrity', 0.0)
-            fact_check = analysis.get('fact_check_needed_score', 1.0)
-            sentiment = analysis.get('sentiment_score', 0.5)
-            bias = analysis.get('bias_score', 1.0)
-            summary = analysis.get('short_summary', 'No summary')
-            credibility = analysis.get('index_of_credibility', 0.0)
-
-            level = calculate_credibility(integrity, fact_check, sentiment, bias)
-            db_url = url if url else f'text_{datetime.now(timezone.utc).timestamp()}'
-
-            cursor.execute('''
-                INSERT INTO news
-                (url, title, source, content, integrity, fact_check, sentiment, bias,
-                credibility_level, index_of_credibility, analysis_date, short_summary)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
-                ON CONFLICT(url) DO UPDATE SET
-                title=excluded.title, source=excluded.source, content=excluded.content,
-                integrity=excluded.integrity, fact_check=excluded.fact_check,
-                sentiment=excluded.sentiment, bias=excluded.bias,
-                credibility_level=excluded.credibility_level,
-                index_of_credibility=excluded.index_of_credibility,
-                analysis_date=CURRENT_TIMESTAMP,
-                short_summary=excluded.short_summary
-            ''', (db_url, title, source, content, integrity, fact_check,
-                  sentiment, bias, level, credibility, summary))
-
-            # Update source stats
-            cursor.execute('SELECT high, medium, low, total_analyzed FROM source_stats WHERE source = ?', (source,))
-            row = cursor.fetchone()
-
-            if row:
-                high, medium, low, total = row
-                if level == 'High': high += 1
-                elif level == 'Medium': medium += 1
-                else: low += 1
-                total += 1
-                cursor.execute('''
-                    UPDATE source_stats SET high=?, medium=?, low=?, total_analyzed=?
-                    WHERE source=?
-                ''', (high, medium, low, total, source))
-            else:
-                counts = {'High': 1, 'Medium': 0, 'Low': 0}
-                counts[level] = 1
-                cursor.execute('''
-                    INSERT INTO source_stats
-                    (source, high, medium, low, total_analyzed)
-                    VALUES (?, ?, ?, ?, ?)
-                ''', (source, counts['High'], counts['Medium'], counts['Low'], 1))
-
-            conn.commit()
-            return level
-    except Exception as e:
-        logger.error(f"Error saving analysis: {str(e)}")
-        raise ValueError("Failed to save analysis")
-
 def calculate_credibility(integrity, fact_check, sentiment, bias):
     """Calculate credibility level"""
     fact_check_score = 1.0 - fact_check
@@ -1232,7 +892,7 @@ def generate_query(analysis_result):
     elif unique_terms:
         query = ' OR '.join(unique_terms)
     else:
-        query = 'Iran OR Middle East OR conflict'
+        query = 'Israel OR Iran OR conflict'
 
     return query
 
@@ -1273,12 +933,12 @@ def fetch_same_topic_articles(analysis_result, page=1, per_page=3):
 
     articles = make_newsapi_request(params)
 
-    if not articles and query != 'Iran OR Middle East OR conflict':
+    if not articles and query != 'Israel OR Middle East OR conflict':
         broader_query = ' OR '.join([f'"{term}"' if ' ' in term else term
                                   for term in analysis_result.get('topics', [])[:3]
                                   if term and term not in stop_words_en])
         if not broader_query:
-            broader_query = 'Iran OR Middle East OR conflict'
+            broader_query = 'Israel OR Middle East OR conflict'
 
         params['q'] = broader_query
         additional_articles = make_newsapi_request(params)
@@ -1435,260 +1095,6 @@ def format_analysis_results(title, source, analysis, credibility):
     except Exception as e:
         logger.error(f"Error formatting analysis results: {str(e)}")
         return {"error": "Error formatting analysis results"}
-
-@app.route('/news-feed', methods=['GET'])
-def news_feed():
-    """Get news feed with filtering options"""
-    try:
-        category = request.args.get('category')
-        source = request.args.get('source')
-        page = int(request.args.get('page', 1))
-        per_page = int(request.args.get('per_page', 10))
-
-        # Get news from database first
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-
-            query = '''
-                SELECT id, title, description, url, source, published_at, image_url, category
-                FROM news_feed
-            '''
-
-            params = []
-
-            if category:
-                query += ' WHERE category = ?'
-                params.append(category)
-            elif source:
-                query += ' WHERE source = ?'
-                params.append(source)
-
-            query += ' ORDER BY published_at DESC LIMIT ? OFFSET ?'
-            params.extend([per_page, (page - 1) * per_page])
-
-            cursor.execute(query, params)
-            db_articles = cursor.fetchall()
-
-        # If we don't have enough articles from database, fetch from NewsAPI
-        if len(db_articles) < per_page:
-            newsapi_articles = fetch_newsapi_articles(category, source, page, per_page - len(db_articles))
-            save_newsapi_articles(newsapi_articles)
-            db_articles.extend(newsapi_articles)
-
-        # Format articles for response
-        formatted_articles = []
-        for article in db_articles:
-            formatted_articles.append({
-                'id': article['id'],
-                'title': article['title'],
-                'description': article['description'],
-                'url': article['url'],
-                'source': article['source'],
-                'published_at': article['published_at'],
-                'image_url': article['image_url'],
-                'category': article['category']
-            })
-
-        return jsonify({
-            'status': 'success',
-            'articles': formatted_articles,
-            'page': page,
-            'per_page': per_page,
-            'total': len(formatted_articles)
-        })
-
-    except Exception as e:
-        logger.error(f"Error in news_feed endpoint: {str(e)}")
-        return jsonify({
-            'status': 'error',
-            'message': 'An error occurred while fetching news feed'
-        }), 500
-
-def fetch_newsapi_articles(category=None, source=None, page=1, per_page=10):
-    """Fetch articles from NewsAPI"""
-    if not NEWS_API_KEY:
-        logger.warning('NEWS_API_KEY is not configured. Skipping NewsAPI fetch.')
-        return []
-
-    params = {
-        'apiKey': NEWS_API_KEY,
-        'language': 'en',
-        'pageSize': per_page,
-        'page': page,
-        'sortBy': 'publishedAt'
-    }
-
-    if category:
-        params['category'] = category
-    elif source:
-        params['sources'] = source
-
-    try:
-        response = requests.get('https://newsapi.org/v2/top-headlines', params=params, timeout=15)
-        response.raise_for_status()
-        data = response.json()
-        return data.get('articles', [])
-    except Exception as e:
-        logger.error(f"Error fetching from NewsAPI: {str(e)}")
-        return []
-
-def save_newsapi_articles(articles):
-    """Save articles from NewsAPI to database"""
-    try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-
-            for article in articles:
-                # Parse publishedAt date
-                published_at = article.get('publishedAt')
-                if published_at:
-                    try:
-                        published_at = datetime.strptime(published_at, '%Y-%m-%dT%H:%M:%SZ')
-                    except ValueError:
-                        published_at = datetime.now(timezone.utc)
-
-                # Get source name
-                source = article.get('source', {})
-                source_name = source.get('name', 'Unknown') if isinstance(source, dict) else source
-
-                cursor.execute('''
-                    INSERT INTO news_feed
-                    (title, description, url, source, published_at, image_url, category, country, language)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(url) DO NOTHING
-                ''', (
-                    article.get('title', ''),
-                    article.get('description', ''),
-                    article.get('url', ''),
-                    source_name,
-                    published_at.strftime('%Y-%m-%d %H:%M:%S') if published_at else None,
-                    article.get('urlToImage', ''),
-                    article.get('category', 'general'),
-                    article.get('country', 'us'),
-                    article.get('language', 'en')
-                ))
-
-            conn.commit()
-            logger.info(f"Saved {len(articles)} articles from NewsAPI to database")
-
-    except Exception as e:
-        logger.error(f"Error saving NewsAPI articles: {str(e)}")
-        raise
-
-@app.route('/news-categories', methods=['GET'])
-def news_categories():
-    """Get available news categories"""
-    try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute('SELECT name, description FROM news_categories')
-            categories = cursor.fetchall()
-
-            return jsonify({
-                'status': 'success',
-                'categories': [dict(category) for category in categories]
-            })
-
-    except Exception as e:
-        logger.error(f"Error in news_categories endpoint: {str(e)}")
-        return jsonify({
-            'status': 'error',
-            'message': 'An error occurred while fetching news categories'
-        }), 500
-
-@app.route('/user-preferences', methods=['GET', 'POST'])
-def user_preferences():
-    """Handle user preferences"""
-    if request.method == 'POST':
-        try:
-            data = request.get_json()
-            user_id = data.get('user_id')
-            preferred_categories = data.get('preferred_categories', [])
-            preferred_sources = data.get('preferred_sources', [])
-
-            if not user_id:
-                return jsonify({
-                    'status': 'error',
-                    'message': 'User ID is required'
-                }), 400
-
-            with get_db_connection() as conn:
-                cursor = conn.cursor()
-
-                # Check if user preferences exist
-                cursor.execute('''
-                    SELECT id FROM user_preferences WHERE user_id = ?
-                ''', (user_id,))
-                existing = cursor.fetchone()
-
-                if existing:
-                    cursor.execute('''
-                        UPDATE user_preferences
-                        SET preferred_categories = ?, preferred_sources = ?, last_updated = CURRENT_TIMESTAMP
-                        WHERE user_id = ?
-                    ''', (json.dumps(preferred_categories), json.dumps(preferred_sources), user_id))
-                else:
-                    cursor.execute('''
-                        INSERT INTO user_preferences
-                        (user_id, preferred_categories, preferred_sources)
-                        VALUES (?, ?, ?)
-                    ''', (user_id, json.dumps(preferred_categories), json.dumps(preferred_sources)))
-
-                conn.commit()
-
-                return jsonify({
-                    'status': 'success',
-                    'message': 'Preferences saved successfully'
-                })
-
-        except Exception as e:
-            logger.error(f"Error saving user preferences: {str(e)}")
-            return jsonify({
-                'status': 'error',
-                'message': 'An error occurred while saving preferences'
-            }), 500
-
-    else:
-        try:
-            user_id = request.args.get('user_id')
-            if not user_id:
-                return jsonify({
-                    'status': 'error',
-                    'message': 'User ID is required'
-                }), 400
-
-            with get_db_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute('''
-                    SELECT preferred_categories, preferred_sources
-                    FROM user_preferences
-                    WHERE user_id = ?
-                ''', (user_id,))
-                preferences = cursor.fetchone()
-
-                if preferences:
-                    return jsonify({
-                        'status': 'success',
-                        'preferences': {
-                            'preferred_categories': json.loads(preferences['preferred_categories']),
-                            'preferred_sources': json.loads(preferences['preferred_sources'])
-                        }
-                    })
-                else:
-                    return jsonify({
-                        'status': 'success',
-                        'preferences': {
-                            'preferred_categories': [],
-                            'preferred_sources': []
-                        }
-                    })
-
-        except Exception as e:
-            logger.error(f"Error getting user preferences: {str(e)}")
-            return jsonify({
-                'status': 'error',
-                'message': 'An error occurred while fetching preferences'
-            }), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
