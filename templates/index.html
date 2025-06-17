@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Media Credibility Index - News Analysis</title>
+    <title>Media Credibility Index</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <script src="https://cdn.plot.ly/plotly-2.20.0.min.js"></script>
     <style>
@@ -14,13 +14,6 @@
             --border-color: #e2e8f0;
             --border-radius: 8px;
             --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            --transition: all 0.3s ease;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
         }
 
         body {
@@ -28,6 +21,8 @@
             background-color: #f3f4f6;
             color: var(--text-color);
             line-height: 1.6;
+            margin: 0;
+            padding: 0;
         }
 
         .container {
@@ -72,7 +67,7 @@
             color: var(--text-color);
             font-weight: 500;
             text-decoration: none;
-            transition: var(--transition);
+            transition: color 0.3s ease;
         }
 
         .navbar-link:hover {
@@ -86,8 +81,8 @@
             margin-top: 2rem;
         }
 
-        /* Left Column - Analysis */
-        .analysis-column {
+        /* Left Column - Buzz Feed Analysis */
+        .buzz-column {
             flex: 1;
             display: flex;
             flex-direction: column;
@@ -102,6 +97,44 @@
             gap: 1.5rem;
         }
 
+        /* Buzz Feed Section */
+        .buzz-section {
+            background-color: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            padding: 1.5rem;
+        }
+
+        .buzz-title {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: var(--primary-color);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.5rem;
+        }
+
+        .buzz-content {
+            margin-bottom: 1rem;
+        }
+
+        .perspective-section {
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+            background-color: var(--secondary-color);
+            border-radius: var(--border-radius);
+        }
+
+        .perspective-title {
+            font-size: 1.25rem;
+            margin-bottom: 0.5rem;
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+
+        .perspective-content {
+            margin-bottom: 0.5rem;
+        }
+
         /* Analysis Section */
         .analysis-section {
             background-color: white;
@@ -113,91 +146,15 @@
         .analysis-title {
             font-size: 1.5rem;
             margin-bottom: 1rem;
-            color: var(--text-color);
-        }
-
-        /* Score Items */
-        .score-item {
-            margin-bottom: 1.5rem;
-        }
-
-        .score-name {
-            font-weight: 600;
-            margin-bottom: 0.25rem;
-        }
-
-        .score-value {
-            font-size: 1.5rem;
-            font-weight: 700;
             color: var(--primary-color);
         }
 
-        /* Credibility Badge */
-        .credibility-badge {
-            display: inline-block;
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            font-size: 0.8rem;
-            font-weight: 600;
-        }
-
-        .credibility-badge.high {
-            background-color: rgba(16, 185, 129, 0.2);
-            color: #10b981;
-        }
-
-        .credibility-badge.medium {
-            background-color: rgba(245, 158, 11, 0.2);
-            color: #f59e0b;
-        }
-
-        .credibility-badge.low {
-            background-color: rgba(239, 68, 68, 0.2);
-            color: #ef4444;
-        }
-
-        /* Form Elements */
+        /* Analysis Form */
         .analysis-form {
             background-color: white;
             border-radius: var(--border-radius);
             box-shadow: var(--box-shadow);
             padding: 1.5rem;
-        }
-
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-
-        .form-label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 500;
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 0.75rem;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            font-size: 1rem;
-            resize: vertical;
-            min-height: 150px;
-        }
-
-        .btn {
-            display: inline-block;
-            padding: 0.75rem 1.5rem;
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            border-radius: 4px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: var(--transition);
-        }
-
-        .btn:hover {
-            background-color: #1d4ed8;
         }
 
         /* Chart Container */
@@ -208,15 +165,15 @@
             padding: 1.5rem;
         }
 
-        /* Similar Articles */
-        .similar-articles-container {
+        /* Related Articles Section */
+        .related-articles {
             background-color: white;
             border-radius: var(--border-radius);
             box-shadow: var(--box-shadow);
             padding: 1.5rem;
         }
 
-        .similar-article {
+        .related-article {
             background-color: var(--secondary-color);
             border-radius: var(--border-radius);
             padding: 1rem;
@@ -225,7 +182,7 @@
         }
 
         /* News Feed */
-        .news-feed-container {
+        .news-feed {
             background-color: white;
             border-radius: var(--border-radius);
             box-shadow: var(--box-shadow);
@@ -241,10 +198,9 @@
             border-left: 4px solid var(--primary-color);
         }
 
-        /* Loading Indicator */
+        /* Loading spinner */
         .loading-container {
             text-align: center;
-            margin: 1rem 0;
             padding: 1rem;
         }
 
@@ -263,73 +219,10 @@
             100% { transform: rotate(360deg); }
         }
 
-        /* Error Display */
-        .error-message {
-            color: #ef4444;
-            background-color: rgba(239, 68, 68, 0.1);
-            padding: 1rem;
-            border-radius: var(--border-radius);
-            margin: 1rem 0;
-        }
-
-        /* Article Credibility */
-        .article-credibility {
-            display: inline-block;
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            margin-left: 0.5rem;
-        }
-
-        .article-credibility.high {
-            background-color: rgba(16, 185, 129, 0.2);
-            color: #10b981;
-        }
-
-        .article-credibility.medium {
-            background-color: rgba(245, 158, 11, 0.2);
-            color: #f59e0b;
-        }
-
-        .article-credibility.low {
-            background-color: rgba(239, 68, 68, 0.2);
-            color: #ef4444;
-        }
-
-        /* Footer */
-        .footer {
-            background-color: white;
-            padding: 1.5rem 0;
-            margin-top: 3rem;
-            border-top: 1px solid var(--border-color);
-        }
-
-        .footer-links {
-            display: flex;
-            justify-content: center;
-            gap: 1.5rem;
-            list-style: none;
-            margin-bottom: 1rem;
-        }
-
-        .footer-link {
-            color: var(--text-color);
-            text-decoration: none;
-        }
-
-        .footer-link:hover {
-            color: var(--primary-color);
-        }
-
         /* Responsive */
         @media (max-width: 768px) {
             .main-container {
                 flex-direction: column;
-            }
-
-            .navbar-links {
-                display: none;
             }
         }
     </style>
@@ -344,7 +237,7 @@
             <ul class="navbar-links">
                 <li><a href="/" class="navbar-link">Home</a></li>
                 <li><a href="/faq" class="navbar-link">FAQ</a></li>
-                <li><a href="/feedback" class="navbar-link">Feedback&Contact</a></li>
+                <li><a href="/feedback" class="navbar-link">Feedback</a></li>
                 <li><a href="/privacy" class="navbar-link">Privacy</a></li>
                 <li><a href="/terms" class="navbar-link">Terms</a></li>
             </ul>
@@ -353,39 +246,76 @@
 
     <div class="container">
         <div class="main-container">
-            <!-- Left Column - Analysis -->
-            <div class="analysis-column">
-                <!-- Daily Buzz Section -->
-                <div class="analysis-section">
-                    <h2 class="analysis-title">Today's Featured Analysis</h2>
-                    <div id="dailyBuzzContent">
-                        <div class="loading-container">
-                            <div class="spinner"></div>
-                            <p>Loading today's featured analysis...</p>
+            <!-- Left Column - Buzz Feed Analysis -->
+            <div class="buzz-column">
+                <!-- Buzz Feed Section -->
+                <div class="buzz-section">
+                    <h2 class="buzz-title">Buzz Feed: Comprehensive Analysis</h2>
+
+                    <!-- Western Perspective -->
+                    <div class="perspective-section">
+                        <h3 class="perspective-title">Western Perspective</h3>
+                        <div class="perspective-content">
+                            <p>{{ buzz_analysis.western_perspective.summary }}</p>
+                        </div>
+                    </div>
+
+                    <!-- Iranian Perspective -->
+                    <div class="perspective-section">
+                        <h3 class="perspective-title">Iranian Perspective</h3>
+                        <div class="perspective-content">
+                            <p>{{ buzz_analysis.iranian_perspective.summary }}</p>
+                        </div>
+                    </div>
+
+                    <!-- Israeli Perspective -->
+                    <div class="perspective-section">
+                        <h3 class="perspective-title">Israeli Perspective</h3>
+                        <div class="perspective-content">
+                            <p>{{ buzz_analysis.israeli_perspective.summary }}</p>
+                        </div>
+                    </div>
+
+                    <!-- Neutral Perspective -->
+                    <div class="perspective-section">
+                        <h3 class="perspective-title">Neutral Perspective</h3>
+                        <div class="perspective-content">
+                            <p>{{ buzz_analysis.neutral_perspective.summary }}</p>
+                        </div>
+                    </div>
+
+                    <!-- Historical Context -->
+                    <div class="perspective-section">
+                        <h3 class="perspective-title">Historical Context</h3>
+                        <div class="perspective-content">
+                            <p>{{ buzz_analysis.historical_context.summary }}</p>
+                        </div>
+                    </div>
+
+                    <!-- Balanced Summary -->
+                    <div class="perspective-section">
+                        <h3 class="perspective-title">Balanced Summary</h3>
+                        <div class="perspective-content">
+                            <p>{{ buzz_analysis.balanced_summary }}</p>
                         </div>
                     </div>
                 </div>
 
-                <!-- Analysis Results -->
-                <div class="analysis-section">
-                    <h2 class="analysis-title">Analysis Results</h2>
-                    <div id="analysisOutput">
-                        <div class="loading-container">
-                            <div class="spinner"></div>
-                            <p>Loading analysis results...</p>
+                <!-- News Feed with Analyzed Articles -->
+                <div class="news-feed">
+                    <h2 class="analysis-title">Analyzed Articles</h2>
+                    {% for article in analyzed_articles %}
+                    <div class="news-article">
+                        <h4><a href="{{ article.url }}" target="_blank">{{ article.title }}</a></h4>
+                        <div class="article-meta">
+                            <span class="article-source"><i class="bi bi-newspaper"></i> {{ article.source }}</span>
+                            <span class="article-credibility {{ article.credibility_level|lower }}">
+                                <i class="bi bi-shield-check"></i> {{ article.credibility_level }} Credibility
+                            </span>
                         </div>
+                        <p>{{ article.short_summary }}</p>
                     </div>
-                </div>
-
-                <!-- News Feed from analyzed articles -->
-                <div class="news-feed-container">
-                    <h2 class="analysis-title">Analyzed News Feed</h2>
-                    <div id="newsFeed">
-                        <div class="loading-container">
-                            <div class="spinner"></div>
-                            <p>Loading analyzed news feed...</p>
-                        </div>
-                    </div>
+                    {% endfor %}
                 </div>
             </div>
 
@@ -396,12 +326,12 @@
                     <h2>Analyze Article Content</h2>
                     <form id="analysisForm">
                         <div class="form-group">
-                            <label for="articleInput" class="form-label">Article URL or Text</label>
+                            <label for="articleInput">Article URL or Text</label>
                             <textarea class="form-control" id="articleInput" rows="8"
                                     placeholder="Paste article URL or text content here for analysis..."></textarea>
                         </div>
                         <div class="form-group">
-                            <label for="sourceName" class="form-label">Source Name (optional)</label>
+                            <label for="sourceName">Source Name (optional)</label>
                             <input type="text" class="form-control" id="sourceName"
                                     placeholder="e.g., bbc.com, reuters.com">
                         </div>
@@ -417,13 +347,24 @@
                     <div id="sourceCredibilityChart"></div>
                 </div>
 
-                <!-- Similar Articles -->
-                <div class="similar-articles-container">
-                    <h2>Same Topic Article</h2>
-                    <div id="similarArticles">
+                <!-- Related Articles -->
+                <div class="related-articles">
+                    <h2>Related Articles</h2>
+                    <div id="relatedArticlesContainer">
                         <div class="loading-container">
                             <div class="spinner"></div>
-                            <p>Loading same topic articles...</p>
+                            <p>Loading related articles...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Analysis Results -->
+                <div class="analysis-section">
+                    <h2 class="analysis-title">Analysis Results</h2>
+                    <div id="analysisOutput">
+                        <div class="loading-container">
+                            <div class="spinner"></div>
+                            <p>Analyze an article to see results here</p>
                         </div>
                     </div>
                 </div>
@@ -431,45 +372,178 @@
         </div>
     </div>
 
-    <footer class="footer">
-        <div class="container">
-            <ul class="footer-links">
-                <li><a href="/privacy" class="footer-link">Privacy Policy</a></li>
-                <li><a href="/terms" class="footer-link">Terms of Service</a></li>
-            </ul>
-            <p style="text-align: center;">&copy; 2025 Media Credibility Index. All rights reserved.</p>
-        </div>
-    </footer>
-
     <script>
-        // Global variables
-        let currentUserId = 'guest_' + Math.random().toString(36).substring(2, 15);
-        let currentArticleId = null;
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load source credibility chart
+            loadSourceCredibilityChart();
 
-        // DOM Elements
-        const elements = {
-            dailyBuzzContent: document.getElementById('dailyBuzzContent'),
-            analysisForm: document.getElementById('analysisForm'),
-            articleInput: document.getElementById('articleInput'),
-            sourceName: document.getElementById('sourceName'),
-            analysisOutput: document.getElementById('analysisOutput'),
-            similarArticles: document.getElementById('similarArticles'),
-            newsFeed: document.getElementById('newsFeed'),
-            sourceCredibilityChart: document.getElementById('sourceCredibilityChart')
-        };
+            // Load related articles
+            loadRelatedArticles();
 
-        // Helper function to safely access nested properties
-        function getNestedProperty(obj, path, defaultValue = null) {
-            return path.split('.').reduce((o, p) => (o && o[p] !== undefined ? o[p] : defaultValue), obj);
-        }
+            // Analysis form submission
+            document.getElementById('analysisForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const inputText = document.getElementById('articleInput').value.trim();
+                const sourceName = document.getElementById('sourceName').value.trim();
 
-        // Display analysis results
-        function displayAnalysisResults(data) {
-            try {
-                if (!data || typeof data !== 'object') {
-                    throw new Error('Invalid data format');
+                if (!inputText) {
+                    showError('analysisOutput', 'Please enter article text or URL for analysis');
+                    return;
                 }
 
+                try {
+                    document.getElementById('analysisOutput').innerHTML = `
+                        <div class="loading-container">
+                            <div class="spinner"></div>
+                            <p>Analyzing article content...</p>
+                        </div>
+                    `;
+
+                    const response = await fetch('/analyze', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            input_text: inputText,
+                            source_name_manual: sourceName
+                        })
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    if (data.status === 'success') {
+                        displayAnalysisResults(data);
+                        // Reload related articles after analysis
+                        loadRelatedArticles();
+                    } else {
+                        throw new Error(data.message || 'Analysis failed');
+                    }
+                } catch (error) {
+                    console.error('Analysis error:', error);
+                    showError('analysisOutput', error.message || 'Failed to analyze article');
+                }
+            });
+
+            // Load source credibility chart data
+            async function loadSourceCredibilityChart() {
+                try {
+                    const response = await fetch('/source-credibility-chart');
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    if (data.status === 'success' && data.data) {
+                        renderSourceCredibilityChart(data.data);
+                    } else {
+                        throw new Error(data.message || 'Failed to load chart data');
+                    }
+                } catch (error) {
+                    console.error('Error loading chart:', error);
+                    document.getElementById('sourceCredibilityChart').innerHTML = `
+                        <div class="error-message">
+                            <i class="bi bi-exclamation-triangle-fill"></i>
+                            <span>Failed to load source credibility chart</span>
+                        </div>
+                    `;
+                }
+            }
+
+            // Load related articles
+            async function loadRelatedArticles() {
+                try {
+                    const response = await fetch('/related-articles');
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    if (data.status === 'success' && data.articles) {
+                        renderRelatedArticles(data.articles);
+                    } else {
+                        throw new Error(data.message || 'Failed to load related articles');
+                    }
+                } catch (error) {
+                    console.error('Error loading related articles:', error);
+                    document.getElementById('relatedArticlesContainer').innerHTML = `
+                        <div class="error-message">
+                            <i class="bi bi-exclamation-triangle-fill"></i>
+                            <span>Failed to load related articles</span>
+                        </div>
+                    `;
+                }
+            }
+
+            // Render source credibility chart
+            function renderSourceCredibilityChart(data) {
+                const chartData = [{
+                    x: data.sources,
+                    y: data.credibility_scores,
+                    type: 'bar',
+                    marker: {
+                        color: data.credibility_scores.map(score => {
+                            if (score >= 0.8) return 'rgba(16, 185, 129, 0.8)';
+                            if (score >= 0.6) return 'rgba(245, 158, 11, 0.8)';
+                            return 'rgba(239, 68, 68, 0.8)';
+                        }),
+                        line: {
+                            color: data.credibility_scores.map(score => {
+                                if (score >= 0.8) return 'rgba(16, 185, 129, 1)';
+                                if (score >= 0.6) return 'rgba(245, 158, 11, 1)';
+                                return 'rgba(239, 68, 68, 1)';
+                            }),
+                            width: 1
+                        }
+                    },
+                    text: data.credibility_scores.map(score => (score * 100).toFixed(0) + '%'),
+                    textposition: 'auto'
+                }];
+
+                const layout = {
+                    title: 'Source Credibility Comparison',
+                    xaxis: { title: 'News Sources', tickangle: 45 },
+                    yaxis: { title: 'Credibility Score', range: [0, 1] },
+                    margin: { l: 50, r: 20, t: 50, b: 100 }
+                };
+
+                Plotly.newPlot('sourceCredibilityChart', chartData, layout);
+            }
+
+            // Render related articles
+            function renderRelatedArticles(articles) {
+                if (!articles || articles.length === 0) {
+                    document.getElementById('relatedArticlesContainer').innerHTML = `
+                        <div class="no-articles">
+                            <p>No related articles found</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const articlesHtml = articles.map(article => `
+                    <div class="related-article">
+                        <h4><a href="${article.url}" target="_blank">${article.title}</a></h4>
+                        <div class="article-meta">
+                            <span class="article-source"><i class="bi bi-newspaper"></i> ${article.source}</span>
+                            <span class="article-credibility ${article.credibility_level.toLowerCase()}">
+                                <i class="bi bi-shield-check"></i> ${article.credibility_level} Credibility
+                            </span>
+                        </div>
+                        <p>${article.short_summary || 'No summary available'}</p>
+                    </div>
+                `).join('');
+
+                document.getElementById('relatedArticlesContainer').innerHTML = articlesHtml;
+            }
+
+            // Display analysis results
+            function displayAnalysisResults(data) {
                 const article = data.article || {};
                 const analysis = article.analysis || {};
 
@@ -478,11 +552,6 @@
                         <h3>Article Information</h3>
                         <p><strong>Title:</strong> ${article.title || 'No title available'}</p>
                         <p><strong>Source:</strong> ${article.source || 'Unknown source'}</p>
-                        <p><strong>Credibility Level:</strong>
-                            <span class="credibility-badge ${(article.credibility_level || 'Medium').toLowerCase()}">
-                                ${article.credibility_level || 'Medium'}
-                            </span>
-                        </p>
                     </div>
                 `;
 
@@ -498,8 +567,8 @@
                     ];
 
                     scores.forEach(score => {
-                        const value = getNestedProperty(analysis, score.key);
-                        if (value !== null) {
+                        const value = analysis[score.key];
+                        if (value !== undefined) {
                             const displayValue = score.transform ? score.transform(parseFloat(value)) : parseFloat(value).toFixed(2);
                             analysisHtml += `
                                 <div class="col-md-3">
@@ -516,15 +585,17 @@
                     analysisHtml += `</div></div>`;
                 }
 
-                // Add additional information if it exists
+                // Add additional information
                 const additionalInfo = [
                     { key: 'author_purpose', title: 'Author Purpose' },
                     { key: 'short_summary', title: 'Short Summary' },
-                    { key: 'topics', title: 'Topics', render: (value) => `<div class="topics-list">${value.map(topic => `<span class="badge">${topic}</span>`).join(' ')}</div>` }
+                    { key: 'topics', title: 'Topics', render: (value) => `<div class="topics-list">${value.map(topic => `<span class="badge">${topic}</span>`).join(' ')}</div>` },
+                    { key: 'common_points', title: 'Common Points', render: (value) => `<ul>${value.map(point => `<li>${point}</li>`).join('')}</ul>` },
+                    { key: 'balanced_analysis', title: 'Balanced Analysis' }
                 ];
 
                 additionalInfo.forEach(info => {
-                    const value = getNestedProperty(analysis, info.key);
+                    const value = analysis[info.key];
                     if (value) {
                         const content = info.render ? info.render(value) : `<p>${value}</p>`;
                         analysisHtml += `
@@ -536,281 +607,18 @@
                     }
                 });
 
-                elements.analysisOutput.innerHTML = analysisHtml;
-            } catch (error) {
-                console.error('Error displaying analysis:', error);
-                showError('analysisOutput', error.message || 'Failed to display analysis results');
-            }
-        }
-
-        // Load source credibility chart
-        async function loadSourceCredibilityChart() {
-            try {
-                const response = await fetch('/source-credibility-chart');
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-                }
-                const data = await response.json();
-                if (data.status === 'success' && data.data) {
-                    renderSourceCredibilityChart(data.data);
-                } else {
-                    showError('sourceCredibilityChart', data.message || 'Failed to load source credibility chart');
-                }
-            } catch (error) {
-                console.error('Error loading source credibility chart:', error);
-                showError('sourceCredibilityChart', error.message || 'Error loading source credibility chart');
-            }
-        }
-
-        // Render source credibility chart
-        function renderSourceCredibilityChart(data) {
-            if (!data || !data.sources || !data.credibility_scores) {
-                showError('sourceCredibilityChart', 'Invalid chart data');
-                return;
+                document.getElementById('analysisOutput').innerHTML = analysisHtml;
             }
 
-            const chartData = [{
-                x: data.sources,
-                y: data.credibility_scores,
-                type: 'bar',
-                marker: {
-                    color: data.credibility_scores.map(score => {
-                        if (score >= 0.8) return 'rgba(16, 185, 129, 0.8)';
-                        if (score >= 0.6) return 'rgba(245, 158, 11, 0.8)';
-                        return 'rgba(239, 68, 68, 0.8)';
-                    }),
-                    line: {
-                        color: data.credibility_scores.map(score => {
-                            if (score >= 0.8) return 'rgba(16, 185, 129, 1)';
-                            if (score >= 0.6) return 'rgba(245, 158, 11, 1)';
-                            return 'rgba(239, 68, 68, 1)';
-                        }),
-                        width: 1
-                    }
-                },
-                text: data.credibility_scores.map(score => (score * 100).toFixed(0) + '%'),
-                textposition: 'auto'
-            }];
-
-            const layout = {
-                title: 'Source Credibility Comparison',
-                xaxis: { title: 'News Sources', tickangle: 45 },
-                yaxis: { title: 'Credibility Score', range: [0, 1] },
-                margin: { l: 50, r: 20, t: 50, b: 100 }
-            };
-
-            Plotly.newPlot('sourceCredibilityChart', chartData, layout);
-        }
-
-        // Load similar articles
-        async function loadSimilarArticles(articles) {
-            try {
-                if (!articles || articles.length === 0) {
-                    elements.similarArticles.innerHTML = '<p>No similar articles found</p>';
-                    return;
-                }
-
-                const articlesHtml = articles.map(article => `
-                    <div class="similar-article">
-                        <h4><a href="${article.url}" target="_blank">${article.title}</a></h4>
-                        <div class="article-meta">
-                            <span class="article-source"><i class="bi bi-newspaper"></i> ${article.source}</span>
-                            <span class="article-credibility ${(article.credibility_level || 'Medium').toLowerCase()}">
-                                ${article.credibility_level || 'Medium'} Credibility
-                            </span>
-                        </div>
-                        <p>${article.description || article.short_summary || 'No description available'}</p>
-                    </div>
-                `).join('');
-
-                elements.similarArticles.innerHTML = articlesHtml;
-            } catch (error) {
-                console.error('Error loading similar articles:', error);
-                showError('similarArticles', error.message || 'Error loading similar articles');
-            }
-        }
-
-        // Load news feed from analyzed articles
-        async function loadNewsFeed() {
-            try {
-                const response = await fetch('/analysis-history');
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-                }
-
-                const data = await response.json();
-                if (data.status === 'success' && data.history && data.history.length > 0) {
-                    renderNewsFeed(data.history);
-                } else {
-                    showError('newsFeed', data.message || 'No analyzed articles found');
-                }
-            } catch (error) {
-                console.error('Error loading news feed:', error);
-                showError('newsFeed', error.message || 'Error loading news feed');
-            }
-        }
-
-        // Render news feed from analyzed articles
-        function renderNewsFeed(articles) {
-            if (!articles || articles.length === 0) {
-                elements.newsFeed.innerHTML = '<p>No analyzed articles found</p>';
-                return;
-            }
-
-            const articlesHtml = articles.map(article => {
-                const credibilityClass = (article.credibility || 'Medium').toLowerCase();
-                const publishedDate = article.date ? new Date(article.date).toLocaleString() : 'N/A';
-
-                return `
-                    <div class="news-article">
-                        <h4><a href="${article.url || '#'}" target="_blank">${article.title || 'No title'}</a></h4>
-                        <div class="article-meta">
-                            <span class="article-source"><i class="bi bi-newspaper"></i> ${article.source || 'Unknown source'}</span>
-                            <span class="article-date"><i class="bi bi-calendar"></i> ${publishedDate}</span>
-                            <span class="article-credibility ${credibilityClass}">
-                                <i class="bi bi-shield-check"></i> ${article.credibility || 'Medium'} Credibility
-                            </span>
-                        </div>
-                        <p>${article.summary || 'No summary available'}</p>
+            // Show error message
+            function showError(elementId, message) {
+                const errorHtml = `
+                    <div class="error-message">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <span>${message}</span>
                     </div>
                 `;
-            }).join('');
-
-            elements.newsFeed.innerHTML = articlesHtml;
-        }
-
-        // Show error message
-        function showError(elementId, message) {
-            const errorHtml = `
-                <div class="error-message">
-                    <i class="bi bi-exclamation-triangle-fill"></i>
-                    <span>${message}</span>
-                </div>
-            `;
-            document.getElementById(elementId).innerHTML = errorHtml;
-        }
-
-        // Load daily buzz article
-        async function loadDailyBuzz() {
-            try {
-                const response = await fetch('/daily-buzz');
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-                }
-
-                const data = await response.json();
-                if (data.status === 'success' && data.article) {
-                    displayDailyBuzz(data.article);
-                    displayAnalysisResults(data);
-                    loadSourceCredibilityChart();
-                    if (data.article.analysis && data.article.analysis.topics) {
-                        loadSimilarArticles(data.article.analysis.topics);
-                    }
-                } else {
-                    showError('dailyBuzzContent', data.message || 'Failed to load daily buzz article');
-                }
-            } catch (error) {
-                console.error('Error loading daily buzz:', error);
-                showError('dailyBuzzContent', error.message || 'Error loading daily buzz article');
-            }
-        }
-
-        // Display daily buzz article
-        function displayDailyBuzz(article) {
-            const publishedDate = article.analysis_date ? new Date(article.analysis_date).toLocaleString() : 'N/A';
-            const credibilityClass = (article.credibility_level || 'Medium').toLowerCase();
-
-            const articleHtml = `
-                <div class="buzz-header">
-                    <h3>${article.title || 'No title available'}</h3>
-                    <div class="buzz-meta">
-                        <span class="buzz-source">
-                            <i class="bi bi-newspaper"></i> ${article.source || 'Unknown source'}
-                        </span>
-                        <span class="buzz-date">
-                            <i class="bi bi-calendar"></i> ${publishedDate}
-                        </span>
-                        <span class="buzz-credibility ${credibilityClass}">
-                            <i class="bi bi-shield-check"></i> ${article.credibility_level || 'Medium'} Credibility
-                        </span>
-                    </div>
-                </div>
-                <div class="buzz-content">
-                    <p>${article.short_summary || 'No summary available'}</p>
-                    <p>${article.content || ''}</p>
-                </div>
-            `;
-
-            elements.dailyBuzzContent.innerHTML = articleHtml;
-            currentArticleId = article.id || 0;
-        }
-
-        // Initialize the page
-        document.addEventListener('DOMContentLoaded', function() {
-            loadDailyBuzz();
-            loadSourceCredibilityChart();
-            loadNewsFeed();
-
-            // Analysis form submission
-            if (elements.analysisForm) {
-                elements.analysisForm.addEventListener('submit', async function(e) {
-                    e.preventDefault();
-                    const inputText = elements.articleInput.value.trim();
-                    const sourceName = elements.sourceName.value.trim();
-
-                    if (!inputText) {
-                        showError('analysisOutput', 'Please enter article text or URL for analysis');
-                        return;
-                    }
-
-                    if (inputText.length < 50 && !inputText.startsWith('http')) {
-                        showError('analysisOutput', 'Please enter at least 50 characters or a valid URL');
-                        return;
-                    }
-
-                    try {
-                        elements.analysisOutput.innerHTML = `
-                            <div class="loading-container">
-                                <div class="spinner"></div>
-                                <p>Analyzing article content...</p>
-                            </div>
-                        `;
-
-                        const response = await fetch('/analyze', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                input_text: inputText,
-                                source_name_manual: sourceName
-                            })
-                        });
-
-                        if (!response.ok) {
-                            const errorData = await response.json().catch(() => ({}));
-                            throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-                        }
-
-                        const data = await response.json();
-                        if (data.status === 'success') {
-                            displayAnalysisResults(data);
-                            if (data.same_topic_articles) {
-                                loadSimilarArticles(data.same_topic_articles);
-                            }
-                            loadSourceCredibilityChart();
-                            loadNewsFeed(); // Refresh news feed after analysis
-                        } else {
-                            throw new Error(data.message || 'Analysis failed');
-                        }
-                    } catch (error) {
-                        console.error('Analysis error:', error);
-                        showError('analysisOutput', error.message || 'Failed to analyze article');
-                    }
-                });
+                document.getElementById(elementId).innerHTML = errorHtml;
             }
         });
     </script>
