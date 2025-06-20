@@ -30,6 +30,7 @@ class Database:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
 
+                # Создаем таблицы, если их нет
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS articles (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -64,6 +65,7 @@ class Database:
                     )
                 """)
 
+                # Добавляем статью дня, если её нет
                 cursor.execute("SELECT COUNT(*) FROM articles WHERE title = ?", (self.FEATURED_ARTICLE_TITLE,))
                 if cursor.fetchone()[0] == 0:
                     self._add_featured_article(conn)
@@ -71,8 +73,8 @@ class Database:
                 conn.commit()
                 logger.info("Database schema initialized successfully")
 
-        except Exception:
-            logger.exception("Error initializing database schema")
+        except Exception as e:
+            logger.error(f"Error initializing database schema: {str(e)}", exc_info=True)
             raise
 
     def _add_featured_article(self, conn: sqlite3.Connection) -> None:
@@ -131,8 +133,8 @@ class Database:
             conn = sqlite3.connect(self.db_path)
             conn.row_factory = sqlite3.Row
             return conn
-        except Exception:
-            logger.exception("Error getting database connection")
+        except Exception as e:
+            logger.error(f"Error getting database connection: {str(e)}", exc_info=True)
             raise
 
     def get_daily_buzz(self) -> Dict[str, Any]:
@@ -161,8 +163,8 @@ class Database:
                     'article': article_dict
                 }
 
-        except Exception:
-            logger.exception("Error getting daily buzz")
+        except Exception as e:
+            logger.error(f"Error getting daily buzz: {str(e)}", exc_info=True)
             return {
                 'status': 'error',
                 'message': 'Failed to retrieve daily buzz'
@@ -201,8 +203,8 @@ class Database:
                     }
                 }
 
-        except Exception:
-            logger.exception("Error getting source credibility chart")
+        except Exception as e:
+            logger.error(f"Error getting source credibility chart: {str(e)}", exc_info=True)
             return {
                 'status': 'error',
                 'message': 'Failed to retrieve source credibility chart'
@@ -238,34 +240,19 @@ class Database:
                     'history': articles_list
                 }
 
-        except Exception:
-            logger.exception("Error getting analysis history")
+        except Exception as e:
+            logger.error(f"Error getting analysis history: {str(e)}", exc_info=True)
             return {
                 'status': 'error',
                 'message': 'Failed to retrieve analysis history'
             }
 
-    def analyze_article(self, input_text: str, source_name_manual: str = '') -> Dict[str, Any]:
-        """Анализировать статью и сохранить результаты"""
+    def save_article(self, title: str, source: str, url: Optional[str], content: str,
+                   short_summary: str, analysis_data: Dict[str, Any], credibility_level: str) -> int:
+        """Сохранить статью в базу данных"""
         try:
-            if input_text.startswith(('http://', 'https://')):
-                content, source, title = self._extract_text_from_url(input_text)
-                if not content:
-                    return {
-                        'status': 'error',
-                        'message': 'Could not extract article content'
-                    }
-            else:
-                content = input_text
-                source = source_name_manual if source_name_manual else 'Direct Input'
-                title = 'User-provided Text'
-
-            analysis = self._analyze_with_claude(content, source)
-            credibility_level = self._determine_credibility_level(analysis.get('index_of_credibility', 0.0))
-
             with self.get_connection() as conn:
                 cursor = conn.cursor()
-
                 cursor.execute("""
                     INSERT INTO articles
                     (title, source, url, content, short_summary, analysis_data, credibility_level)
@@ -273,210 +260,109 @@ class Database:
                 """, (
                     title,
                     source,
-                    input_text if input_text.startswith(('http://', 'https://')) else None,
+                    url,
                     content,
-                    content[:200] + '...' if len(content) > 200 else content,
-                    json.dumps(analysis),
+                    short_summary,
+                    json.dumps(analysis_data),
                     credibility_level
                 ))
-
                 article_id = cursor.lastrowid
-                self._update_source_stats(source, credibility_level, conn)
+                conn.commit()
+                return article_id
+        except Exception as e:
+            logger.error(f"Error saving article: {str(e)}", exc_info=True)
+            raise
 
-                cursor.execute("""
-                    INSERT INTO analysis_history
-                    (article_id, analysis_data)
-                    VALUES (?, ?)
-                """, (
-                    article_id,
-                    json.dumps(analysis)
-                ))
+    def update_source_stats(self, source: str, credibility_level: str) -> None:
+        """Обновить статистику источников"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+
+                # Проверяем, существует ли источник
+                cursor.execute("SELECT * FROM source_stats WHERE source = ?", (source,))
+                existing = cursor.fetchone()
+
+                if existing:
+                    # Обновляем существующий источник
+                    if credibility_level == "High":
+                        cursor.execute("""
+                            UPDATE source_stats
+                            SET high = high + 1, total_analyzed = total_analyzed + 1
+                            WHERE source = ?
+                        """, (source,))
+                    elif credibility_level == "Medium":
+                        cursor.execute("""
+                            UPDATE source_stats
+                            SET medium = medium + 1, total_analyzed = total_analyzed + 1
+                            WHERE source = ?
+                        """, (source,))
+                    else:
+                        cursor.execute("""
+                            UPDATE source_stats
+                            SET low = low + 1, total_analyzed = total_analyzed + 1
+                            WHERE source = ?
+                        """, (source,))
+                else:
+                    # Вставляем новый источник
+                    if credibility_level == "High":
+                        cursor.execute("""
+                            INSERT INTO source_stats (source, high, medium, low, total_analyzed)
+                            VALUES (?, 1, 0, 0, 1)
+                        """, (source,))
+                    elif credibility_level == "Medium":
+                        cursor.execute("""
+                            INSERT INTO source_stats (source, high, medium, low, total_analyzed)
+                            VALUES (?, 0, 1, 0, 1)
+                        """, (source,))
+                    else:
+                        cursor.execute("""
+                            INSERT INTO source_stats (source, high, medium, low, total_analyzed)
+                            VALUES (?, 0, 0, 1, 1)
+                        """, (source,))
 
                 conn.commit()
 
-            similar_articles = self._get_similar_articles(analysis.get('topics', []))
+        except Exception as e:
+            logger.error(f"Error updating source stats: {str(e)}", exc_info=True)
+            raise
 
-            return {
-                'status': 'success',
-                'article': {
-                    'id': article_id,
-                    'title': title,
-                    'source': source,
-                    'url': input_text if input_text.startswith(('http://', 'https://')) else None,
-                    'short_summary': content[:200] + '...' if len(content) > 200 else content,
-                    'analysis': analysis,
-                    'credibility_level': credibility_level
-                },
-                'same_topic_articles': similar_articles
-            }
-
-        except Exception:
-            logger.exception("Error analyzing article")
-            return {
-                'status': 'error',
-                'message': 'Failed to analyze article'
-            }
-
-    def _extract_text_from_url(self, url: str) -> Tuple[Optional[str], Optional[str], Optional[str]]:
-        """Извлечь текст из URL"""
+    def get_similar_articles(self, topics: List[str]) -> List[Dict[str, Any]]:
+        """Получить похожие статьи на основе тем"""
         try:
-            from newspaper import Article, Config
+            if not topics:
+                return []
 
-            user_agent = ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
-                          'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
-            config = Config()
-            config.browser_user_agent = user_agent
-            config.request_timeout = 30
-
-            parsed = urlparse(url)
-            clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
-
-            if any(domain in url for domain in ['youtube.com', 'vimeo.com']):
-                return None, parsed.netloc.replace('www.', ''), "Video content detected"
-
-            article = Article(clean_url, config=config)
-            article.download()
-            article.parse()
-
-            if not article.text or len(article.text.strip()) < 100:
-                return None, None, None
-
-            domain = parsed.netloc.replace('www.', '')
-            title = article.title.strip() if article.title else "No title"
-
-            return article.text.strip(), domain, title
-
-        except Exception:
-            logger.exception(f"Error extracting article from {url}")
-            return None, None, None
-
-    def _analyze_with_claude(self, content: str, source: str) -> Dict[str, Any]:
-        """Анализировать контент с помощью Claude API (заглушка)"""
-        try:
-            # Здесь должна быть ваша реализация анализа с помощью Claude API
-            # Возвращаем моковые данные для примера
-            return {
-                "news_integrity": 0.85,
-                "fact_check_needed_score": 0.15,
-                "sentiment_score": 0.6,
-                "bias_score": 0.2,
-                "topics": ["Middle East", "Conflict", "International Relations"],
-                "key_arguments": [
-                    "Israel's security concerns",
-                    "Iran's regional influence",
-                    "International diplomatic efforts"
-                ],
-                "mentioned_facts": [
-                    "Recent missile attacks",
-                    "Diplomatic negotiations",
-                    "Regional tensions"
-                ],
-                "author_purpose": "inform",
-                "potential_biases_identified": ["Pro-Israel bias"],
-                "short_summary": "Analysis of the current conflict between Israel and Iran",
-                "index_of_credibility": 0.82,
-                "western_perspective": {"summary": "Western viewpoint focusing on Israel's defense rights."},
-                "iranian_perspective": {"summary": "Iranian viewpoint highlighting resistance to aggression."},
-                "israeli_perspective": {"summary": "Israeli viewpoint emphasizing security threats."},
-                "neutral_perspective": {"summary": "Neutral analysis suggesting risk of escalation."}
-            }
-        except Exception:
-            logger.exception("Error analyzing content with Claude API")
-            return {}
-
-    def _determine_credibility_level(self, index: float) -> str:
-        """Определить уровень достоверности по индексу"""
-        if index >= 0.75:
-            return "High"
-        elif index >= 0.5:
-            return "Medium"
-        else:
-            return "Low"
-
-    def _update_source_stats(self, source: str, credibility_level: str, conn: sqlite3.Connection) -> None:
-        """Обновить статистику источника"""
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM source_stats WHERE source = ?", (source,))
-        stats = cursor.fetchone()
-
-        if not stats:
-            high = 1 if credibility_level == "High" else 0
-            medium = 1 if credibility_level == "Medium" else 0
-            low = 1 if credibility_level == "Low" else 0
-
-            cursor.execute("""
-                INSERT INTO source_stats (source, high, medium, low, total_analyzed)
-                VALUES (?, ?, ?, ?, 1)
-            """, (source, high, medium, low))
-        else:
-            high = stats['high'] + (1 if credibility_level == "High" else 0)
-            medium = stats['medium'] + (1 if credibility_level == "Medium" else 0)
-            low = stats['low'] + (1 if credibility_level == "Low" else 0)
-            total = stats['total_analyzed'] + 1
-
-            cursor.execute("""
-                UPDATE source_stats
-                SET high = ?, medium = ?, low = ?, total_analyzed = ?
-                WHERE source = ?
-            """, (high, medium, low, total, source))
-
-    def _get_similar_articles(self, topics: List[str]) -> List[Dict[str, Any]]:
-        """Получить статьи с похожими темами"""
-        if not topics:
-            return []
-
-        try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
-                placeholders = ','.join(['?'] * len(topics))
-                query = f"""
-                    SELECT id, title, source, short_summary, credibility_level, created_at
-                    FROM articles
-                    WHERE
-                """
 
-                # Поиск совпадений по ключевым словам в short_summary или content
-                topic_clauses = []
+                # Создаем запрос для поиска статей с похожими темами
+                conditions = []
                 params = []
                 for topic in topics:
-                    topic_clauses.append("(short_summary LIKE ? OR content LIKE ?)")
+                    conditions.append("(short_summary LIKE ? OR content LIKE ?)")
                     params.extend([f"%{topic}%", f"%{topic}%"])
 
-                query += " OR ".join(topic_clauses)
-                query += " ORDER BY created_at DESC LIMIT 5"
+                query = f"""
+                    SELECT id, title, source, short_summary, credibility_level, url
+                    FROM articles
+                    WHERE {' OR '.join(conditions)}
+                    ORDER BY created_at DESC
+                    LIMIT 5
+                """
 
                 cursor.execute(query, params)
-                rows = cursor.fetchall()
+                articles = cursor.fetchall()
 
-                similar = []
-                for row in rows:
-                    similar.append({
-                        'id': row['id'],
-                        'title': row['title'],
-                        'source': row['source'],
-                        'summary': row['short_summary'],
-                        'credibility': row['credibility_level'],
-                        'date': row['created_at']
-                    })
+                return [{
+                    'id': article['id'],
+                    'title': article['title'],
+                    'source': article['source'],
+                    'summary': article['short_summary'],
+                    'credibility': article['credibility_level'],
+                    'url': article['url']
+                } for article in articles]
 
-                return similar
-
-        except Exception:
-            logger.exception("Error getting similar articles")
+        except Exception as e:
+            logger.error(f"Error getting similar articles: {str(e)}", exc_info=True)
             return []
-
-    def get_article_by_id(self, article_id: int) -> Optional[Dict[str, Any]]:
-        """Получить статью по ID"""
-        try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("SELECT * FROM articles WHERE id = ?", (article_id,))
-                row = cursor.fetchone()
-                if row:
-                    article = dict(row)
-                    article['analysis'] = json.loads(article['analysis_data']) if article['analysis_data'] else {}
-                    return article
-                return None
-        except Exception:
-            logger.exception(f"Error getting article by ID: {article_id}")
-            return None
