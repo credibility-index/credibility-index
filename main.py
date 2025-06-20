@@ -76,35 +76,38 @@ def home():
 def get_buzz_analysis():
     """Get current analysis data"""
     try:
-        # Try to get from database
-        conn = sqlite3.connect('database.py')
+        # Подключаемся к SQLite базе (файл базы — замени на свой путь, например 'media_credibility.db')
+        conn = sqlite3.connect('media_credibility.db')
+        conn.row_factory = sqlite3.Row  # чтобы можно было обращаться по имени столбца
         cursor = conn.cursor()
-        with conn.cursor() as cursor:
-            cursor.execute("""
-                SELECT analysis_data
-                FROM media_credibility.analysis
-                WHERE analysis_type = 'comprehensive'
-                ORDER BY created_at DESC
-                LIMIT 1
-            """)
-            result = cursor.fetchone()
+        
+        cursor.execute("""
+            SELECT analysis_data
+            FROM analysis
+            WHERE analysis_type = 'comprehensive'
+            ORDER BY created_at DESC
+            LIMIT 1
+        """)
+        result = cursor.fetchone()
 
-            if result:
-                return result['analysis_data']
+        if result:
+            # В SQLite данные вернутся как sqlite3.Row, для json нужно распарсить, если в строке
+            # Предполагаю, что analysis_data хранится в JSON формате (текст)
+            return json.loads(result['analysis_data'])
 
-            # Return default analysis
-            return {
-                "western_perspective": {"summary": "Default western perspective"},
-                "iranian_perspective": {"summary": "Default iranian perspective"},
-                "israeli_perspective": {"summary": "Default israeli perspective"},
-                "neutral_perspective": {"summary": "Default neutral perspective"},
-                "historical_context": {"summary": "Default historical context"},
-                "balanced_summary": "Default balanced summary",
-                "common_points": [],
-                "disagreements": [],
-                "potential_solutions": [],
-                "credibility_assessment": "Medium"
-            }
+        # Возвращаем дефолтный анализ если ничего нет
+        return {
+            "western_perspective": {"summary": "Default western perspective"},
+            "iranian_perspective": {"summary": "Default iranian perspective"},
+            "israeli_perspective": {"summary": "Default israeli perspective"},
+            "neutral_perspective": {"summary": "Default neutral perspective"},
+            "historical_context": {"summary": "Default historical context"},
+            "balanced_summary": "Default balanced summary",
+            "common_points": [],
+            "disagreements": [],
+            "potential_solutions": [],
+            "credibility_assessment": "Medium"
+        }
     except Exception as e:
         logger.error(f"Error getting buzz analysis: {str(e)}")
         return {
@@ -121,7 +124,7 @@ def get_buzz_analysis():
         }
     finally:
         if 'conn' in locals():
-            pg_db.release_conn(conn)
+            conn.close()
 
 def get_analyzed_articles(limit=5):
     """Get analyzed articles"""
