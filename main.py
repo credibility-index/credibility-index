@@ -39,6 +39,25 @@ logger = logging.getLogger(__name__)
 
 # Initialize database
 pg_db = PostgresDB()
+@app.route('/test-db')
+def test_db():
+    """Test database connection"""
+    try:
+        conn = pg_db.get_conn()
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT 1")
+            result = cursor.fetchone()
+        pg_db.release_conn(conn)
+        return jsonify({
+            'status': 'success',
+            'message': 'Database connection successful',
+            'result': result
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Database connection failed: {str(e)}'
+        }), 500
 
 # Configure newspaper library
 user_agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
