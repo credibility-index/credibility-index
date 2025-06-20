@@ -11,13 +11,14 @@ class NewsAPI:
         self.base_url = "https://newsapi.org/v2"
 
     def get_everything(self, query: str, language: str = 'en', page_size: int = 5) -> Optional[List[Dict]]:
-        """Get news articles from News API"""
+        """Получить новостные статьи из News API"""
         try:
             params = {
                 'q': query,
                 'language': language,
                 'pageSize': page_size,
-                'apiKey': self.api_key
+                'apiKey': self.api_key,
+                'sortBy': 'publishedAt'
             }
 
             response = requests.get(f"{self.base_url}/everything", params=params)
@@ -29,11 +30,11 @@ class NewsAPI:
             return None
 
         except Exception as e:
-            logger.error(f"Error fetching news from News API: {str(e)}")
+            logger.error(f"Error fetching news from News API: {str(e)}", exc_info=True)
             return None
 
     def get_top_headlines(self, country: str = 'us', category: str = 'general', page_size: int = 5) -> Optional[List[Dict]]:
-        """Get top headlines from News API"""
+        """Получить топ заголовки из News API"""
         try:
             params = {
                 'country': country,
@@ -51,5 +52,5 @@ class NewsAPI:
             return None
 
         except Exception as e:
-            logger.error(f"Error fetching headlines from News API: {str(e)}")
+            logger.error(f"Error fetching headlines from News API: {str(e)}", exc_info=True)
             return None
