@@ -2,36 +2,18 @@ import os
 import logging
 import re
 import json
-import requests
-from datetime import datetime, timedelta, timezone
-from urllib.parse import urlparse, urlunparse
+from datetime import datetime
+from urllib.parse import urlparse
 from flask import Flask, request, jsonify, render_template, send_from_directory
-from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_cors import CORS
 import anthropic
 from newspaper import Article, Config
-from stop_words import get_stop_words
 from database import Database
 from news_api import NewsAPI
 
 # Initialize Flask application
 app = Flask(__name__, static_folder='static', template_folder='templates')
-app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
-app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-here')
-
-# Configure CORS
-CORS(app, resources={
-    r"/*": {
-        "origins": "*",
-        "methods": ["GET", "POST", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization"]
-    }
-})
-
-# Initialize database and API clients
-db = Database()
-news_api = NewsAPI()
-anthropic_client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
+CORS(app)
 
 # Configure logging
 logging.basicConfig(
@@ -40,6 +22,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Initialize database and API clients
+db = Database()
+news_api = NewsAPI()
+anthropic_client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
 
 # Configure newspaper library
 user_agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
@@ -47,145 +33,53 @@ config = Config()
 config.browser_user_agent = user_agent
 config.request_timeout = 30
 
-# Static files route
-@app.route('/static/<path:filename>')
-def static_files(filename):
-    return send_from_directory(app.static_folder, filename)
-
-@app.route('/favicon.ico')
-def favicon():
-    return send_from_directory(os.path.join(app.root_path, 'static'), 'favicon.ico')
-
 @app.route('/')
 def home():
-    """Home page with analysis"""
+    """Home page with featured analysis and article analysis form"""
     try:
-        # Get analysis data
-        buzz_analysis = get_buzz_analysis()
-        analyzed_articles = get_analyzed_articles()
-        source_credibility_data = get_source_credibility_data()
+        # Получаем статью дня
+        buzz_result = db.get_daily_buzz()
+        if buzz_result['status'] != 'success':
+            logger.error(f"Failed to load featured analysis: {buzz_result.get('message', 'Unknown error')}")
+            buzz_analysis = get_default_analysis()
+        else:
+            buzz_analysis = buzz_result['article']['analysis']
+
+        # Получаем данные для чарта достоверности
+        source_result = db.get_source_credibility_chart()
+        if source_result['status'] != 'success':
+            logger.error(f"Failed to load source credibility data: {source_result.get('message', 'Unknown error')}")
+            source_credibility_data = {
+                'sources': ['BBC', 'Reuters', 'CNN', 'Al Jazeera'],
+                'credibility_scores': [0.9, 0.85, 0.75, 0.8]
+            }
+        else:
+            source_credibility_data = source_result['data']
+
+        # Получаем историю анализа
+        history_result = db.get_analysis_history()
+        if history_result['status'] != 'success':
+            logger.error(f"Failed to load analysis history: {history_result.get('message', 'Unknown error')}")
+            analyzed_articles = []
+        else:
+            analyzed_articles = history_result['history']
 
         return render_template('index.html',
                              buzz_analysis=buzz_analysis,
                              analyzed_articles=analyzed_articles,
                              source_credibility_data=source_credibility_data)
+
     except Exception as e:
-        logger.error(f"Error loading home page: {str(e)}")
+        logger.error(f"Error loading home page: {str(e)}", exc_info=True)
         return render_template('error.html', message="Failed to load home page")
 
-def get_buzz_analysis():
-    """Get current analysis data"""
-    try:
-        # Подключаемся к SQLite базе (файл базы — замени на свой путь, например 'media_credibility.db')
-        conn = sqlite3.connect('media_credibility.db')
-        conn.row_factory = sqlite3.Row  # чтобы можно было обращаться по имени столбца
-        cursor = conn.cursor()
-        
-        cursor.execute("""
-            SELECT analysis_data
-            FROM analysis
-            WHERE analysis_type = 'comprehensive'
-            ORDER BY created_at DESC
-            LIMIT 1
-        """)
-        result = cursor.fetchone()
-
-        if result:
-            # В SQLite данные вернутся как sqlite3.Row, для json нужно распарсить, если в строке
-            # Предполагаю, что analysis_data хранится в JSON формате (текст)
-            return json.loads(result['analysis_data'])
-
-        # Возвращаем дефолтный анализ если ничего нет
-        return {
-            "western_perspective": {"summary": "Default western perspective"},
-            "iranian_perspective": {"summary": "Default iranian perspective"},
-            "israeli_perspective": {"summary": "Default israeli perspective"},
-            "neutral_perspective": {"summary": "Default neutral perspective"},
-            "historical_context": {"summary": "Default historical context"},
-            "balanced_summary": "Default balanced summary",
-            "common_points": [],
-            "disagreements": [],
-            "potential_solutions": [],
-            "credibility_assessment": "Medium"
-        }
-    except Exception as e:
-        logger.error(f"Error getting buzz analysis: {str(e)}")
-        return {
-            "western_perspective": {"summary": "Error loading western perspective"},
-            "iranian_perspective": {"summary": "Error loading iranian perspective"},
-            "israeli_perspective": {"summary": "Error loading israeli perspective"},
-            "neutral_perspective": {"summary": "Error loading neutral perspective"},
-            "historical_context": {"summary": "Error loading historical context"},
-            "balanced_summary": "Error loading balanced summary",
-            "common_points": [],
-            "disagreements": [],
-            "potential_solutions": [],
-            "credibility_assessment": "Error"
-        }
-    finally:
-        if 'conn' in locals():
-            conn.close()
-
-def get_analyzed_articles(limit=5):
-    """Get analyzed articles"""
-    try:
-        conn = pg_db.get_conn()
-        with conn.cursor() as cursor:
-            cursor.execute("""
-                SELECT id, title, source, short_summary, credibility_level, url
-                FROM media_credibility.news
-                ORDER BY analysis_date DESC
-                LIMIT %s
-            """, (limit,))
-            return cursor.fetchall()
-    except Exception as e:
-        logger.error(f"Error getting analyzed articles: {str(e)}")
-        return []
-    finally:
-        if 'conn' in locals():
-            pg_db.release_conn(conn)
-
-def get_source_credibility_data():
-    """Get source credibility data"""
-    try:
-        conn = pg_db.get_conn()
-        with conn.cursor() as cursor:
-            cursor.execute("""
-                SELECT source, high, medium, low
-                FROM media_credibility.source_stats
-                ORDER BY (high + medium + low) DESC
-            """)
-
-            data = cursor.fetchall()
-            sources = []
-            scores = []
-
-            for source, high, medium, low in data:
-                total = high + medium + low
-                score = (high * 1.0 + medium * 0.5) / total if total > 0 else 0.5
-                sources.append(source)
-                scores.append(round(score, 2))
-
-            return {
-                'sources': sources,
-                'scores': scores
-            }
-    except Exception as e:
-        logger.error(f"Error getting source credibility data: {str(e)}")
-        return {
-            'sources': [],
-            'scores': []
-        }
-    finally:
-        if 'conn' in locals():
-            pg_db.release_conn(conn)
-
 @app.route('/analyze', methods=['POST'])
-def analyze():
+def analyze_article():
     """Analyze article endpoint"""
     try:
         data = request.get_json()
         input_text = data.get('input_text', '').strip()
+        source_name_manual = data.get('source_name_manual', '').strip()
 
         if not input_text:
             return jsonify({
@@ -193,7 +87,7 @@ def analyze():
                 'message': 'Input text is required'
             }), 400
 
-        # Extract article content
+        # Извлечение контента статьи
         if input_text.startswith(('http://', 'https://')):
             content, source, title = extract_text_from_url(input_text)
             if not content:
@@ -203,40 +97,58 @@ def analyze():
                 }), 400
         else:
             content = input_text
-            source = 'Direct Input'
+            source = source_name_manual if source_name_manual else 'Direct Input'
             title = 'User-provided Text'
 
-        # Analyze with Claude
+        # Анализ с помощью Claude
         analysis = analyze_with_claude(content, source)
 
-        # Save to database
-        article_id = pg_db.save_article(
+        # Определение уровня достоверности
+        credibility_level = determine_credibility_level(analysis.get('index_of_credibility', 0.0))
+
+        # Сохранение в базу данных
+        article_id = db.save_article(
             title=title,
             source=source,
+            url=input_text if input_text.startswith(('http://', 'https://')) else None,
             content=content,
-            url=input_text if input_text.startswith(('http://', 'https://')) else None
+            short_summary=content[:200] + '...' if len(content) > 200 else content,
+            analysis_data=analysis,
+            credibility_level=credibility_level
         )
-        pg_db.save_analysis(article_id, analysis)
+
+        # Обновление статистики источников
+        db.update_source_stats(source, credibility_level)
+
+        # Получение похожих статей
+        similar_articles = get_similar_articles(analysis.get('topics', []))
 
         return jsonify({
             'status': 'success',
-            'analysis': analysis,
-            'title': title,
-            'source': source
+            'article': {
+                'id': article_id,
+                'title': title,
+                'source': source,
+                'url': input_text if input_text.startswith(('http://', 'https://')) else None,
+                'short_summary': content[:200] + '...' if len(content) > 200 else content,
+                'analysis': analysis,
+                'credibility_level': credibility_level
+            },
+            'similar_articles': similar_articles
         })
 
     except Exception as e:
-        logger.error(f"Error analyzing article: {str(e)}")
+        logger.error(f"Error analyzing article: {str(e)}", exc_info=True)
         return jsonify({
             'status': 'error',
             'message': str(e)
         }), 500
 
-def extract_text_from_url(url):
+def extract_text_from_url(url: str) -> tuple:
     """Extract text from URL"""
     try:
         parsed = urlparse(url)
-        clean_url = urlunparse(parsed._replace(scheme=parsed.scheme.lower(), netloc=parsed.netloc.lower()))
+        clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
 
         if any(domain in url for domain in ['youtube.com', 'vimeo.com']):
             return None, parsed.netloc.replace('www.', ''), "Video content detected"
@@ -254,10 +166,10 @@ def extract_text_from_url(url):
         return article.text.strip(), domain, title
 
     except Exception as e:
-        logger.error(f"Error extracting article from {url}: {str(e)}")
+        logger.error(f"Error extracting article from {url}: {str(e)}", exc_info=True)
         return None, None, None
 
-def analyze_with_claude(content, source):
+def analyze_with_claude(content: str, source: str) -> dict:
     """Analyze content with Claude API"""
     try:
         prompt = f"""Analyze this news article and provide a JSON response with these fields:
@@ -272,6 +184,10 @@ def analyze_with_claude(content, source):
 - potential_biases_identified (list of strings)
 - short_summary (string)
 - index_of_credibility (0.0-1.0)
+- western_perspective (object with summary)
+- iranian_perspective (object with summary)
+- israeli_perspective (object with summary)
+- neutral_perspective (object with summary)
 
 Article content:
 {content[:5000]}..."""
@@ -284,44 +200,80 @@ Article content:
 
         response_text = response.content[0].text.strip()
 
-        # Try to parse JSON response
+        # Попытка разобрать JSON ответ
         try:
             json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
             if json_match:
                 return json.loads(json_match.group(0))
             return json.loads(response_text)
         except json.JSONDecodeError:
-            return {
-                "news_integrity": 0.7,
-                "fact_check_needed_score": 0.3,
-                "sentiment_score": 0.5,
-                "bias_score": 0.4,
-                "topics": ["default"],
-                "key_arguments": ["default"],
-                "mentioned_facts": ["default"],
-                "author_purpose": "inform",
-                "potential_biases_identified": ["none"],
-                "short_summary": "Default summary",
-                "index_of_credibility": 0.6
-            }
+            logger.error("Failed to parse JSON response from Claude API")
+            return get_default_analysis()
 
     except Exception as e:
-        logger.error(f"Error analyzing with Claude: {str(e)}")
-        return {
-            "news_integrity": 0.7,
-            "fact_check_needed_score": 0.3,
-            "sentiment_score": 0.5,
-            "bias_score": 0.4,
-            "topics": ["default"],
-            "key_arguments": ["default"],
-            "mentioned_facts": ["default"],
-            "author_purpose": "inform",
-            "potential_biases_identified": ["none"],
-            "short_summary": "Default summary",
-            "index_of_credibility": 0.6
-        }
+        logger.error(f"Error analyzing with Claude: {str(e)}", exc_info=True)
+        return get_default_analysis()
+
+def determine_credibility_level(score: float) -> str:
+    """Определить уровень достоверности на основе оценки"""
+    if score >= 0.8:
+        return "High"
+    elif score >= 0.6:
+        return "Medium"
+    else:
+        return "Low"
+
+def get_similar_articles(topics: list) -> list:
+    """Получить похожие статьи на основе тем"""
+    try:
+        # Сначала пытаемся получить похожие статьи из нашей базы данных
+        similar_articles = db.get_similar_articles(topics)
+
+        # Если у нас недостаточно похожих статей, получаем некоторые из News API
+        if len(similar_articles) < 3 and topics:
+            query = " OR ".join(topics[:3])  # Используем первые 3 темы для запроса
+            news_articles = news_api.get_everything(query=query, page_size=3)
+
+            if news_articles:
+                for article in news_articles:
+                    similar_articles.append({
+                        'title': article['title'],
+                        'source': article['source']['name'],
+                        'summary': article['description'],
+                        'url': article['url'],
+                        'credibility': 'Medium'  # Уровень достоверности по умолчанию для внешних статей
+                    })
+
+        return similar_articles[:5]  # Возвращаем максимум 5 статей
+
+    except Exception as e:
+        logger.error(f"Error getting similar articles: {str(e)}", exc_info=True)
+        return []
+
+def get_default_analysis() -> dict:
+    """Получить данные анализа по умолчанию"""
+    return {
+        "news_integrity": 0.7,
+        "fact_check_needed_score": 0.3,
+        "sentiment_score": 0.5,
+        "bias_score": 0.4,
+        "topics": ["default"],
+        "key_arguments": ["default"],
+        "mentioned_facts": ["default"],
+        "author_purpose": "inform",
+        "potential_biases_identified": ["none"],
+        "short_summary": "Default summary",
+        "index_of_credibility": 0.6,
+        "western_perspective": {"summary": "Default western perspective"},
+        "iranian_perspective": {"summary": "Default iranian perspective"},
+        "israeli_perspective": {"summary": "Default israeli perspective"},
+        "neutral_perspective": {"summary": "Default neutral perspective"}
+    }
+
+@app.route('/static/<path:filename>')
+def static_files(filename):
+    return send_from_directory(app.static_folder, filename)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
-
