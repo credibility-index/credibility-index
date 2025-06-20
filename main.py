@@ -11,7 +11,8 @@ from flask_cors import CORS
 import anthropic
 from newspaper import Article, Config
 from stop_words import get_stop_words
-from pg_database import PostgresDB
+from database import Database
+from news_api import NewsAPI
 
 # Initialize Flask application
 app = Flask(__name__, static_folder='static', template_folder='templates')
@@ -27,7 +28,9 @@ CORS(app, resources={
     }
 })
 
-# Initialize API clients
+# Initialize database and API clients
+db = Database()
+news_api = NewsAPI()
 anthropic_client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
 
 # Configure logging
@@ -37,27 +40,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Initialize database
-pg_db = PostgresDB()
-@app.route('/test-db')
-def test_db():
-    """Test database connection"""
-    try:
-        conn = pg_db.get_conn()
-        with conn.cursor() as cursor:
-            cursor.execute("SELECT 1")
-            result = cursor.fetchone()
-        pg_db.release_conn(conn)
-        return jsonify({
-            'status': 'success',
-            'message': 'Database connection successful',
-            'result': result
-        })
-    except Exception as e:
-        return jsonify({
-            'status': 'error',
-            'message': f'Database connection failed: {str(e)}'
-        }), 500
 
 # Configure newspaper library
 user_agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
