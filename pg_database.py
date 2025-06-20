@@ -28,6 +28,10 @@ class PostgresDB:
 
             logger.info(f"Initializing connection pool to {db_host}")
 
+            # Проверяем, установлены ли все необходимые переменные окружения
+            if not all([db_host, db_user, db_password, db_port, db_name]):
+                raise ValueError("Missing required database connection parameters")
+
             self.pool = psycopg2.pool.SimpleConnectionPool(
                 minconn=1,
                 maxconn=10,
