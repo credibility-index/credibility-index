@@ -77,7 +77,8 @@ def get_buzz_analysis():
     """Get current analysis data"""
     try:
         # Try to get from database
-        conn = pg_db.get_conn()
+        conn = sqlite3.connect('database.py')
+        cursor = conn.cursor()
         with conn.cursor() as cursor:
             cursor.execute("""
                 SELECT analysis_data
