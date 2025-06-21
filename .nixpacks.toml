@@ -9,7 +9,8 @@ nixPkgs = [
   "python311Packages.lxml",
   "python311Packages.libxml2",
   "python311Packages.libxslt",
-  "python311Packages.openssl"
+  "python311Packages.openssl",
+  "python311Packages.gunicorn"
 ]
 
 [phases.install]
