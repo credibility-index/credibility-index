@@ -34,6 +34,7 @@ config = Config()
 config.browser_user_agent = user_agent
 config.request_timeout = 30
 
+
 @app.route('/')
 def home():
     """Главная страница с анализом"""
@@ -73,6 +74,40 @@ def home():
     except Exception as e:
         logger.error(f"Error loading home page: {str(e)}", exc_info=True)
         return render_template('error.html', message="Failed to load home page")
+
+
+@app.route('/daily-buzz')
+def daily_buzz():
+    """Эндпоинт для получения статьи дня"""
+    try:
+        result = db.get_daily_buzz()
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Error getting daily buzz: {str(e)}", exc_info=True)
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/source-credibility-chart')
+def source_credibility_chart():
+    """Эндпоинт для получения данных достоверности источников"""
+    try:
+        result = db.get_source_credibility_chart()
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Error getting source credibility data: {str(e)}", exc_info=True)
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/analysis-history')
+def analysis_history():
+    """Эндпоинт для получения истории анализа"""
+    try:
+        result = db.get_analysis_history()
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Error getting analysis history: {str(e)}", exc_info=True)
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
 
 @app.route('/analyze', methods=['POST'])
 def analyze_article():
@@ -144,6 +179,7 @@ def analyze_article():
             'message': str(e)
         }), 500
 
+
 def extract_text_from_url(url: str) -> tuple:
     """Извлечь текст из URL"""
     try:
@@ -168,6 +204,7 @@ def extract_text_from_url(url: str) -> tuple:
     except Exception as e:
         logger.error(f"Error extracting article from {url}: {str(e)}", exc_info=True)
         return None, None, None
+
 
 def analyze_with_claude(content: str, source: str) -> dict:
     """Анализировать контент с помощью Claude API"""
@@ -214,6 +251,7 @@ Article content:
         logger.error(f"Error analyzing with Claude: {str(e)}", exc_info=True)
         return get_default_analysis()
 
+
 def determine_credibility_level(score: float) -> str:
     """Определить уровень достоверности на основе оценки"""
     if score >= 0.8:
@@ -222,6 +260,7 @@ def determine_credibility_level(score: float) -> str:
         return "Medium"
     else:
         return "Low"
+
 
 def get_similar_articles(topics: list) -> list:
     """Получить похожие статьи на основе тем"""
@@ -250,6 +289,7 @@ def get_similar_articles(topics: list) -> list:
         logger.error(f"Error getting similar articles: {str(e)}", exc_info=True)
         return []
 
+
 def get_default_analysis() -> dict:
     """Получить данные анализа по умолчанию"""
     return {
@@ -270,9 +310,11 @@ def get_default_analysis() -> dict:
         "neutral_perspective": {"summary": "Default neutral perspective"}
     }
 
+
 @app.route('/static/<path:filename>')
 def static_files(filename):
     return send_from_directory(app.static_folder, filename)
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
