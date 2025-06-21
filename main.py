@@ -216,7 +216,7 @@ def extract_text_from_url(url: str) -> tuple:
 
 
 def analyze_with_claude(content: str, source: str) -> dict:
-    """Анализировать контент с помощью Claude API"""
+    """Анализировать контент с помощью Claude 3 Messages API"""
     try:
         prompt = f"""Analyze this news article and provide a JSON response with these fields:
 - news_integrity (0.0-1.0)
@@ -238,34 +238,27 @@ def analyze_with_claude(content: str, source: str) -> dict:
 Article content:
 {content[:5000]}..."""
 
-        # Форматируем prompt с префиксами для Anthropic API
-        formatted_prompt = f"\n\nHuman: {prompt}\n\nAssistant:"
-
-        response = anthropic_client.completions.create(
+        response = anthropic_client.messages.create(
             model=os.getenv('ANTHROPIC_MODEL', 'claude-3-opus-20240229'),
-            prompt=formatted_prompt,
-            max_tokens_to_sample=2000,
-            stop_sequences=["\n\nHuman:"]
+            max_tokens=2000,
+            temperature=0.5,
+            messages=[
+                {"role": "user", "content": prompt}
+            ]
         )
 
-        response_text = response.completion.strip()
-        logger.debug(f"Claude API response: {response_text}")
-        logger.debug(f"Claude response text:\n{response_text}")
+        response_text = response.content[0].text.strip()
+        logger.debug(f"Claude raw response: {response_text}")
 
-        # Попытка разобрать JSON ответ из текста
-        try:
-            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
-            if json_match:
-                analysis_result = json.loads(json_match.group(0))
-                return analysis_result
-            return json.loads(response_text)
-        except json.JSONDecodeError:
-            logger.error("Failed to parse JSON response from Claude API")
-            return get_default_analysis()
+        json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+        if json_match:
+            return json.loads(json_match.group(0))
+        return json.loads(response_text)
 
     except Exception as e:
         logger.error(f"Error analyzing with Claude: {str(e)}", exc_info=True)
         return get_default_analysis()
+
 
 
 def determine_credibility_level(score: float) -> str:
