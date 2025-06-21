@@ -1,23 +1,19 @@
-Flask
-gunicorn
-requests
-anthropic
-python-dotenv
-beautifulsoup4
-newspaper3k
-stop-words
-plotly
-flask-cors
-loguru
-python-dateutil
-regex
-simplejson
-lxml[html_clean]
-anthropic
-flask-cors
+Flask==2.3.2
+gunicorn==20.1.0
+requests==2.31.0
+anthropic==0.3.11
+python-dotenv==1.0.0
+beautifulsoup4==4.12.2
+newspaper3k==0.2.8
+stop-words==2018.7.23
+flask-cors==3.0.10
+loguru==0.7.0
+python-dateutil==2.8.2
+regex==2023.10.3
+lxml==4.9.3
 selenium==4.10.0
 webdriver-manager==3.8.6
-playwright==1.39.0
+
 
 
 
