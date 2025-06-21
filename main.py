@@ -274,25 +274,49 @@ def determine_credibility_level(score: float) -> str:
 def get_similar_articles(topics: list) -> list:
     """Получить похожие статьи на основе тем"""
     try:
-        # Сначала пытаемся получить похожие статьи из нашей базы данных
         similar_articles = db.get_similar_articles(topics)
 
-        # Если у нас недостаточно похожих статей, получаем некоторые из News API
-        if len(similar_articles) < 3 and topics:
-            query = " OR ".join(topics[:3])  # Используем первые 3 темы для запроса
-            news_articles = news_api.get_everything(query=query, page_size=3)
+        if len(similar_articles) < 5 and topics:
+            query = " OR ".join(topics[:3])
+            news_articles = news_api.get_everything(query=query, page_size=5)
 
             if news_articles:
                 for article in news_articles:
+                    url = article.get('url')
+                    title = article.get('title')
+                    source = article['source']['name']
+                    summary = article.get('description') or article.get('content') or ''
+                    content = article.get('content') or ''
+                    short_summary = summary[:200] + '...' if len(summary) > 200 else summary
+
+                    # Проверка: уже есть в базе?
+                    if db.article_exists(url):
+                        continue  # Пропускаем, если уже есть
+
+                    # Сохраняем статью в базу
+                    db.save_article(
+                        title=title,
+                        source=source,
+                        url=url,
+                        content=content,
+                        short_summary=short_summary,
+                        analysis_data={
+                            "topics": topics,
+                            "short_summary": short_summary,
+                            "index_of_credibility": 0.6
+                        },
+                        credibility_level="Medium"
+                    )
+
                     similar_articles.append({
-                        'title': article['title'],
-                        'source': article['source']['name'],
-                        'summary': article['description'],
-                        'url': article['url'],
-                        'credibility': 'Medium'  # Уровень достоверности по умолчанию для внешних статей
+                        'title': title,
+                        'source': source,
+                        'summary': short_summary,
+                        'url': url,
+                        'credibility': "Medium"
                     })
 
-        return similar_articles[:5]  # Возвращаем максимум 5 статей
+        return similar_articles[:5]
 
     except Exception as e:
         logger.error(f"Error getting similar articles: {str(e)}", exc_info=True)
