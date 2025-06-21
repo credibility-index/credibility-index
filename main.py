@@ -10,6 +10,7 @@ import anthropic
 from newspaper import Article, Config
 from database import Database
 from news_api import NewsAPI
+import sqlite3
 
 # Инициализация приложения
 app = Flask(__name__, static_folder='static', template_folder='templates')
