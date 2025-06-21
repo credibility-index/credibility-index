@@ -2,7 +2,7 @@ import os
 import sqlite3
 import json
 import logging
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Optional, List, Dict, Any
 from urllib.parse import urlparse
 
 # Настройка логирования
@@ -76,24 +76,25 @@ class Database:
         except Exception as e:
             logger.error(f"Error initializing database schema: {str(e)}", exc_info=True)
             raise
-def article_exists(self, title: str, url: Optional[str] = None) -> bool:
-    """Проверить, существует ли статья с таким заголовком или URL"""
-    try:
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            if url:
-                cursor.execute("""
-                    SELECT COUNT(*) FROM articles WHERE url = ? OR title = ?
-                """, (url, title))
-            else:
-                cursor.execute("""
-                    SELECT COUNT(*) FROM articles WHERE title = ?
-                """, (title,))
-            count = cursor.fetchone()[0]
-            return count > 0
-    except Exception as e:
-        logger.error(f"Error checking if article exists: {str(e)}", exc_info=True)
-        return False
+
+    def article_exists(self, title: str, url: Optional[str] = None) -> bool:
+        """Проверить, существует ли статья с таким заголовком или URL"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                if url:
+                    cursor.execute("""
+                        SELECT COUNT(*) FROM articles WHERE url = ? OR title = ?
+                    """, (url, title))
+                else:
+                    cursor.execute("""
+                        SELECT COUNT(*) FROM articles WHERE title = ?
+                    """, (title,))
+                count = cursor.fetchone()[0]
+                return count > 0
+        except Exception as e:
+            logger.error(f"Error checking if article exists: {str(e)}", exc_info=True)
+            return False
 
     def _add_featured_article(self, conn: sqlite3.Connection) -> None:
         """Добавить статью дня в базу данных"""
@@ -266,7 +267,7 @@ def article_exists(self, title: str, url: Optional[str] = None) -> bool:
             }
 
     def save_article(self, title: str, source: str, url: Optional[str], content: str,
-                   short_summary: str, analysis_data: Dict[str, Any], credibility_level: str) -> int:
+                     short_summary: str, analysis_data: Dict[str, Any], credibility_level: str) -> int:
         """Сохранить статью в базу данных"""
         try:
             with self.get_connection() as conn:
