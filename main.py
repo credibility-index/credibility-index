@@ -39,15 +39,20 @@ config.request_timeout = 30
 def home():
     """Главная страница с анализом"""
     try:
-        # Получаем статью дня
         buzz_result = db.get_daily_buzz()
         if buzz_result['status'] != 'success':
             logger.error(f"Failed to load featured analysis: {buzz_result.get('message', 'Unknown error')}")
             buzz_analysis = get_default_analysis()
+            buzz_article = None
         else:
-            buzz_analysis = buzz_result['article']['analysis']
+            buzz_article = buzz_result['article']
+            buzz_analysis = buzz_article['analysis']
 
-        # Получаем данные для чарта достоверности
+        # Зададим тему для buzz, например, «Израиль/Иран»
+        buzz_topics = buzz_analysis.get('topics', [])
+        if not buzz_topics:
+            buzz_topics = ["Israel", "Iran"]
+
         source_result = db.get_source_credibility_chart()
         if source_result['status'] != 'success':
             logger.error(f"Failed to load source credibility data: {source_result.get('message', 'Unknown error')}")
@@ -58,7 +63,6 @@ def home():
         else:
             source_credibility_data = source_result['data']
 
-        # Получаем историю анализа
         history_result = db.get_analysis_history()
         if history_result['status'] != 'success':
             logger.error(f"Failed to load analysis history: {history_result.get('message', 'Unknown error')}")
@@ -67,13 +71,16 @@ def home():
             analyzed_articles = history_result['history']
 
         return render_template('index.html',
+                             buzz_article=buzz_article,
                              buzz_analysis=buzz_analysis,
+                             buzz_topics=buzz_topics,
                              analyzed_articles=analyzed_articles,
                              source_credibility_data=source_credibility_data)
 
     except Exception as e:
         logger.error(f"Error loading home page: {str(e)}", exc_info=True)
         return render_template('error.html', message="Failed to load home page")
+
 
 
 @app.route('/daily-buzz')
