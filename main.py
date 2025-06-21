@@ -250,6 +250,7 @@ Article content:
 
         response_text = response.completion.strip()
         logger.debug(f"Claude API response: {response_text}")
+        logger.debug(f"Claude response text:\n{response_text}")
 
         # Попытка разобрать JSON ответ из текста
         try:
