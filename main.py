@@ -11,23 +11,23 @@ from newspaper import Article, Config
 from database import Database
 from news_api import NewsAPI
 
-# Initialize Flask application
+# Инициализация приложения
 app = Flask(__name__, static_folder='static', template_folder='templates')
 CORS(app)
 
-# Configure logging
+# Настройка логирования
 logging.basicConfig(
     level=getattr(logging, os.getenv('LOG_LEVEL', 'INFO').upper(), logging.INFO),
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
-# Initialize database and API clients
+# Инициализация базы данных и API
 db = Database()
 news_api = NewsAPI()
 anthropic_client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
 
-# Configure newspaper library
+# Конфигурация библиотеки newspaper
 user_agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
 config = Config()
 config.browser_user_agent = user_agent
@@ -35,7 +35,7 @@ config.request_timeout = 30
 
 @app.route('/')
 def home():
-    """Home page with featured analysis and article analysis form"""
+    """Главная страница с анализом"""
     try:
         # Получаем статью дня
         buzz_result = db.get_daily_buzz()
@@ -50,8 +50,8 @@ def home():
         if source_result['status'] != 'success':
             logger.error(f"Failed to load source credibility data: {source_result.get('message', 'Unknown error')}")
             source_credibility_data = {
-                'sources': ['BBC', 'Reuters', 'CNN', 'Al Jazeera'],
-                'credibility_scores': [0.9, 0.85, 0.75, 0.8]
+                'sources': ['BBC', 'Reuters', 'CNN'],
+                'credibility_scores': [0.9, 0.85, 0.8]
             }
         else:
             source_credibility_data = source_result['data']
@@ -75,11 +75,10 @@ def home():
 
 @app.route('/analyze', methods=['POST'])
 def analyze_article():
-    """Analyze article endpoint"""
+    """Анализ статьи"""
     try:
         data = request.get_json()
         input_text = data.get('input_text', '').strip()
-        source_name_manual = data.get('source_name_manual', '').strip()
 
         if not input_text:
             return jsonify({
@@ -97,7 +96,7 @@ def analyze_article():
                 }), 400
         else:
             content = input_text
-            source = source_name_manual if source_name_manual else 'Direct Input'
+            source = 'Direct Input'
             title = 'User-provided Text'
 
         # Анализ с помощью Claude
@@ -145,7 +144,7 @@ def analyze_article():
         }), 500
 
 def extract_text_from_url(url: str) -> tuple:
-    """Extract text from URL"""
+    """Извлечь текст из URL"""
     try:
         parsed = urlparse(url)
         clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
@@ -170,7 +169,7 @@ def extract_text_from_url(url: str) -> tuple:
         return None, None, None
 
 def analyze_with_claude(content: str, source: str) -> dict:
-    """Analyze content with Claude API"""
+    """Анализировать контент с помощью Claude API"""
     try:
         prompt = f"""Analyze this news article and provide a JSON response with these fields:
 - news_integrity (0.0-1.0)
@@ -275,5 +274,4 @@ def static_files(filename):
     return send_from_directory(app.static_folder, filename)
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
