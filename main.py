@@ -26,7 +26,10 @@ logger = logging.getLogger(__name__)
 # Инициализация базы данных и API
 db = Database()
 news_api = NewsAPI()
-anthropic_client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
+anthropic_api_key = os.getenv('ANTHROPIC_API_KEY')
+if not anthropic_api_key:
+    logger.warning("ANTHROPIC_API_KEY is not set in environment variables")
+anthropic_client = anthropic.Anthropic(api_key=anthropic_api_key)
 
 # Конфигурация библиотеки newspaper
 user_agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
@@ -71,16 +74,15 @@ def home():
             analyzed_articles = history_result['history']
 
         return render_template('index.html',
-                             buzz_article=buzz_article,
-                             buzz_analysis=buzz_analysis,
-                             buzz_topics=buzz_topics,
-                             analyzed_articles=analyzed_articles,
-                             source_credibility_data=source_credibility_data)
+                               buzz_article=buzz_article,
+                               buzz_analysis=buzz_analysis,
+                               buzz_topics=buzz_topics,
+                               analyzed_articles=analyzed_articles,
+                               source_credibility_data=source_credibility_data)
 
     except Exception as e:
         logger.error(f"Error loading home page: {str(e)}", exc_info=True)
         return render_template('error.html', message="Failed to load home page")
-
 
 
 @app.route('/daily-buzz')
@@ -236,6 +238,7 @@ def analyze_with_claude(content: str, source: str) -> dict:
 Article content:
 {content[:5000]}..."""
 
+        # Форматируем prompt с префиксами для Anthropic API
         formatted_prompt = f"\n\nHuman: {prompt}\n\nAssistant:"
 
         response = anthropic_client.completions.create(
@@ -246,12 +249,14 @@ Article content:
         )
 
         response_text = response.completion.strip()
+        logger.debug(f"Claude API response: {response_text}")
 
-        # Попытка разобрать JSON ответ
+        # Попытка разобрать JSON ответ из текста
         try:
             json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
             if json_match:
-                return json.loads(json_match.group(0))
+                analysis_result = json.loads(json_match.group(0))
+                return analysis_result
             return json.loads(response_text)
         except json.JSONDecodeError:
             logger.error("Failed to parse JSON response from Claude API")
@@ -260,7 +265,6 @@ Article content:
     except Exception as e:
         logger.error(f"Error analyzing with Claude: {str(e)}", exc_info=True)
         return get_default_analysis()
-
 
 
 def determine_credibility_level(score: float) -> str:
