@@ -236,13 +236,16 @@ def analyze_with_claude(content: str, source: str) -> dict:
 Article content:
 {content[:5000]}..."""
 
-        response = anthropic_client.messages.create(
+        formatted_prompt = f"\n\nHuman: {prompt}\n\nAssistant:"
+
+        response = anthropic_client.completions.create(
             model=os.getenv('ANTHROPIC_MODEL', 'claude-3-opus-20240229'),
-            max_tokens=2000,
-            messages=[{"role": "user", "content": prompt}]
+            prompt=formatted_prompt,
+            max_tokens_to_sample=2000,
+            stop_sequences=["\n\nHuman:"]
         )
 
-        response_text = response.content[0].text.strip()
+        response_text = response.completion.strip()
 
         # Попытка разобрать JSON ответ
         try:
@@ -257,6 +260,7 @@ Article content:
     except Exception as e:
         logger.error(f"Error analyzing with Claude: {str(e)}", exc_info=True)
         return get_default_analysis()
+
 
 
 def determine_credibility_level(score: float) -> str:
