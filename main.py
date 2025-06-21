@@ -51,7 +51,6 @@ def home():
             buzz_article = buzz_result['article']
             buzz_analysis = buzz_article['analysis']
 
-        # Зададим тему для buzz, например, «Израиль/Иран»
         buzz_topics = buzz_analysis.get('topics', [])
         if not buzz_topics:
             buzz_topics = ["Israel", "Iran"]
@@ -87,7 +86,6 @@ def home():
 
 @app.route('/daily-buzz')
 def daily_buzz():
-    """Эндпоинт для получения статьи дня"""
     try:
         result = db.get_daily_buzz()
         return jsonify(result)
@@ -98,7 +96,6 @@ def daily_buzz():
 
 @app.route('/source-credibility-chart')
 def source_credibility_chart():
-    """Эндпоинт для получения данных достоверности источников"""
     try:
         result = db.get_source_credibility_chart()
         return jsonify(result)
@@ -109,7 +106,6 @@ def source_credibility_chart():
 
 @app.route('/analysis-history')
 def analysis_history():
-    """Эндпоинт для получения истории анализа"""
     try:
         result = db.get_analysis_history()
         return jsonify(result)
@@ -120,37 +116,25 @@ def analysis_history():
 
 @app.route('/analyze', methods=['POST'])
 def analyze_article():
-    """Анализ статьи"""
     try:
         data = request.get_json()
         input_text = data.get('input_text', '').strip()
 
         if not input_text:
-            return jsonify({
-                'status': 'error',
-                'message': 'Input text is required'
-            }), 400
+            return jsonify({'status': 'error', 'message': 'Input text is required'}), 400
 
-        # Извлечение контента статьи
         if input_text.startswith(('http://', 'https://')):
             content, source, title = extract_text_from_url(input_text)
             if not content:
-                return jsonify({
-                    'status': 'error',
-                    'message': 'Could not extract article content'
-                }), 400
+                return jsonify({'status': 'error', 'message': 'Could not extract article content'}), 400
         else:
             content = input_text
             source = 'Direct Input'
             title = 'User-provided Text'
 
-        # Анализ с помощью Claude
         analysis = analyze_with_claude(content, source)
-
-        # Определение уровня достоверности
         credibility_level = determine_credibility_level(analysis.get('index_of_credibility', 0.0))
 
-        # Сохранение в базу данных
         article_id = db.save_article(
             title=title,
             source=source,
@@ -161,10 +145,7 @@ def analyze_article():
             credibility_level=credibility_level
         )
 
-        # Обновление статистики источников
         db.update_source_stats(source, credibility_level)
-
-        # Получение похожих статей
         similar_articles = get_similar_articles(analysis.get('topics', []))
 
         return jsonify({
@@ -183,14 +164,10 @@ def analyze_article():
 
     except Exception as e:
         logger.error(f"Error analyzing article: {str(e)}", exc_info=True)
-        return jsonify({
-            'status': 'error',
-            'message': str(e)
-        }), 500
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
 def extract_text_from_url(url: str) -> tuple:
-    """Извлечь текст из URL"""
     try:
         parsed = urlparse(url)
         clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
@@ -216,7 +193,6 @@ def extract_text_from_url(url: str) -> tuple:
 
 
 def analyze_with_claude(content: str, source: str) -> dict:
-    """Анализировать контент с помощью Claude 3 Messages API"""
     try:
         prompt = f"""Analyze this news article and provide a JSON response with these fields:
 - news_integrity (0.0-1.0)
@@ -242,9 +218,7 @@ Article content:
             model=os.getenv('ANTHROPIC_MODEL', 'claude-3-opus-20240229'),
             max_tokens=2000,
             temperature=0.5,
-            messages=[
-                {"role": "user", "content": prompt}
-            ]
+            messages=[{"role": "user", "content": prompt}]
         )
 
         response_text = response.content[0].text.strip()
@@ -260,9 +234,7 @@ Article content:
         return get_default_analysis()
 
 
-
 def determine_credibility_level(score: float) -> str:
-    """Определить уровень достоверности на основе оценки"""
     if score >= 0.8:
         return "High"
     elif score >= 0.6:
@@ -272,7 +244,6 @@ def determine_credibility_level(score: float) -> str:
 
 
 def get_similar_articles(topics: list) -> list:
-    """Получить похожие статьи на основе тем"""
     try:
         similar_articles = db.get_similar_articles(topics)
 
@@ -289,11 +260,9 @@ def get_similar_articles(topics: list) -> list:
                     content = article.get('content') or ''
                     short_summary = summary[:200] + '...' if len(summary) > 200 else summary
 
-                    # Проверка: уже есть в базе?
                     if db.article_exists(url):
-                        continue  # Пропускаем, если уже есть
+                        continue
 
-                    # Сохраняем статью в базу
                     db.save_article(
                         title=title,
                         source=source,
@@ -324,7 +293,6 @@ def get_similar_articles(topics: list) -> list:
 
 
 def get_default_analysis() -> dict:
-    """Получить данные анализа по умолчанию"""
     return {
         "news_integrity": 0.7,
         "fact_check_needed_score": 0.3,
