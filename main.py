@@ -69,12 +69,19 @@ def cache_response(timeout=300):
 
             return response
 
+        # Уникальное имя для каждого декоратора
+        wrapped.__name__ = f"wrapped_{f.__name__}"
         return wrapped
     return decorator
 
 @app.route('/')
 def home():
     """Главная страница с анализом"""
+    return redirect(url_for('index'))
+
+@app.route('/index')
+def index():
+    """Главная страница приложения"""
     try:
         buzz_result = db.get_daily_buzz()
         if buzz_result['status'] != 'success':
@@ -116,9 +123,40 @@ def home():
         logger.error(f"Error loading home page: {str(e)}", exc_info=True)
         return render_template('error.html', message="Failed to load home page")
 
+@app.route('/faq')
+def faq():
+    """Страница с часто задаваемыми вопросами"""
+    return render_template('faq.html')
+
+@app.route('/feedback')
+def feedback():
+    """Страница с формой обратной связи"""
+    return render_template('feedback.html')
+
+@app.route('/feedback_success')
+def feedback_success():
+    """Страница подтверждения отправки обратной связи"""
+    return render_template('feedback_success.html')
+
+@app.route('/privacy')
+def privacy():
+    """Страница политики конфиденциальности"""
+    return render_template('privacy.html')
+
+@app.route('/terms')
+def terms():
+    """Страница условий использования"""
+    return render_template('terms.html')
+
+@app.route('/maintenance')
+def maintenance():
+    """Страница технического обслуживания"""
+    return render_template('maintenance.html')
+
 @app.route('/daily-buzz')
 @cache_response(timeout=300)
-def daily_buzz():
+def daily_buzz_route():
+    """Маршрут для получения статьи дня"""
     try:
         result = db.get_daily_buzz()
         return jsonify(result)
@@ -128,7 +166,8 @@ def daily_buzz():
 
 @app.route('/source-credibility-chart')
 @cache_response(timeout=300)
-def source_credibility_chart():
+def source_credibility_chart_route():
+    """Маршрут для получения данных чарта достоверности"""
     try:
         result = db.get_source_credibility_chart()
         if result['status'] != 'success':
@@ -147,7 +186,8 @@ def source_credibility_chart():
 
 @app.route('/analysis-history')
 @cache_response(timeout=300)
-def analysis_history():
+def analysis_history_route():
+    """Маршрут для получения истории анализа"""
     try:
         result = db.get_analysis_history()
         return jsonify(result)
@@ -157,6 +197,7 @@ def analysis_history():
 
 @app.route('/analyze', methods=['POST'])
 def analyze_article():
+    """Маршрут для анализа статьи"""
     try:
         data = request.get_json()
         input_text = data.get('input_text', '').strip()
