@@ -188,6 +188,53 @@ class Database:
                 'status': 'error',
                 'message': 'Failed to retrieve daily buzz'
             }
+def _initialize_with_mock_data(self) -> None:
+    """Инициализировать базу данных с моковыми данными"""
+    try:
+        mock_sources = [
+            ('BBC News', 'High'),
+            ('Reuters', 'High'),
+            ('The New York Times', 'High'),
+            ('The Guardian', 'High'),
+            ('CNN', 'Medium'),
+            ('Fox News', 'Medium'),
+            ('Al Jazeera', 'Medium'),
+            ('RT', 'Low'),
+            ('Breitbart', 'Low'),
+            ('Daily Mail', 'Low')
+        ]
+
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            # Проверяем, есть ли уже данные в source_stats
+            cursor.execute("SELECT COUNT(*) FROM source_stats")
+            count = cursor.fetchone()[0]
+
+            if count == 0:
+                # Добавляем моковые данные, если таблица пуста
+                for source, credibility in mock_sources:
+                    if credibility == "High":
+                        cursor.execute("""
+                            INSERT INTO source_stats (source, high, medium, low, total_analyzed)
+                            VALUES (?, 5, 1, 0, 6)
+                        """, (source,))
+                    elif credibility == "Medium":
+                        cursor.execute("""
+                            INSERT INTO source_stats (source, high, medium, low, total_analyzed)
+                            VALUES (?, 2, 3, 1, 6)
+                        """, (source,))
+                    else:
+                        cursor.execute("""
+                            INSERT INTO source_stats (source, high, medium, low, total_analyzed)
+                            VALUES (?, 1, 1, 4, 6)
+                        """, (source,))
+
+                conn.commit()
+                logger.info("Database initialized with mock data successfully")
+    except Exception as e:
+        logger.error(f"Error initializing database with mock data: {str(e)}", exc_info=True)
+        raise
 
     def get_source_credibility_chart(self) -> Dict[str, Any]:
         """Получить данные для чарта достоверности источников"""
