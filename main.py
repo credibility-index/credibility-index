@@ -2,23 +2,19 @@ import os
 import logging
 import re
 import json
-import socket
-import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from urllib.parse import urlparse
-from flask import Flask, request, jsonify, render_template_string
+from flask import Flask, request, jsonify, render_template_string, send_from_directory
 from flask_cors import CORS
 import anthropic
 from newspaper import Article, Config
-import hashlib
-import requests
 from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from app.claude_api import ClaudeAPI
 
 # Инициализация приложения
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static')
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Настройка логирования
@@ -35,9 +31,10 @@ session = requests.Session()
 retries = Retry(total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504, 408, 429])
 session.mount('http://', HTTPAdapter(max_retries=retries))
 session.mount('https://', HTTPAdapter(max_retries=retries))
-# В вашем main.py
+
+# Инициализация API клиентов
 claude_api = ClaudeAPI()
-# Инициализация клиента Anthropic
+
 try:
     anthropic_api_key = os.getenv('ANTHROPIC_API_KEY')
     if not anthropic_api_key:
@@ -47,7 +44,7 @@ except Exception as e:
     logger.error(f"Failed to initialize Anthropic client: {str(e)}")
     anthropic_client = None
 
-# Тестовые данные
+# Статические данные для тестирования
 daily_buzz = {
     "article": {
         "title": "Today's featured analysis: Israel-Iran relations",
@@ -110,16 +107,30 @@ def index():
             .credibility-high { color: green; }
             .credibility-medium { color: orange; }
             .credibility-low { color: red; }
+            .navbar { background-color: #333; color: white; padding: 10px 20px; display: flex; justify-content: space-between; }
+            .navbar a { color: white; text-decoration: none; margin-left: 15px; }
+            .navbar a:hover { text-decoration: underline; }
+            .footer { background-color: #333; color: white; text-align: center; padding: 10px; position: fixed; bottom: 0; width: 100%; }
         </style>
     </head>
     <body>
+        <div class="navbar">
+            <div>
+                <a href="/">Media Analysis</a>
+            </div>
+            <div>
+                <a href="/feedback">Feedback</a>
+                <a href="/privacy">Privacy</a>
+                <a href="/terms">Terms</a>
+            </div>
+        </div>
+
         <div class="left-panel">
             <h1>Daily Buzz</h1>
             <div class="article" id="daily-buzz">
                 <h2>Loading...</h2>
                 <p>Loading daily buzz article...</p>
             </div>
-
             <h2>Analysis History</h2>
             <div id="analysis-history">
                 <p>Loading analysis history...</p>
@@ -132,20 +143,21 @@ def index():
                 <textarea id="article-input" placeholder="Enter article URL or text..."></textarea>
                 <button onclick="analyzeArticle()">Analyze</button>
             </div>
-
             <div id="analysis-results">
                 <p>Analysis results will appear here...</p>
             </div>
-
             <h2>Source Credibility Chart</h2>
             <div class="chart-container" id="credibility-chart">
                 <p>Loading chart...</p>
             </div>
-
             <h2>Similar Articles</h2>
             <div id="similar-articles">
                 <p>Similar articles will appear here...</p>
             </div>
+        </div>
+
+        <div class="footer">
+            <p>&copy; 2023 Media Analysis. All rights reserved.</p>
         </div>
 
         <script>
@@ -260,7 +272,7 @@ def index():
                                 <p>${article.short_summary}</p>
                                 <p><strong>Credibility:</strong> <span class="credibility-${article.credibility_level.toLowerCase()}">${article.credibility_level}</span></p>
                                 <h3>Analysis:</h3>
-                                <p><strong>Topics:</strong> ${article.analysis.topics.map(t => t.name).join(', ')}</p>
+                                <p><strong>Topics:</strong> ${article.analysis.topics.map(t => t.name || t).join(', ')}</p>
                             </div>
                         `;
 
@@ -293,7 +305,13 @@ def index():
 @app.route('/daily-buzz')
 def get_daily_buzz():
     """Возвращает статью дня"""
-    return jsonify(daily_buzz)
+    try:
+        # Используем Claude API для получения buzz-анализа
+        buzz_analysis = claude_api.get_buzz_analysis()
+        return jsonify({"article": buzz_analysis})
+    except Exception as e:
+        logger.error(f"Error getting daily buzz: {str(e)}")
+        return jsonify(daily_buzz)
 
 @app.route('/source-credibility-chart')
 def get_source_credibility_chart():
@@ -334,7 +352,8 @@ def analyze_article():
             source = 'Direct Input'
             title = 'User-provided Text'
 
-        analysis = analyze_with_claude(content, source)
+        # Используем метод analyze_article из claude_api
+        analysis = claude_api.analyze_article(content, source)
         credibility_level = determine_credibility_level(analysis.get('credibility_score', {}).get('score', 0.6))
 
         # Сохраняем в историю
@@ -367,6 +386,168 @@ def analyze_article():
             'message': 'An unexpected error occurred during analysis',
             'details': str(e)
         }), 500
+
+@app.route('/feedback')
+def feedback():
+    """Страница обратной связи"""
+    return render_template_string('''
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Feedback</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+            .navbar { background-color: #333; color: white; padding: 10px 20px; margin-bottom: 20px; }
+            .navbar a { color: white; text-decoration: none; margin-right: 15px; }
+            .navbar a:hover { text-decoration: underline; }
+            .container { max-width: 800px; margin: 0 auto; }
+            textarea { width: 100%; height: 150px; margin-bottom: 10px; }
+            button { padding: 10px 15px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; }
+            button:hover { background: #45a049; }
+        </style>
+    </head>
+    <body>
+        <div class="navbar">
+            <a href="/">Home</a>
+            <a href="/privacy">Privacy</a>
+            <a href="/terms">Terms</a>
+        </div>
+
+        <div class="container">
+            <h1>Feedback</h1>
+            <p>We appreciate your feedback about our media analysis service.</p>
+
+            <form id="feedback-form">
+                <div>
+                    <label for="name">Name:</label>
+                    <input type="text" id="name" name="name">
+                </div>
+                <div>
+                    <label for="email">Email:</label>
+                    <input type="email" id="email" name="email">
+                </div>
+                <div>
+                    <label for="feedback">Your Feedback:</label>
+                    <textarea id="feedback" name="feedback" required></textarea>
+                </div>
+                <button type="submit">Submit Feedback</button>
+            </form>
+        </div>
+
+        <script>
+            document.getElementById('feedback-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                alert('Thank you for your feedback!');
+                this.reset();
+            });
+        </script>
+    </body>
+    </html>
+    ''')
+
+@app.route('/privacy')
+def privacy():
+    """Страница политики конфиденциальности"""
+    return render_template_string('''
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Privacy Policy</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; line-height: 1.6; }
+            .navbar { background-color: #333; color: white; padding: 10px 20px; margin-bottom: 20px; }
+            .navbar a { color: white; text-decoration: none; margin-right: 15px; }
+            .navbar a:hover { text-decoration: underline; }
+            .container { max-width: 800px; margin: 0 auto; }
+            h1, h2 { color: #333; }
+        </style>
+    </head>
+    <body>
+        <div class="navbar">
+            <a href="/">Home</a>
+            <a href="/feedback">Feedback</a>
+            <a href="/terms">Terms</a>
+        </div>
+
+        <div class="container">
+            <h1>Privacy Policy</h1>
+
+            <h2>1. Information We Collect</h2>
+            <p>We collect information you provide directly to us, such as when you submit content for analysis.</p>
+
+            <h2>2. How We Use Your Information</h2>
+            <p>We use the information we collect to provide and improve our services, and to respond to your requests.</p>
+
+            <h2>3. Information Sharing</h2>
+            <p>We do not share your personal information with third parties except as described in this policy.</p>
+
+            <h2>4. Security</h2>
+            <p>We take reasonable measures to help protect your information from loss, theft, misuse and unauthorized access.</p>
+
+            <h2>5. Changes to This Policy</h2>
+            <p>We may update this privacy policy from time to time. We will notify you of any changes by posting the new policy on this page.</p>
+
+            <p>Last updated: June 2023</p>
+        </div>
+    </body>
+    </html>
+    ''')
+
+@app.route('/terms')
+def terms():
+    """Страница условий использования"""
+    return render_template_string('''
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Terms of Service</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; line-height: 1.6; }
+            .navbar { background-color: #333; color: white; padding: 10px 20px; margin-bottom: 20px; }
+            .navbar a { color: white; text-decoration: none; margin-right: 15px; }
+            .navbar a:hover { text-decoration: underline; }
+            .container { max-width: 800px; margin: 0 auto; }
+            h1, h2 { color: #333; }
+        </style>
+    </head>
+    <body>
+        <div class="navbar">
+            <a href="/">Home</a>
+            <a href="/feedback">Feedback</a>
+            <a href="/privacy">Privacy</a>
+        </div>
+
+        <div class="container">
+            <h1>Terms of Service</h1>
+
+            <h2>1. Acceptance of Terms</h2>
+            <p>By using our service, you agree to these Terms of Service.</p>
+
+            <h2>2. Use of Service</h2>
+            <p>You agree to use our service only for lawful purposes and in accordance with these Terms.</p>
+
+            <h2>3. Intellectual Property</h2>
+            <p>The service and its original content are owned by us and are protected by international copyright laws.</p>
+
+            <h2>4. Disclaimer</h2>
+            <p>Our service is provided "as is" without any warranties of any kind.</p>
+
+            <h2>5. Limitation of Liability</h2>
+            <p>In no event shall we be liable for any indirect, incidental, special, consequential or punitive damages.</p>
+
+            <h2>6. Changes to Terms</h2>
+            <p>We reserve the right to modify these terms at any time. We will notify you of any changes by posting the new terms on this page.</p>
+
+            <p>Last updated: June 2023</p>
+        </div>
+    </body>
+    </html>
+    ''')
+
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(os.path.join(app.root_path, 'static'),
+                               'favicon.ico', mimetype='image/vnd.microsoft.icon')
 
 def extract_text_from_url(url: str) -> tuple:
     """Извлекает текст из URL"""
@@ -403,10 +584,12 @@ def extract_text_from_url(url: str) -> tuple:
             response.raise_for_status()
 
             soup = BeautifulSoup(response.text, 'html.parser')
+
             for element in soup(['script', 'style', 'noscript', 'iframe', 'svg', 'nav', 'footer', 'header']):
                 element.decompose()
 
             main_content = soup.find('article') or soup.find('div', {'class': re.compile('article|content|main')})
+
             if main_content:
                 text = ' '.join([p.get_text() for p in main_content.find_all('p')])
                 if len(text.strip()) >= 100:
@@ -424,53 +607,6 @@ def extract_text_from_url(url: str) -> tuple:
     except Exception as e:
         logger.error(f"Unexpected error extracting article from {url}: {str(e)}")
         return None, parsed.netloc.replace('www.', ''), "Error occurred", str(e)
-
-def analyze_with_claude(content: str, source: str) -> dict:
-    """Анализирует статью с помощью Claude"""
-    try:
-        if not anthropic_client:
-            return get_default_analysis()
-
-        prompt = f"""Analyze this news article and provide a comprehensive JSON response with:
-1. Credibility score (0-1) with explanation
-2. Key topics (max 5) with brief descriptions
-3. Detailed summary (3-5 sentences)
-4. Main perspectives (Western, Iranian, Israeli, Neutral - 2-3 sentences each)
-5. Sentiment analysis (positive/neutral/negative) with explanation
-6. Bias detection (low/medium/high) with explanation
-7. Key arguments presented (3-5 main points)
-8. Mentioned facts (3-5 key facts)
-9. Potential biases identified (list with explanations)
-10. Author's purpose (1-2 sentences)
-
-Article content (first 4000 characters):
-{content[:4000]}"""
-
-        response = anthropic_client.messages.create(
-            model=os.getenv('ANTHROPIC_MODEL', 'claude-3-opus-20240229'),
-            max_tokens=2000,
-            temperature=0.3,
-            messages=[{"role": "user", "content": prompt}],
-            timeout=30
-        )
-
-        response_text = response.content[0].text.strip()
-
-        try:
-            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
-            if json_match:
-                analysis = json.loads(json_match.group(0))
-                required_fields = ['credibility_score', 'topics', 'summary', 'perspectives', 'sentiment', 'bias']
-                if all(field in analysis for field in required_fields):
-                    return analysis
-        except Exception:
-            pass
-
-        return get_default_analysis()
-
-    except Exception as e:
-        logger.error(f"Error analyzing with Claude: {str(e)}")
-        return get_default_analysis()
 
 def determine_credibility_level(score: float) -> str:
     """Определяет уровень достоверности"""
@@ -503,21 +639,5 @@ def get_similar_articles(topics: list) -> list:
         }
     ]
 
-def get_default_analysis() -> dict:
-    """Возвращает анализ по умолчанию"""
-    return {
-        "credibility_score": {"score": 0.6, "explanation": "Default credibility score"},
-        "topics": [{"name": "general", "description": "General news topic"}],
-        "summary": "This article discusses various perspectives on a current event.",
-        "perspectives": {
-            "western": {"summary": "Western perspective", "key_points": ["Point 1"], "credibility": "Medium"},
-            "iranian": {"summary": "Iranian perspective", "key_points": ["Point 1"], "credibility": "Medium"},
-            "israeli": {"summary": "Israeli perspective", "key_points": ["Point 1"], "credibility": "Medium"},
-            "neutral": {"summary": "Neutral analysis", "key_points": ["Point 1"], "credibility": "Medium"}
-        },
-        "sentiment": {"score": "neutral", "explanation": "Balanced view"},
-        "bias": {"level": "medium", "explanation": "Some bias detected"}
-    }
-
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
