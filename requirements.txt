@@ -18,6 +18,7 @@ sentry-sdk[flask]==1.28.1
 celery==5.3.4
 pydantic==1.10.13
 urllib3==2.0.4
+redis==4.6.0
 
 
 
