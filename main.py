@@ -196,34 +196,43 @@ def analysis_history_route():
 
 @app.route('/analyze', methods=['POST'])
 def analyze_article():
-    """Маршрут для анализа статьи"""
     try:
         data = request.get_json()
-        input_text = data.get('input_text', '').strip()
+        if not data:
+            return jsonify({'status': 'error', 'message': 'No data received'}), 400
 
+        input_text = data.get('input_text', '').strip()
         if not input_text:
             return jsonify({'status': 'error', 'message': 'Input text is required'}), 400
 
         if input_text.startswith(('http://', 'https://')):
-            try:
-                content, source, title = extract_text_from_url(input_text)
-                if not content:
-                    return jsonify({
-                        'status': 'error',
-                        'message': 'Could not extract article content',
-                        'details': 'The URL might be invalid or the content is not accessible'
-                    }), 400
-            except Exception as url_error:
-                logger.error(f"Error processing URL: {str(url_error)}")
+            content, source, title = extract_text_from_url(input_text)
+            if not content:
+                error_message = "Could not extract article content"
+                if "Failed to download" in title:
+                    error_message = f"Failed to download article: {title}"
+                elif "Failed to parse" in title:
+                    error_message = "Failed to parse article content"
+                elif "Insufficient content" in title:
+                    error_message = "Insufficient content in the article"
+
                 return jsonify({
                     'status': 'error',
-                    'message': 'Error processing the URL',
-                    'details': str(url_error)
+                    'message': error_message,
+                    'source': source,
+                    'title': title
                 }), 400
         else:
             content = input_text
             source = 'Direct Input'
             title = 'User-provided Text'
+
+        # Проверяем минимальную длину контента
+        if len(content) < 50 and not input_text.startswith(('http://', 'https://')):
+            return jsonify({
+                'status': 'error',
+                'message': 'Content is too short for analysis (minimum 50 characters required)'
+            }), 400
 
         try:
             analysis = analyze_with_claude(content, source)
@@ -262,6 +271,7 @@ def analyze_article():
             db.update_source_stats(source, credibility_level)
         except Exception as stats_error:
             logger.error(f"Error updating source stats: {str(stats_error)}")
+            # Продолжаем, несмотря на ошибку, так как это не критично
 
         try:
             similar_articles = get_similar_articles(analysis.get('topics', []))
@@ -283,12 +293,13 @@ def analyze_article():
             'similar_articles': similar_articles
         })
     except Exception as e:
-        logger.error(f"Error analyzing article: {str(e)}", exc_info=True)
+        logger.error(f"Unexpected error analyzing article: {str(e)}", exc_info=True)
         return jsonify({
             'status': 'error',
             'message': 'An unexpected error occurred during analysis',
             'details': str(e)
         }), 500
+
 
 @app.route('/health')
 def health_check():
@@ -342,26 +353,38 @@ def extract_text_from_url(url: str) -> tuple:
             domain = parsed.netloc.replace('www.', '')
             return None, domain, "Video content detected"
 
+        # Улучшенная обработка загрузки статьи
         article = Article(clean_url, config=config)
-        article.download()
+        try:
+            article.download()
+        except Exception as download_error:
+            logger.error(f"Failed to download article from {url}: {str(download_error)}")
+            return None, parsed.netloc.replace('www.', ''), "Failed to download content"
 
+        # Проверяем статус загрузки
         if article.download_state != 200:
             logger.error(f"Failed to download article from {url}, status code: {article.download_state}")
-            return None, None, None
+            return None, parsed.netloc.replace('www.', ''), f"Failed to download, status code: {article.download_state}"
 
-        article.parse()
+        try:
+            article.parse()
+        except Exception as parse_error:
+            logger.error(f"Failed to parse article from {url}: {str(parse_error)}")
+            return None, parsed.netloc.replace('www.', ''), "Failed to parse content"
 
+        # Проверяем наличие контента
         if not article.text or len(article.text.strip()) < 100:
-            logger.error(f"Insufficient content extracted from {url}")
-            return None, None, None
+            logger.warning(f"Insufficient content extracted from {url}")
+            return article.text.strip() if article.text else None, parsed.netloc.replace('www.', ''), "Insufficient content"
 
         domain = parsed.netloc.replace('www.', '')
         title = article.title.strip() if article.title else "No title available"
 
         return article.text.strip(), domain, title
     except Exception as e:
-        logger.error(f"Error extracting article from {url}: {str(e)}", exc_info=True)
-        return None, None, None
+        logger.error(f"Unexpected error extracting article from {url}: {str(e)}", exc_info=True)
+        return None, parsed.netloc.replace('www.', '') if 'parsed' in locals() else "Unknown domain", "Error occurred"
+
 
 def analyze_with_claude(content: str, source: str) -> dict:
     try:
