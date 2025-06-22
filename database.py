@@ -29,7 +29,6 @@ class Database:
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
-
                 # Создаем таблицы, если их нет
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS articles (
@@ -44,17 +43,16 @@ class Database:
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 """)
-
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS source_stats (
                         source TEXT PRIMARY KEY,
                         high INTEGER DEFAULT 0,
                         medium INTEGER DEFAULT 0,
                         low INTEGER DEFAULT 0,
-                        total_analyzed INTEGER DEFAULT 0
+                        total_analyzed INTEGER DEFAULT 0,
+                        is_initial INTEGER DEFAULT 0
                     )
                 """)
-
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS analysis_history (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -70,11 +68,51 @@ class Database:
                 if cursor.fetchone()[0] == 0:
                     self._add_featured_article(conn)
 
+                # Инициализируем с начальными данными
+                self._initialize_with_initial_data()
+
                 conn.commit()
                 logger.info("Database schema initialized successfully")
-
         except Exception as e:
             logger.error(f"Error initializing database schema: {str(e)}", exc_info=True)
+            raise
+
+    def _initialize_with_initial_data(self) -> None:
+        """Инициализировать базу данных с начальными данными"""
+        try:
+            initial_sources = [
+                ('BBC News', 5, 1, 0),
+                ('Reuters', 5, 1, 0),
+                ('The New York Times', 4, 2, 0),
+                ('The Guardian', 4, 2, 0),
+                ('CNN', 3, 3, 0),
+                ('Fox News', 2, 3, 1),
+                ('Al Jazeera', 3, 2, 1),
+                ('RT', 1, 2, 3),
+                ('Breitbart', 1, 1, 4),
+                ('Daily Mail', 2, 2, 2)
+            ]
+
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+
+                # Проверяем, есть ли уже данные в source_stats
+                cursor.execute("SELECT COUNT(*) FROM source_stats")
+                count = cursor.fetchone()[0]
+
+                if count == 0:
+                    # Добавляем начальные данные, если таблица пуста
+                    for source, high, medium, low in initial_sources:
+                        cursor.execute("""
+                            INSERT INTO source_stats
+                            (source, high, medium, low, total_analyzed, is_initial)
+                            VALUES (?, ?, ?, ?, ?, 1)
+                        """, (source, high, medium, low, high + medium + low))
+
+                    conn.commit()
+                    logger.info("Database initialized with initial data successfully")
+        except Exception as e:
+            logger.error(f"Error initializing database with initial data: {str(e)}", exc_info=True)
             raise
 
     def article_exists(self, title: str, url: Optional[str] = None) -> bool:
@@ -130,7 +168,6 @@ class Database:
             }),
             "credibility_level": "High"
         }
-
         cursor = conn.cursor()
         cursor.execute("""
             INSERT INTO articles
@@ -167,74 +204,23 @@ class Database:
                     LIMIT 1
                 """, (self.FEATURED_ARTICLE_TITLE,))
                 article = cursor.fetchone()
-
                 if not article:
                     return {
                         'status': 'error',
                         'message': 'Daily buzz article not found'
                     }
-
                 article_dict = dict(article)
                 article_dict['analysis'] = json.loads(article_dict['analysis_data']) if article_dict['analysis_data'] else {}
-
                 return {
                     'status': 'success',
                     'article': article_dict
                 }
-
         except Exception as e:
             logger.error(f"Error getting daily buzz: {str(e)}", exc_info=True)
             return {
                 'status': 'error',
                 'message': 'Failed to retrieve daily buzz'
             }
-def _initialize_with_mock_data(self) -> None:
-    """Инициализировать базу данных с моковыми данными"""
-    try:
-        mock_sources = [
-            ('BBC News', 'High'),
-            ('Reuters', 'High'),
-            ('The New York Times', 'High'),
-            ('The Guardian', 'High'),
-            ('CNN', 'Medium'),
-            ('Fox News', 'Medium'),
-            ('Al Jazeera', 'Medium'),
-            ('RT', 'Low'),
-            ('Breitbart', 'Low'),
-            ('Daily Mail', 'Low')
-        ]
-
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-
-            # Проверяем, есть ли уже данные в source_stats
-            cursor.execute("SELECT COUNT(*) FROM source_stats")
-            count = cursor.fetchone()[0]
-
-            if count == 0:
-                # Добавляем моковые данные, если таблица пуста
-                for source, credibility in mock_sources:
-                    if credibility == "High":
-                        cursor.execute("""
-                            INSERT INTO source_stats (source, high, medium, low, total_analyzed)
-                            VALUES (?, 5, 1, 0, 6)
-                        """, (source,))
-                    elif credibility == "Medium":
-                        cursor.execute("""
-                            INSERT INTO source_stats (source, high, medium, low, total_analyzed)
-                            VALUES (?, 2, 3, 1, 6)
-                        """, (source,))
-                    else:
-                        cursor.execute("""
-                            INSERT INTO source_stats (source, high, medium, low, total_analyzed)
-                            VALUES (?, 1, 1, 4, 6)
-                        """, (source,))
-
-                conn.commit()
-                logger.info("Database initialized with mock data successfully")
-    except Exception as e:
-        logger.error(f"Error initializing database with mock data: {str(e)}", exc_info=True)
-        raise
 
     def get_source_credibility_chart(self) -> Dict[str, Any]:
         """Получить данные для чарта достоверности источников"""
@@ -242,21 +228,23 @@ def _initialize_with_mock_data(self) -> None:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
-                    SELECT source, high, medium, low
+                    SELECT source, high, medium, low, total_analyzed
                     FROM source_stats
-                    ORDER BY (high + medium + low) DESC
+                    WHERE total_analyzed > 0
+                    ORDER BY (high + medium * 0.5) / NULLIF(total_analyzed, 0) DESC
                 """)
 
-                data = cursor.fetchall()
+                rows = cursor.fetchall()
                 sources = []
                 credibility_scores = []
 
-                for row in data:
+                for row in rows:
                     source = row['source']
                     high = row['high']
                     medium = row['medium']
                     low = row['low']
-                    total = high + medium + low
+                    total = row['total_analyzed']
+
                     score = (high * 1.0 + medium * 0.5) / total if total > 0 else 0.5
                     sources.append(source)
                     credibility_scores.append(round(score, 2))
@@ -268,13 +256,16 @@ def _initialize_with_mock_data(self) -> None:
                         'credibility_scores': credibility_scores
                     }
                 }
-
         except Exception as e:
             logger.error(f"Error getting source credibility chart: {str(e)}", exc_info=True)
             return {
                 'status': 'error',
                 'message': 'Failed to retrieve source credibility chart'
             }
+
+    def get_updated_source_credibility_chart(self) -> Dict[str, Any]:
+        """Получить обновленные данные для чарта достоверности источников"""
+        return self.get_source_credibility_chart()
 
     def get_analysis_history(self, limit: int = 5) -> Dict[str, Any]:
         """Получить историю анализа"""
@@ -287,10 +278,8 @@ def _initialize_with_mock_data(self) -> None:
                     ORDER BY created_at DESC
                     LIMIT ?
                 """, (limit,))
-
                 articles = cursor.fetchall()
                 articles_list = []
-
                 for article in articles:
                     articles_list.append({
                         'id': article['id'],
@@ -300,12 +289,10 @@ def _initialize_with_mock_data(self) -> None:
                         'credibility': article['credibility_level'],
                         'date': article['created_at']
                     })
-
                 return {
                     'status': 'success',
                     'history': articles_list
                 }
-
         except Exception as e:
             logger.error(f"Error getting analysis history: {str(e)}", exc_info=True)
             return {
@@ -354,41 +341,46 @@ def _initialize_with_mock_data(self) -> None:
                     if credibility_level == "High":
                         cursor.execute("""
                             UPDATE source_stats
-                            SET high = high + 1, total_analyzed = total_analyzed + 1
+                            SET high = high + 1,
+                                total_analyzed = total_analyzed + 1,
+                                is_initial = 0
                             WHERE source = ?
                         """, (source,))
                     elif credibility_level == "Medium":
                         cursor.execute("""
                             UPDATE source_stats
-                            SET medium = medium + 1, total_analyzed = total_analyzed + 1
+                            SET medium = medium + 1,
+                                total_analyzed = total_analyzed + 1,
+                                is_initial = 0
                             WHERE source = ?
                         """, (source,))
                     else:
                         cursor.execute("""
                             UPDATE source_stats
-                            SET low = low + 1, total_analyzed = total_analyzed + 1
+                            SET low = low + 1,
+                                total_analyzed = total_analyzed + 1,
+                                is_initial = 0
                             WHERE source = ?
                         """, (source,))
                 else:
                     # Вставляем новый источник
                     if credibility_level == "High":
                         cursor.execute("""
-                            INSERT INTO source_stats (source, high, medium, low, total_analyzed)
-                            VALUES (?, 1, 0, 0, 1)
+                            INSERT INTO source_stats (source, high, medium, low, total_analyzed, is_initial)
+                            VALUES (?, 1, 0, 0, 1, 0)
                         """, (source,))
                     elif credibility_level == "Medium":
                         cursor.execute("""
-                            INSERT INTO source_stats (source, high, medium, low, total_analyzed)
-                            VALUES (?, 0, 1, 0, 1)
+                            INSERT INTO source_stats (source, high, medium, low, total_analyzed, is_initial)
+                            VALUES (?, 0, 1, 0, 1, 0)
                         """, (source,))
                     else:
                         cursor.execute("""
-                            INSERT INTO source_stats (source, high, medium, low, total_analyzed)
-                            VALUES (?, 0, 0, 1, 1)
+                            INSERT INTO source_stats (source, high, medium, low, total_analyzed, is_initial)
+                            VALUES (?, 0, 0, 1, 1, 0)
                         """, (source,))
 
                 conn.commit()
-
         except Exception as e:
             logger.error(f"Error updating source stats: {str(e)}", exc_info=True)
             raise
@@ -428,7 +420,6 @@ def _initialize_with_mock_data(self) -> None:
                     'credibility': article['credibility_level'],
                     'url': article['url']
                 } for article in articles]
-
         except Exception as e:
             logger.error(f"Error getting similar articles: {str(e)}", exc_info=True)
             return []
