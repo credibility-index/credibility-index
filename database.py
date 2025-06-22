@@ -77,7 +77,7 @@ class Database:
             logger.error(f"Error initializing database schema: {str(e)}", exc_info=True)
             raise
 
-    def _initialize_with_initial_data(self, conn: sqlite3.Connection) -> None:
+def _initialize_with_initial_data(self, conn: sqlite3.Connection) -> None:
     """Инициализировать базу данных с начальными данными"""
     try:
         initial_sources = [
@@ -109,6 +109,7 @@ class Database:
     except Exception as e:
         logger.error(f"Error initializing database with initial data: {str(e)}", exc_info=True)
         raise
+
         
     def article_exists(self, title: str, url: Optional[str] = None) -> bool:
         """Проверить, существует ли статья с таким заголовком или URL"""
