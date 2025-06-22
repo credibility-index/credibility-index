@@ -8,8 +8,6 @@ from datetime import datetime, timedelta
 from urllib.parse import urlparse
 from flask import Flask, request, jsonify, render_template_string, send_from_directory, session
 from flask_cors import CORS
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 import anthropic
 from newspaper import Article, Config
 from bs4 import BeautifulSoup
@@ -20,8 +18,10 @@ import redis
 import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
 from celery import Celery
-from pydantic import BaseModel, ValidationError, HttpUrl, constr
+from pydantic import BaseModel, ValidationError, HttpUrl
 from typing import Optional, Dict, Any, List
+from functools import wraps
+import time
 
 # Добавляем текущую директорию в путь Python
 sys.path.append(str(Path(__file__).parent))
@@ -55,13 +55,52 @@ CORS(app, resources={
     }
 })
 
-# Настройка rate limiting
-limiter = Limiter(
-    app=app,
-    key_func=get_remote_address,
-    default_limits=["200 per day", "50 per hour"],
-    storage_uri=os.getenv('REDIS_URL', 'memory://')
-)
+# Декоратор для rate limiting
+def rate_limit(max_per_minute=60):
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            # Получаем IP клиента
+            client_ip = request.remote_addr
+
+            # Используем Redis для хранения информации о запросах
+            redis_conn = redis.Redis.from_url(os.getenv('REDIS_URL', 'redis://localhost:6379/0'))
+
+            # Ключ для хранения количества запросов
+            key = f"rate_limit:{client_ip}:{request.path}"
+
+            # Получаем текущее количество запросов
+            current = redis_conn.get(key)
+            current_count = int(current) if current else 0
+
+            # Проверяем, не превышен ли лимит
+            if current_count >= max_per_minute:
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Rate limit exceeded. Please try again later.'
+                }), 429
+
+            # Увеличиваем счётчик
+            redis_conn.incr(key)
+            redis_conn.expire(key, 60)  # Сбрасываем счётчик через 60 секунд
+
+            return f(*args, **kwargs)
+        return wrapper
+    return decorator
+
+# Встроенная CSRF защита
+@app.before_request
+def csrf_protect():
+    if request.method == "POST":
+        token = session.pop('_csrf_token', None)
+        if not token or token != request.form.get('_csrf_token'):
+            return jsonify({'status': 'error', 'message': 'CSRF token missing or invalid'}), 403
+
+@app.after_request
+def add_csrf_token(response):
+    if request.endpoint in app.view_functions and request.method == "GET":
+        response.set_cookie('_csrf_token', app.config['SECRET_KEY'])
+    return response
 
 # Настройка для работы за обратным прокси
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
@@ -92,20 +131,6 @@ session.mount('https://', HTTPAdapter(max_retries=retries))
 cache = CacheManager()
 claude_api = ClaudeAPI()
 news_api = NewsAPI()
-
-# Встроенная CSRF защита
-@app.before_request
-def csrf_protect():
-    if request.method == "POST":
-        token = session.pop('_csrf_token', None)
-        if not token or token != request.form.get('_csrf_token'):
-            return jsonify({'status': 'error', 'message': 'CSRF token missing or invalid'}), 403
-
-@app.after_request
-def add_csrf_token(response):
-    if request.endpoint in app.view_functions and request.method == "GET":
-        response.set_cookie('_csrf_token', app.config['SECRET_KEY'])
-    return response
 
 # Инициализация клиента Anthropic
 try:
@@ -550,7 +575,7 @@ def index():
         </script>
     </body>
     </html>
-    '''.replace('{{ csrf_token }}', csrf_token))
+    '''.replace('{{ csrf_token }}', app.config['SECRET_KEY']))
 
 @app.route('/daily-buzz')
 def get_daily_buzz():
@@ -580,7 +605,7 @@ def get_analysis_history():
     return jsonify({"history": analysis_history})
 
 @app.route('/start-analysis', methods=['POST'])
-@limiter.limit("5 per minute")
+@rate_limit(max_per_minute=5)
 def start_analysis():
     """Начинает асинхронный анализ статьи"""
     try:
@@ -598,7 +623,7 @@ def start_analysis():
             else:
                 if len(input_text) < 50:
                     raise ValueError('Content is too short for analysis')
-        except ValidationError as e:
+        except Exception as e:
             return jsonify({'status': 'error', 'message': str(e)}), 400
 
         # Запускаем асинхронную задачу
@@ -639,9 +664,9 @@ def get_task_status(task_id):
     return jsonify(response)
 
 @app.route('/analyze', methods=['POST'])
-@limiter.limit("5 per minute")
+@rate_limit(max_per_minute=5)
 def analyze_article():
-    """Анализирует статью синхронно (альтернативный вариант)"""
+    """Анализирует статью синхронно"""
     try:
         data = request.get_json()
         if not data or 'input_text' not in data:
