@@ -816,23 +816,25 @@
         // Improved fetch function with error handling
         async function fetchWithRetry(url, options = {}, retries = 3, delay = 1000) {
             try {
-                // Ensure URL starts with correct protocol
-                if (!url.startsWith('http://') && !url.startsWith('https://')) {
-                    url = 'https://' + url.split('//').pop();
+                // Ensure URL is correct
+                let fullUrl = url;
+                if (!url.startsWith('http')) {
+                    // Use relative path for API on the same domain
+                    fullUrl = window.location.origin + url;
                 }
 
                 // Add credentials if needed
                 const fetchOptions = {
                     ...options,
                     headers: {
-                        ...options.headers,
                         'Content-Type': 'application/json',
-                        'Accept': 'application/json'
+                        'Accept': 'application/json',
+                        ...options.headers
                     },
                     credentials: 'include'
                 };
 
-                const response = await fetch(url, fetchOptions);
+                const response = await fetch(fullUrl, fetchOptions);
 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
@@ -849,12 +851,12 @@
 
                 // If all attempts are exhausted, show more informative error message
                 let errorMessage = 'Failed to complete the request';
-                if (error.message.includes('net::ERR_CONNECTION_CLOSED')) {
-                    errorMessage = 'Connection to server was closed. Please check your internet connection and try again.';
+                if (error.message.includes('net::ERR_NAME_NOT_RESOLVED')) {
+                    errorMessage = 'Service unavailable. Please check your internet connection and try again.';
+                } else if (error.message.includes('net::ERR_CONNECTION_CLOSED')) {
+                    errorMessage = 'Connection to server was closed. The service may be temporarily unavailable.';
                 } else if (error.message.includes('Failed to fetch')) {
-                    errorMessage = 'Unable to connect to the server. The service may be temporarily unavailable.';
-                } else if (error.message.includes('HTTP error')) {
-                    errorMessage = error.message;
+                    errorMessage = 'Unable to connect to the server. Please try again later.';
                 }
 
                 throw new Error(errorMessage);
@@ -1269,13 +1271,7 @@
                             </div>
                         `;
 
-                        // Ensure URL is correct
-                        let endpoint = '/analyze';
-                        if (!inputText.startsWith('http')) {
-                            endpoint = 'https://indexing.media/analyze';
-                        }
-
-                        const response = await fetchWithRetry(endpoint, {
+                        const response = await fetchWithRetry('/analyze', {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
