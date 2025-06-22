@@ -4,10 +4,9 @@ import logging
 from pathlib import Path
 import re
 import json
-import requests  # Добавлен импорт requests
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
-from flask import Flask, request, jsonify, render_template_string, send_from_directory, session
+from flask import Flask, request, jsonify, render_template, send_from_directory, session
 from flask_cors import CORS
 import anthropic
 from newspaper import Article, Config
@@ -41,7 +40,7 @@ if os.getenv('SENTRY_DSN'):
     )
 
 # Инициализация приложения
-app = Flask(__name__, static_folder='static')
+app = Flask(__name__, static_folder='static', template_folder='templates')
 app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'your-secret-key-here')
 app.config['CELERY_BROKER_URL'] = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
 app.config['CELERY_RESULT_BACKEND'] = os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
@@ -64,7 +63,6 @@ def rate_limit(max_per_minute=60):
             client_ip = request.remote_addr
 
             # Используем локальное хранилище для хранения информации о запросах
-            # В production среде лучше использовать Redis
             if not hasattr(app, 'rate_limit_store'):
                 app.rate_limit_store = {}
 
@@ -129,12 +127,6 @@ logger = logging.getLogger(__name__)
 config = Config()
 config.browser_user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 config.request_timeout = 30
-
-# Настройка повторных попыток для запросов
-session = requests.Session()
-retries = Retry(total=3, backoff_factor=2, status_forcelist=[500, 502, 503, 504, 408, 429])
-session.mount('http://', HTTPAdapter(max_retries=retries))
-session.mount('https://', HTTPAdapter(max_retries=retries))
 
 # Инициализация компонентов
 cache = CacheManager()
@@ -243,348 +235,7 @@ def analyze_article_async(self, url_or_text: str):
 def index():
     """Главная страница приложения"""
     csrf_token = app.config['SECRET_KEY']
-    return render_template_string('''
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Media Analysis Dashboard</title>
-        <style>
-            body { font-family: Arial, sans-serif; margin: 0; padding: 0; display: flex; height: 100vh; }
-            .left-panel { width: 60%; padding: 20px; overflow-y: auto; }
-            .right-panel { width: 40%; padding: 20px; border-left: 1px solid #ddd; overflow-y: auto; }
-            .article { margin-bottom: 20px; padding: 15px; border: 1px solid #eee; border-radius: 5px; }
-            .chart-container { height: 300px; border: 1px solid #eee; margin-bottom: 20px; }
-            .analysis-form { margin-bottom: 20px; }
-            textarea { width: 100%; height: 100px; margin-bottom: 10px; }
-            button {
-                padding: 10px 15px;
-                background: #4CAF50;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-            }
-            button:hover { background: #45a049; }
-            button:disabled {
-                background: #cccccc;
-                cursor: not-allowed;
-            }
-            .credibility-high { color: green; }
-            .credibility-medium { color: orange; }
-            .credibility-low { color: red; }
-            .navbar {
-                background-color: #333;
-                color: white;
-                padding: 10px 20px;
-                display: flex;
-                justify-content: space-between;
-            }
-            .navbar a {
-                color: white;
-                text-decoration: none;
-                margin-left: 15px;
-            }
-            .navbar a:hover { text-decoration: underline; }
-            .footer {
-                background-color: #333;
-                color: white;
-                text-align: center;
-                padding: 10px;
-                position: fixed;
-                bottom: 0;
-                width: 100%;
-            }
-            #progress-container {
-                display: none;
-                margin: 10px 0;
-                padding: 10px;
-                background: #f0f0f0;
-                border-radius: 5px;
-            }
-            #progress-bar {
-                width: 100%;
-                background-color: #ddd;
-                border-radius: 5px;
-            }
-            #progress {
-                width: 0%;
-                height: 20px;
-                background-color: #4CAF50;
-                border-radius: 5px;
-                text-align: center;
-                line-height: 20px;
-                color: white;
-            }
-            .status-message {
-                margin-top: 5px;
-                font-size: 14px;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="navbar">
-            <div>
-                <a href="/">Media Analysis</a>
-            </div>
-            <div>
-                <a href="/feedback">Feedback</a>
-                <a href="/privacy">Privacy</a>
-                <a href="/terms">Terms</a>
-            </div>
-        </div>
-
-        <div class="left-panel">
-            <h1>Daily Buzz</h1>
-            <div class="article" id="daily-buzz">
-                <h2>Loading...</h2>
-                <p>Loading daily buzz article...</p>
-            </div>
-            <h2>Analysis History</h2>
-            <div id="analysis-history">
-                <p>Loading analysis history...</p>
-            </div>
-        </div>
-
-        <div class="right-panel">
-            <div class="analysis-form">
-                <h2>Analyze Article</h2>
-                <form id="analysis-form" method="post">
-                    <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
-                    <textarea id="article-input" name="article-input" placeholder="Enter article URL or text..."></textarea>
-                    <button type="submit" onclick="startAnalysis(event)" id="analyze-btn">Analyze</button>
-                </form>
-                <div id="progress-container">
-                    <div id="progress-bar">
-                        <div id="progress">0%</div>
-                    </div>
-                    <div class="status-message" id="status-message">Starting analysis...</div>
-                </div>
-            </div>
-            <div id="analysis-results">
-                <p>Analysis results will appear here...</p>
-            </div>
-            <h2>Source Credibility Chart</h2>
-            <div class="chart-container" id="credibility-chart">
-                <p>Loading chart...</p>
-            </div>
-            <h2>Similar Articles</h2>
-            <div id="similar-articles">
-                <p>Similar articles will appear here...</p>
-            </div>
-        </div>
-
-        <div class="footer">
-            <p>&copy; 2023 Media Analysis. All rights reserved.</p>
-        </div>
-
-        <script>
-            // Загрузка данных при старте
-            document.addEventListener('DOMContentLoaded', function() {
-                loadDailyBuzz();
-                loadAnalysisHistory();
-                loadCredibilityChart();
-            });
-
-            // Функция для анализа статьи
-            function startAnalysis(event) {
-                event.preventDefault();
-                const input = document.getElementById('article-input').value.trim();
-                const analyzeBtn = document.getElementById('analyze-btn');
-                const progressContainer = document.getElementById('progress-container');
-                const progressBar = document.getElementById('progress-bar');
-                const progress = document.getElementById('progress');
-                const statusMessage = document.getElementById('status-message');
-                const resultsDiv = document.getElementById('analysis-results');
-
-                if (!input) {
-                    alert('Please enter article URL or text');
-                    return false;
-                }
-
-                // Отключаем кнопку и показываем прогресс
-                analyzeBtn.disabled = true;
-                analyzeBtn.textContent = 'Analyzing...';
-                progressContainer.style.display = 'block';
-                progress.style.width = '0%';
-                progress.textContent = '0%';
-                statusMessage.textContent = 'Starting analysis...';
-
-                // Получаем task_id из сервера
-                fetch('/start-analysis', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ input_text: input })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'error') {
-                        throw new Error(data.message);
-                    }
-
-                    const taskId = data.task_id;
-                    checkTaskStatus(taskId);
-                })
-                .catch(error => {
-                    console.error('Error starting analysis:', error);
-                    resultsDiv.innerHTML = `<p>Error: ${error.message}</p>`;
-                    resetAnalysisUI();
-                });
-                return false;
-            }
-
-            // Проверка статуса задачи
-            function checkTaskStatus(taskId) {
-                fetch(`/task-status/${taskId}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.status === 'PROGRESS') {
-                            updateProgress(data.progress, data.message);
-                            setTimeout(() => checkTaskStatus(taskId), 1000);
-                        } else if (data.status === 'SUCCESS') {
-                            displayResults(data.result);
-                        } else {
-                            throw new Error(data.message || 'Analysis failed');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error checking task status:', error);
-                        resultsDiv.innerHTML = `<p>Error: ${error.message}</p>`;
-                        resetAnalysisUI();
-                    });
-            }
-
-            // Обновление прогресса
-            function updateProgress(progressValue, message) {
-                const progress = document.getElementById('progress');
-                const statusMessage = document.getElementById('status-message');
-
-                progress.style.width = `${progressValue}%`;
-                progress.textContent = `${progressValue}%`;
-                statusMessage.textContent = message;
-            }
-
-            // Отображение результатов
-            function displayResults(result) {
-                const resultsDiv = document.getElementById('analysis-results');
-                const article = result.article;
-
-                resultsDiv.innerHTML = `
-                    <div class="article">
-                        <h2>${article.title}</h2>
-                        <p><strong>Source:</strong> ${article.source}</p>
-                        <p>${article.short_summary}</p>
-                        <p><strong>Credibility:</strong> <span class="credibility-${article.credibility_level.toLowerCase()}">${article.credibility_level}</span></p>
-                        <h3>Analysis:</h3>
-                        <p><strong>Topics:</strong> ${article.analysis.topics.map(t => t.name || t).join(', ')}</p>
-                    </div>
-                `;
-
-                // Загрузка похожих статей
-                if (result.similar_articles && result.similar_articles.length > 0) {
-                    const similarDiv = document.getElementById('similar-articles');
-                    similarDiv.innerHTML = result.similar_articles.map(article => `
-                        <div class="article">
-                            <h3><a href="${article.url}" target="_blank">${article.title}</a></h3>
-                            <p><strong>Source:</strong> ${article.source}</p>
-                            <p>${article.summary}</p>
-                            <p><strong>Credibility:</strong> <span class="credibility-${article.credibility.toLowerCase()}">${article.credibility}</span></p>
-                        </div>
-                    `).join('');
-                }
-
-                resetAnalysisUI();
-            }
-
-            // Сброс UI анализа
-            function resetAnalysisUI() {
-                const analyzeBtn = document.getElementById('analyze-btn');
-                const progressContainer = document.getElementById('progress-container');
-
-                analyzeBtn.disabled = false;
-                analyzeBtn.textContent = 'Analyze';
-                progressContainer.style.display = 'none';
-            }
-
-            // Загрузка статьи дня
-            function loadDailyBuzz() {
-                fetch('/daily-buzz')
-                    .then(response => response.json())
-                    .then(data => {
-                        const buzz = data.article;
-                        const articleDiv = document.getElementById('daily-buzz');
-                        articleDiv.innerHTML = `
-                            <h2>${buzz.title}</h2>
-                            <p><strong>Source:</strong> ${buzz.source}</p>
-                            <p>${buzz.short_summary}</p>
-                            <h3>Analysis:</h3>
-                            <p><strong>Credibility:</strong> <span class="credibility-${buzz.analysis.credibility_score.score >= 0.8 ? 'high' : buzz.analysis.credibility_score.score >= 0.6 ? 'medium' : 'low'}">
-                                ${buzz.analysis.credibility_score.score >= 0.8 ? 'High' : buzz.analysis.credibility_score.score >= 0.6 ? 'Medium' : 'Low'}
-                            </span></p>
-                            <p><strong>Topics:</strong> ${buzz.analysis.topics.join(', ')}</p>
-                        `;
-                    })
-                    .catch(error => {
-                        console.error('Error loading daily buzz:', error);
-                        document.getElementById('daily-buzz').innerHTML = '<p>Failed to load daily buzz article</p>';
-                    });
-            }
-
-            // Загрузка истории анализа
-            function loadAnalysisHistory() {
-                fetch('/analysis-history')
-                    .then(response => response.json())
-                    .then(data => {
-                        const historyDiv = document.getElementById('analysis-history');
-                        if (data.history && data.history.length > 0) {
-                            historyDiv.innerHTML = data.history.map(article => `
-                                <div class="article">
-                                    <h3><a href="${article.url}" target="_blank">${article.title}</a></h3>
-                                    <p><strong>Source:</strong> ${article.source}</p>
-                                    <p>${article.summary}</p>
-                                    <p><strong>Credibility:</strong> <span class="credibility-${article.credibility.toLowerCase()}">${article.credibility}</span></p>
-                                </div>
-                            `).join('');
-                        } else {
-                            historyDiv.innerHTML = '<p>No analysis history available</p>';
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error loading analysis history:', error);
-                        document.getElementById('analysis-history').innerHTML = '<p>Failed to load analysis history</p>';
-                    });
-            }
-
-            // Загрузка графика достоверности
-            function loadCredibilityChart() {
-                fetch('/source-credibility-chart')
-                    .then(response => response.json())
-                    .then(data => {
-                        const chartDiv = document.getElementById('credibility-chart');
-                        chartDiv.innerHTML = `
-                            <h3>Source Credibility Scores</h3>
-                            <ul>
-                                ${data.sources.map((source, index) => `
-                                    <li>
-                                        ${source}: ${data.credibility_scores[index]}
-                                        <span class="credibility-${data.credibility_scores[index] >= 0.8 ? 'high' : data.credibility_scores[index] >= 0.6 ? 'medium' : 'low'}">
-                                            ${data.credibility_scores[index] >= 0.8 ? 'High' : data.credibility_scores[index] >= 0.6 ? 'Medium' : 'Low'}
-                                        </span>
-                                    </li>
-                                `).join('')}
-                            </ul>
-                        `;
-                    })
-                    .catch(error => {
-                        console.error('Error loading credibility chart:', error);
-                        document.getElementById('credibility-chart').innerHTML = '<p>Failed to load credibility chart</p>';
-                    });
-            }
-        </script>
-    </body>
-    </html>
-    '''.replace('{{ csrf_token }}', csrf_token))
+    return render_template('index.html', csrf_token=csrf_token)
 
 @app.route('/daily-buzz')
 def get_daily_buzz():
@@ -771,160 +422,17 @@ def analyze_article():
 def feedback():
     """Страница обратной связи"""
     csrf_token = app.config['SECRET_KEY']
-    return render_template_string('''
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Feedback</title>
-        <style>
-            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
-            .navbar { background-color: #333; color: white; padding: 10px 20px; margin-bottom: 20px; }
-            .navbar a { color: white; text-decoration: none; margin-right: 15px; }
-            .navbar a:hover { text-decoration: underline; }
-            .container { max-width: 800px; margin: 0 auto; }
-            textarea { width: 100%; height: 150px; margin-bottom: 10px; }
-            button { padding: 10px 15px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; }
-            button:hover { background: #45a049; }
-        </style>
-    </head>
-    <body>
-        <div class="navbar">
-            <a href="/">Home</a>
-            <a href="/privacy">Privacy</a>
-            <a href="/terms">Terms</a>
-        </div>
-
-        <div class="container">
-            <h1>Feedback</h1>
-            <p>We appreciate your feedback about our media analysis service.</p>
-
-            <form id="feedback-form" method="post">
-                <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
-                <div>
-                    <label for="name">Name:</label>
-                    <input type="text" id="name" name="name">
-                </div>
-                <div>
-                    <label for="email">Email:</label>
-                    <input type="email" id="email" name="email">
-                </div>
-                <div>
-                    <label for="feedback">Your Feedback:</label>
-                    <textarea id="feedback" name="feedback" required></textarea>
-                </div>
-                <button type="submit">Submit Feedback</button>
-            </form>
-        </div>
-
-        <script>
-            document.getElementById('feedback-form').addEventListener('submit', function(e) {
-                e.preventDefault();
-                alert('Thank you for your feedback!');
-                this.reset();
-            });
-        </script>
-    </body>
-    </html>
-    '''.replace('{{ csrf_token }}', csrf_token))
+    return render_template('feedback.html', csrf_token=csrf_token)
 
 @app.route('/privacy')
 def privacy():
     """Страница политики конфиденциальности"""
-    return render_template_string('''
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Privacy Policy</title>
-        <style>
-            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; line-height: 1.6; }
-            .navbar { background-color: #333; color: white; padding: 10px 20px; margin-bottom: 20px; }
-            .navbar a { color: white; text-decoration: none; margin-right: 15px; }
-            .navbar a:hover { text-decoration: underline; }
-            .container { max-width: 800px; margin: 0 auto; }
-            h1, h2 { color: #333; }
-        </style>
-    </head>
-    <body>
-        <div class="navbar">
-            <a href="/">Home</a>
-            <a href="/feedback">Feedback</a>
-            <a href="/terms">Terms</a>
-        </div>
-
-        <div class="container">
-            <h1>Privacy Policy</h1>
-
-            <h2>1. Information We Collect</h2>
-            <p>We collect information you provide directly to us, such as when you submit content for analysis.</p>
-
-            <h2>2. How We Use Your Information</h2>
-            <p>We use the information we collect to provide and improve our services, and to respond to your requests.</p>
-
-            <h2>3. Information Sharing</h2>
-            <p>We do not share your personal information with third parties except as described in this policy.</p>
-
-            <h2>4. Security</h2>
-            <p>We take reasonable measures to help protect your information from loss, theft, misuse and unauthorized access.</p>
-
-            <h2>5. Changes to This Policy</h2>
-            <p>We may update this privacy policy from time to time. We will notify you of any changes by posting the new policy on this page.</p>
-
-            <p>Last updated: June 2023</p>
-        </div>
-    </body>
-    </html>
-    ''')
+    return render_template('privacy.html')
 
 @app.route('/terms')
 def terms():
     """Страница условий использования"""
-    return render_template_string('''
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Terms of Service</title>
-        <style>
-            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; line-height: 1.6; }
-            .navbar { background-color: #333; color: white; padding: 10px 20px; margin-bottom: 20px; }
-            .navbar a { color: white; text-decoration: none; margin-right: 15px; }
-            .navbar a:hover { text-decoration: underline; }
-            .container { max-width: 800px; margin: 0 auto; }
-            h1, h2 { color: #333; }
-        </style>
-    </head>
-    <body>
-        <div class="navbar">
-            <a href="/">Home</a>
-            <a href="/feedback">Feedback</a>
-            <a href="/privacy">Privacy</a>
-        </div>
-
-        <div class="container">
-            <h1>Terms of Service</h1>
-
-            <h2>1. Acceptance of Terms</h2>
-            <p>By using our service, you agree to these Terms of Service.</p>
-
-            <h2>2. Use of Service</h2>
-            <p>You agree to use our service only for lawful purposes and in accordance with these Terms.</p>
-
-            <h2>3. Intellectual Property</h2>
-            <p>The service and its original content are owned by us and are protected by international copyright laws.</p>
-
-            <h2>4. Disclaimer</h2>
-            <p>Our service is provided "as is" without any warranties of any kind.</p>
-
-            <h2>5. Limitation of Liability</h2>
-            <p>In no event shall we be liable for any indirect, incidental, special, consequential or punitive damages.</p>
-
-            <h2>6. Changes to Terms</h2>
-            <p>We reserve the right to modify these terms at any time. We will notify you of any changes by posting the new terms on this page.</p>
-
-            <p>Last updated: June 2023</p>
-        </div>
-    </body>
-    </html>
-    ''')
+    return render_template('terms.html')
 
 @app.route('/favicon.ico')
 def favicon():
