@@ -24,7 +24,7 @@ app = Flask(__name__, static_folder='static', template_folder='templates')
 # Настройка CORS с конкретными параметрами
 cors = CORS(app, resources={
     r"/*": {
-        "origins": ["https://indexing.media", "http://localhost:*", "https://yourdomain.com"],
+        "origins": ["https://indexing.media", "http://localhost:*", "http://localhost:5000", "https://yourdomain.com"],
         "methods": ["GET", "POST", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"],
         "supports_credentials": True,
@@ -54,16 +54,19 @@ retries = Retry(
 session.mount('http://', HTTPAdapter(max_retries=retries))
 session.mount('https://', HTTPAdapter(max_retries=retries))
 
-# Функция для проверки DNS без использования dnspython
+# Функция для проверки DNS
 def check_dns_resolution(domain):
-    """Проверка разрешения DNS без использования dnspython"""
+    """Проверка разрешения DNS с таймаутом"""
     try:
-        # Проверка A записи
+        socket.setdefaulttimeout(5)  # Устанавливаем таймаут для DNS запросов
         socket.gethostbyname(domain)
         logger.info(f"DNS resolution successful for {domain}")
         return True
     except socket.gaierror as e:
         logger.error(f"DNS resolution failed for {domain}: {str(e)}")
+        return False
+    except socket.timeout:
+        logger.error(f"DNS resolution timeout for {domain}")
         return False
     except Exception as e:
         logger.error(f"Unexpected error during DNS resolution for {domain}: {str(e)}")
@@ -234,7 +237,7 @@ def analysis_history():
 
 @app.route('/analyze', methods=['POST'])
 def analyze_article():
-    """Улучшенный маршрут для анализа статьи с проверкой DNS"""
+    """Улучшенный маршрут для анализа статьи с проверкой DNS и обработкой ошибок"""
     try:
         # Проверка доступности API перед обработкой
         if anthropic_client is None:
@@ -243,13 +246,19 @@ def analyze_article():
                 'message': 'Analysis service is temporarily unavailable'
             }), 503
 
+        # Проверка данных запроса
+        if not request.is_json:
+            return jsonify({'status': 'error', 'message': 'Request must be JSON'}), 400
+
         data = request.get_json()
-        if not data or 'input_text' not in data:
+        if 'input_text' not in data:
             return jsonify({'status': 'error', 'message': 'Input text is required'}), 400
 
         input_text = data['input_text'].strip()
+        if not input_text:
+            return jsonify({'status': 'error', 'message': 'Input text cannot be empty'}), 400
 
-        # Если это URL, проверяем DNS
+        # Обработка URL или текста
         if input_text.startswith(('http://', 'https://')):
             try:
                 parsed = urlparse(input_text)
@@ -265,8 +274,6 @@ def analyze_article():
                     'message': f'Invalid URL or DNS resolution failed: {str(e)}'
                 }), 400
 
-        # Обработка URL или текста
-        if input_text.startswith(('http://', 'https://')):
             content, source, title, error = extract_text_from_url(input_text)
             if error:
                 return jsonify({
@@ -302,7 +309,13 @@ def analyze_article():
                         'message': 'Failed to analyze article after multiple attempts'
                     }), 500
 
-        credibility_level = determine_credibility_level(analysis.get('index_of_credibility', 0.6))
+        if not analysis:
+            return jsonify({
+                'status': 'error',
+                'message': 'Analysis failed to produce valid results'
+            }), 500
+
+        credibility_level = determine_credibility_level(analysis.get('credibility_score', {}).get('score', 0.6))
 
         # Сохранение в базу данных с повторными попытками
         max_db_retries = 3
@@ -344,18 +357,7 @@ def analyze_article():
                 'url': input_text if input_text.startswith(('http://', 'https://')) else None,
                 'short_summary': content[:200] + '...' if len(content) > 200 else content,
                 'analysis': analysis,
-                'credibility_level': credibility_level,
-                'detailed_analysis': {
-                    'credibility_score': analysis.get('credibility_score', 0.6),
-                    'topics': analysis.get('topics', []),
-                    'summary': analysis.get('summary', ''),
-                    'perspectives': analysis.get('perspectives', {}),
-                    'sentiment': analysis.get('sentiment', 'neutral'),
-                    'bias': analysis.get('bias', 'medium'),
-                    'key_arguments': analysis.get('key_arguments', []),
-                    'mentioned_facts': analysis.get('mentioned_facts', []),
-                    'potential_biases': analysis.get('potential_biases_identified', [])
-                }
+                'credibility_level': credibility_level
             },
             'similar_articles': similar_articles
         })
@@ -433,8 +435,9 @@ def extract_text_from_url(url: str) -> tuple:
         return None, parsed.netloc.replace('www.', ''), "Error occurred", str(e)
 
 def analyze_with_claude(content: str, source: str) -> dict:
-    """Анализ статьи с помощью Claude с обработкой ошибок"""
+    """Улучшенная функция анализа статьи с интегрированным промптом и обработкой ошибок"""
     try:
+        # Проверка доступности API перед анализом
         if not anthropic_client:
             raise Exception("Anthropic client is not initialized")
 
@@ -442,44 +445,122 @@ def analyze_with_claude(content: str, source: str) -> dict:
         if not check_dns_resolution('api.anthropic.com'):
             raise ConnectionError("Failed to resolve Anthropic API domain")
 
-        prompt = f"""Analyze this news article and provide a comprehensive JSON response with:
-1. Credibility score (0-1) with explanation
-2. Key topics (max 5) with brief descriptions
-3. Detailed summary (3-5 sentences)
-4. Main perspectives (Western, Iranian, Israeli, Neutral - 2-3 sentences each)
-5. Sentiment analysis (positive/neutral/negative) with explanation
-6. Bias detection (low/medium/high) with explanation
-7. Key arguments presented (3-5 main points)
-8. Mentioned facts (3-5 key facts)
-9. Potential biases identified (list with explanations)
-10. Author's purpose (1-2 sentences)
+        # Интегрированный промпт для анализа
+        prompt = f"""Analyze the following news article and provide a comprehensive JSON response with the following structure:
+
+1. Analysis Metadata:
+   - Analysis timestamp: {datetime.now().isoformat()}
+   - Source: {source}
+   - Content length: {len(content)} characters
+
+2. Credibility Assessment:
+   - Credibility score (0-1) with detailed explanation
+   - Confidence level in the score (low/medium/high)
+   - Potential credibility issues identified
+
+3. Content Analysis:
+   - Key topics (max 5) with brief descriptions
+   - Detailed summary (3-5 sentences)
+   - Main perspectives (Western, Iranian, Israeli, Neutral - 2-3 sentences each with credibility assessment)
+   - Sentiment analysis (positive/neutral/negative) with explanation and confidence score
+   - Bias detection (low/medium/high) with detailed explanation
+
+4. Structural Analysis:
+   - Key arguments presented (3-5 main points with supporting evidence)
+   - Mentioned facts (3-5 key facts with verification status)
+   - Potential biases identified (list with explanations and severity assessment)
+   - Author's purpose and potential agenda (1-2 sentences with supporting evidence)
+
+5. Technical Assessment:
+   - Content structure analysis
+   - Language and style assessment
+   - Potential manipulation techniques detected
+   - Cross-referencing with known reliable sources
+
+6. Recommendations:
+   - Suggested improvements for credibility
+   - Potential fact-checking requirements
+   - Additional perspectives that could be included
 
 Article content (first 4000 characters):
-{content[:4000]}"""
+{content[:4000]}
 
-        response = anthropic_client.messages.create(
-            model=os.getenv('ANTHROPIC_MODEL', 'claude-3-opus-20240229'),
-            max_tokens=2000,
-            temperature=0.3,
-            messages=[{"role": "user", "content": prompt}]
-        )
+Important notes:
+- Provide all scores as numbers between 0 and 1 where applicable
+- For each assessment, include confidence levels
+- Flag any potential issues that might affect the analysis
+- Include timestamps for all assessments
+- Structure the response as valid JSON that can be directly parsed
+- If any analysis cannot be completed, provide null values with explanations"""
 
-        response_text = response.content[0].text.strip()
+        # Улучшенная обработка запроса к API с повторными попытками
+        max_retries = 3
+        last_error = None
 
-        try:
-            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
-            if json_match:
-                return json.loads(json_match.group(0))
-            return json.loads(response_text)
-        except json.JSONDecodeError:
-            logger.error("Failed to parse JSON from Claude response")
-            return get_default_analysis()
+        for attempt in range(max_retries):
+            try:
+                response = anthropic_client.messages.create(
+                    model=os.getenv('ANTHROPIC_MODEL', 'claude-3-opus-20240229'),
+                    max_tokens=2000,
+                    temperature=0.3,
+                    messages=[{"role": "user", "content": prompt}],
+                    timeout=30  # Увеличен таймаут
+                )
+
+                response_text = response.content[0].text.strip()
+
+                # Улучшенный парсинг ответа
+                try:
+                    # Пытаемся найти JSON в ответе
+                    json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+                    if json_match:
+                        analysis = json.loads(json_match.group(0))
+
+                        # Проверяем обязательные поля
+                        required_fields = [
+                            'credibility_score',
+                            'topics',
+                            'summary',
+                            'perspectives',
+                            'sentiment',
+                            'bias'
+                        ]
+
+                        missing_fields = [field for field in required_fields if field not in analysis]
+                        if not missing_fields:
+                            return analysis
+                        else:
+                            logger.warning(f"Missing required fields in analysis: {missing_fields}")
+                            last_error = f"Missing required fields: {missing_fields}"
+
+                except json.JSONDecodeError as e:
+                    logger.error(f"Failed to parse JSON from Claude response: {str(e)}")
+                    last_error = f"JSON parsing error: {str(e)}"
+
+            except anthropic.APIError as e:
+                logger.error(f"Anthropic API error: {str(e)}")
+                last_error = f"API error: {str(e)}"
+                if attempt < max_retries - 1:
+                    time.sleep(2 ** attempt)  # Экспоненциальная задержка между попытками
+
+            except Exception as e:
+                logger.error(f"Unexpected error during analysis attempt {attempt + 1}: {str(e)}")
+                last_error = f"Unexpected error: {str(e)}"
+                if attempt < max_retries - 1:
+                    time.sleep(2 ** attempt)
+
+        # Если все попытки не удались
+        logger.error(f"All analysis attempts failed. Last error: {last_error}")
+        return get_default_analysis()
+
     except Exception as e:
-        logger.error(f"Error analyzing with Claude: {str(e)}", exc_info=True)
+        logger.error(f"Critical error in analyze_with_claude: {str(e)}", exc_info=True)
         return get_default_analysis()
 
 def determine_credibility_level(score: float) -> str:
     """Определение уровня достоверности"""
+    if isinstance(score, dict):
+        score = score.get('score', 0.6)
     if score >= 0.8:
         return "High"
     elif score >= 0.6:
