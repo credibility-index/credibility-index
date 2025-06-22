@@ -718,11 +718,6 @@
                             <textarea class="form-control" id="articleInput" rows="8"
                                     placeholder="Paste article URL or text content here for analysis..."></textarea>
                         </div>
-                        <div class="form-group">
-                            <label for="sourceName" class="form-label">Source Name (optional)</label>
-                            <input type="text" class="form-control" id="sourceName"
-                                    placeholder="e.g., bbc.com, reuters.com">
-                        </div>
                         <button type="submit" class="btn">
                             <i class="bi bi-search"></i> Analyze Article
                         </button>
@@ -772,7 +767,6 @@
             dailyBuzzContent: document.getElementById('dailyBuzzContent'),
             analysisForm: document.getElementById('analysisForm'),
             articleInput: document.getElementById('articleInput'),
-            sourceName: document.getElementById('sourceName'),
             analysisOutput: document.getElementById('analysisOutput'),
             similarArticles: document.getElementById('similarArticles'),
             newsFeed: document.getElementById('newsFeed'),
@@ -800,12 +794,37 @@
             toggles.forEach(item => {
                 if (item.toggle && item.content) {
                     item.toggle.addEventListener('click', () => {
-                        item.content.style.maxHeight = item.content.style.maxHeight === '0px' ? '1000px' : '0px';
+                        if (item.content.style.maxHeight) {
+                            item.content.style.maxHeight = null;
+                        } else {
+                            item.content.style.maxHeight = item.content.scrollHeight + "px";
+                        }
                         item.toggle.classList.toggle('bi-chevron-down');
                         item.toggle.classList.toggle('bi-chevron-up');
                     });
                 }
             });
+        }
+
+        // Improved fetch function with error handling
+        async function fetchWithRetry(url, options = {}, retries = 3, delay = 1000) {
+            try {
+                const response = await fetch(url, options);
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+                }
+
+                return await response.json();
+            } catch (error) {
+                if (retries > 0) {
+                    console.log(`Attempt failed, retrying in ${delay}ms... (${retries} attempts left)`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    return fetchWithRetry(url, options, retries - 1, delay * 2);
+                }
+                throw error;
+            }
         }
 
         // Display analysis results
@@ -985,12 +1004,7 @@
         // Load source credibility chart
         async function loadSourceCredibilityChart() {
             try {
-                const response = await fetch('/source-credibility-chart');
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-                }
-                const data = await response.json();
+                const data = await fetchWithRetry('/source-credibility-chart');
                 if (data.status === 'success' && data.data) {
                     renderSourceCredibilityChart(data.data);
                 } else {
@@ -1078,12 +1092,7 @@
         // Load news feed from analyzed articles
         async function loadNewsFeed() {
             try {
-                const response = await fetch('/analysis-history');
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-                }
-                const data = await response.json();
+                const data = await fetchWithRetry('/analysis-history');
                 if (data.status === 'success' && data.history && data.history.length > 0) {
                     renderNewsFeed(data.history);
                 } else {
@@ -1129,24 +1138,26 @@
 
         // Show error message
         function showError(elementId, message) {
+            const element = document.getElementById(elementId);
+            if (!element) return;
+
             const errorHtml = `
                 <div class="error-message">
                     <i class="bi bi-exclamation-triangle-fill"></i>
                     <span>${message}</span>
+                    <button onclick="this.parentElement.style.display='none'" class="error-dismiss">
+                        <i class="bi bi-x"></i>
+                    </button>
                 </div>
             `;
-            document.getElementById(elementId).innerHTML = errorHtml;
+
+            element.innerHTML = errorHtml;
         }
 
         // Load daily buzz article
         async function loadDailyBuzz() {
             try {
-                const response = await fetch('/daily-buzz');
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-                }
-                const data = await response.json();
+                const data = await fetchWithRetry('/daily-buzz');
                 if (data.status === 'success' && data.article) {
                     displayDailyBuzz(data.article);
                     if (data.article.analysis) {
@@ -1205,7 +1216,6 @@
                 elements.analysisForm.addEventListener('submit', async function(e) {
                     e.preventDefault();
                     const inputText = elements.articleInput.value.trim();
-                    const sourceName = elements.sourceName.value.trim();
 
                     if (!inputText) {
                         showError('analysisOutput', 'Please enter article text or URL for analysis');
@@ -1225,32 +1235,25 @@
                             </div>
                         `;
 
-                        const response = await fetch('/analyze', {
+                        const response = await fetchWithRetry('/analyze', {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
                             },
                             body: JSON.stringify({
-                                input_text: inputText,
-                                source_name_manual: sourceName
+                                input_text: inputText
                             })
                         });
 
-                        if (!response.ok) {
-                            const errorData = await response.json().catch(() => ({}));
-                            throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-                        }
-
-                        const data = await response.json();
-                        if (data.status === 'success') {
-                            displayAnalysisResults(data);
-                            if (data.similar_articles) {
-                                loadSimilarArticles(data.similar_articles);
+                        if (response.status === 'success') {
+                            displayAnalysisResults(response);
+                            if (response.similar_articles) {
+                                loadSimilarArticles(response.similar_articles);
                             }
                             loadSourceCredibilityChart();
                             loadNewsFeed();
                         } else {
-                            throw new Error(data.message || 'Analysis failed');
+                            throw new Error(response.message || 'Analysis failed');
                         }
                     } catch (error) {
                         console.error('Analysis error:', error);
@@ -1262,4 +1265,3 @@
     </script>
 </body>
 </html>
-
