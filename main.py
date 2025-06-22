@@ -1,25 +1,91 @@
 import os
+import sys
 import logging
+from pathlib import Path
 import re
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from urllib.parse import urlparse
-from flask import Flask, request, jsonify, render_template_string, send_from_directory
+from flask import Flask, request, jsonify, render_template_string, send_from_directory, session
 from flask_cors import CORS
+from flask_wtf.csrf import CSRFProtect
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 import anthropic
 from newspaper import Article, Config
 from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-from app.claude_api import ClaudeAPI
-from app.news_api import NewsAPI  # Импортируем NewsAPI
+from werkzeug.middleware.proxy_fix import ProxyFix
+import redis
+import sentry_sdk
+from sentry_sdk.integrations.flask import FlaskIntegration
+from celery import Celery
+from pydantic import BaseModel, ValidationError, HttpUrl, constr
+from typing import Optional, Dict, Any, List
+
+# Добавляем текущую директорию в путь Python
+sys.path.append(str(Path(__file__).parent))
+
+# Импортируем наши модули
+from claude_api import ClaudeAPI
+from news_api import NewsAPI
+from cache import CacheManager
+
+# Инициализация Sentry
+if os.getenv('SENTRY_DSN'):
+    sentry_sdk.init(
+        dsn=os.getenv('SENTRY_DSN'),
+        integrations=[FlaskIntegration()],
+        traces_sample_rate=1.0,
+        environment=os.getenv('FLASK_ENV', 'development')
+    )
+
+# Модели валидации с Pydantic
+class ArticleInput(BaseModel):
+    input_text: str
+
+class URLInput(BaseModel):
+    url: HttpUrl
 
 # Инициализация приложения
 app = Flask(__name__, static_folder='static')
-CORS(app, resources={r"/*": {"origins": "*"}})
+app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'your-secret-key-here')
+app.config['CELERY_BROKER_URL'] = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+app.config['CELERY_RESULT_BACKEND'] = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+
+# Настройка CSRF защиты
+csrf = CSRFProtect(app)
+
+# Настройка CORS
+CORS(app, resources={
+    r"/*": {
+        "origins": os.getenv('CORS_ORIGINS', '*').split(','),
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"]
+    }
+})
+
+# Настройка rate limiting
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri=os.getenv('REDIS_URL', 'memory://')
+)
+
+# Настройка для работы за обратным прокси
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
+# Инициализация Celery
+celery = Celery(app.name, broker=app.config['CELERY_BROKER_URL'])
+celery.conf.update(app.config)
 
 # Настройка логирования
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 # Конфигурация библиотеки newspaper
@@ -29,14 +95,16 @@ config.request_timeout = 30
 
 # Настройка повторных попыток для запросов
 session = requests.Session()
-retries = Retry(total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504, 408, 429])
+retries = Retry(total=3, backoff_factor=2, status_forcelist=[500, 502, 503, 504, 408, 429])
 session.mount('http://', HTTPAdapter(max_retries=retries))
 session.mount('https://', HTTPAdapter(max_retries=retries))
 
-# Инициализация API клиентов
+# Инициализация компонентов
+cache = CacheManager()
 claude_api = ClaudeAPI()
-news_api = NewsAPI()  # Инициализируем NewsAPI
+news_api = NewsAPI()
 
+# Инициализация клиента Anthropic
 try:
     anthropic_api_key = os.getenv('ANTHROPIC_API_KEY')
     if not anthropic_api_key:
@@ -71,22 +139,68 @@ source_credibility_data = {
     "credibility_scores": [0.92, 0.88, 0.75, 0.85, 0.65]
 }
 
-analysis_history = [
-    {
-        "title": "Analysis of recent Middle East developments",
-        "source": "Media Analysis",
-        "url": "https://example.com/article1",
-        "summary": "Analysis of recent events...",
-        "credibility": "High"
-    },
-    {
-        "title": "Economic impact of recent conflicts",
-        "source": "Financial Times",
-        "url": "https://example.com/article2",
-        "summary": "Economic analysis...",
-        "credibility": "Medium"
-    }
-]
+analysis_history = []
+
+# Celery задача для анализа статьи
+@celery.task(bind=True)
+def analyze_article_async(self, url_or_text: str):
+    """Асинхронная задача для анализа статьи"""
+    try:
+        # Проверяем кэш
+        cached_result = cache.get_cached_article_analysis(url_or_text)
+        if cached_result:
+            return {"status": "success", "result": cached_result, "cached": True}
+
+        # Обновляем прогресс
+        self.update_state(state='PROGRESS', meta={'progress': 10, 'message': 'Starting analysis'})
+
+        # Логика анализа
+        if url_or_text.startswith(('http://', 'https://')):
+            content, source, title, error = extract_text_from_url(url_or_text)
+            if error:
+                return {"status": "error", "message": error}
+
+            self.update_state(state='PROGRESS', meta={'progress': 30, 'message': 'Article extracted'})
+        else:
+            content = url_or_text
+            source = 'Direct Input'
+            title = 'User-provided Text'
+
+        # Анализ через Claude API
+        analysis = claude_api.analyze_article(content, source)
+        self.update_state(state='PROGRESS', meta={'progress': 70, 'message': 'Analysis completed'})
+
+        # Получаем похожие статьи
+        topics = [t['name'] if isinstance(t, dict) else t for t in analysis.get('topics', [])]
+        similar_articles = []
+
+        if topics:
+            query = ' OR '.join(topics[:3])
+            similar_articles = news_api.get_everything(query=query, page_size=5) or []
+
+        # Определяем уровень достоверности
+        credibility_level = determine_credibility_level(analysis.get('credibility_score', {}).get('score', 0.6))
+
+        # Формируем результат
+        result = {
+            'title': title,
+            'source': source,
+            'url': url_or_text if url_or_text.startswith(('http://', 'https://')) else None,
+            'short_summary': content[:200] + '...' if len(content) > 200 else content,
+            'analysis': analysis,
+            'credibility_level': credibility_level,
+            'similar_articles': similar_articles
+        }
+
+        # Кэшируем результат
+        cache.cache_article_analysis(url_or_text, result)
+
+        self.update_state(state='PROGRESS', meta={'progress': 100, 'message': 'Completed'})
+        return {"status": "success", "result": result}
+
+    except Exception as e:
+        logger.error(f"Error in async article analysis: {str(e)}", exc_info=True)
+        return {"status": "error", "message": str(e)}
 
 @app.route('/')
 def index():
@@ -104,15 +218,69 @@ def index():
             .chart-container { height: 300px; border: 1px solid #eee; margin-bottom: 20px; }
             .analysis-form { margin-bottom: 20px; }
             textarea { width: 100%; height: 100px; margin-bottom: 10px; }
-            button { padding: 10px 15px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; }
+            button {
+                padding: 10px 15px;
+                background: #4CAF50;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+            }
             button:hover { background: #45a049; }
+            button:disabled {
+                background: #cccccc;
+                cursor: not-allowed;
+            }
             .credibility-high { color: green; }
             .credibility-medium { color: orange; }
             .credibility-low { color: red; }
-            .navbar { background-color: #333; color: white; padding: 10px 20px; display: flex; justify-content: space-between; }
-            .navbar a { color: white; text-decoration: none; margin-left: 15px; }
+            .navbar {
+                background-color: #333;
+                color: white;
+                padding: 10px 20px;
+                display: flex;
+                justify-content: space-between;
+            }
+            .navbar a {
+                color: white;
+                text-decoration: none;
+                margin-left: 15px;
+            }
             .navbar a:hover { text-decoration: underline; }
-            .footer { background-color: #333; color: white; text-align: center; padding: 10px; position: fixed; bottom: 0; width: 100%; }
+            .footer {
+                background-color: #333;
+                color: white;
+                text-align: center;
+                padding: 10px;
+                position: fixed;
+                bottom: 0;
+                width: 100%;
+            }
+            #progress-container {
+                display: none;
+                margin: 10px 0;
+                padding: 10px;
+                background: #f0f0f0;
+                border-radius: 5px;
+            }
+            #progress-bar {
+                width: 100%;
+                background-color: #ddd;
+                border-radius: 5px;
+            }
+            #progress {
+                width: 0%;
+                height: 20px;
+                background-color: #4CAF50;
+                border-radius: 5px;
+                text-align: center;
+                line-height: 20px;
+                color: white;
+            }
+            .status-message {
+                margin-top: 5px;
+                font-size: 14px;
+            }
         </style>
     </head>
     <body>
@@ -143,7 +311,13 @@ def index():
             <div class="analysis-form">
                 <h2>Analyze Article</h2>
                 <textarea id="article-input" placeholder="Enter article URL or text..."></textarea>
-                <button onclick="analyzeArticle()">Analyze</button>
+                <button onclick="startAnalysis()" id="analyze-btn">Analyze</button>
+                <div id="progress-container">
+                    <div id="progress-bar">
+                        <div id="progress">0%</div>
+                    </div>
+                    <div class="status-message" id="status-message">Starting analysis...</div>
+                </div>
             </div>
             <div id="analysis-results">
                 <p>Analysis results will appear here...</p>
@@ -169,6 +343,127 @@ def index():
                 loadAnalysisHistory();
                 loadCredibilityChart();
             });
+
+            // Функция для анализа статьи
+            function startAnalysis() {
+                const input = document.getElementById('article-input').value.trim();
+                const analyzeBtn = document.getElementById('analyze-btn');
+                const progressContainer = document.getElementById('progress-container');
+                const progressBar = document.getElementById('progress-bar');
+                const progress = document.getElementById('progress');
+                const statusMessage = document.getElementById('status-message');
+                const resultsDiv = document.getElementById('analysis-results');
+
+                if (!input) {
+                    alert('Please enter article URL or text');
+                    return;
+                }
+
+                // Отключаем кнопку и показываем прогресс
+                analyzeBtn.disabled = true;
+                analyzeBtn.textContent = 'Analyzing...';
+                progressContainer.style.display = 'block';
+                progress.style.width = '0%';
+                progress.textContent = '0%';
+                statusMessage.textContent = 'Starting analysis...';
+
+                // Получаем task_id из сервера
+                fetch('/start-analysis', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({ input_text: input })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'error') {
+                        throw new Error(data.message);
+                    }
+
+                    const taskId = data.task_id;
+                    checkTaskStatus(taskId);
+                })
+                .catch(error => {
+                    console.error('Error starting analysis:', error);
+                    resultsDiv.innerHTML = `<p>Error: ${error.message}</p>`;
+                    resetAnalysisUI();
+                });
+            }
+
+            // Проверка статуса задачи
+            function checkTaskStatus(taskId) {
+                fetch(`/task-status/${taskId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'PROGRESS') {
+                            updateProgress(data.progress, data.message);
+                            setTimeout(() => checkTaskStatus(taskId), 1000);
+                        } else if (data.status === 'SUCCESS') {
+                            displayResults(data.result);
+                        } else {
+                            throw new Error(data.message || 'Analysis failed');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error checking task status:', error);
+                        resultsDiv.innerHTML = `<p>Error: ${error.message}</p>`;
+                        resetAnalysisUI();
+                    });
+            }
+
+            // Обновление прогресса
+            function updateProgress(progressValue, message) {
+                const progress = document.getElementById('progress');
+                const statusMessage = document.getElementById('status-message');
+
+                progress.style.width = `${progressValue}%`;
+                progress.textContent = `${progressValue}%`;
+                statusMessage.textContent = message;
+            }
+
+            // Отображение результатов
+            function displayResults(result) {
+                const resultsDiv = document.getElementById('analysis-results');
+                const article = result.article;
+
+                resultsDiv.innerHTML = `
+                    <div class="article">
+                        <h2>${article.title}</h2>
+                        <p><strong>Source:</strong> ${article.source}</p>
+                        <p>${article.short_summary}</p>
+                        <p><strong>Credibility:</strong> <span class="credibility-${article.credibility_level.toLowerCase()}">${article.credibility_level}</span></p>
+                        <h3>Analysis:</h3>
+                        <p><strong>Topics:</strong> ${article.analysis.topics.map(t => t.name || t).join(', ')}</p>
+                    </div>
+                `;
+
+                // Загрузка похожих статей
+                if (result.similar_articles && result.similar_articles.length > 0) {
+                    const similarDiv = document.getElementById('similar-articles');
+                    similarDiv.innerHTML = result.similar_articles.map(article => `
+                        <div class="article">
+                            <h3><a href="${article.url}" target="_blank">${article.title}</a></h3>
+                            <p><strong>Source:</strong> ${article.source}</p>
+                            <p>${article.summary}</p>
+                            <p><strong>Credibility:</strong> <span class="credibility-${article.credibility.toLowerCase()}">${article.credibility}</span></p>
+                        </div>
+                    `).join('');
+                }
+
+                resetAnalysisUI();
+            }
+
+            // Сброс UI анализа
+            function resetAnalysisUI() {
+                const analyzeBtn = document.getElementById('analyze-btn');
+                const progressContainer = document.getElementById('progress-container');
+
+                analyzeBtn.disabled = false;
+                analyzeBtn.textContent = 'Analyze';
+                progressContainer.style.display = 'none';
+            }
 
             // Загрузка статьи дня
             function loadDailyBuzz() {
@@ -244,61 +539,6 @@ def index():
                         document.getElementById('credibility-chart').innerHTML = '<p>Failed to load credibility chart</p>';
                     });
             }
-
-            // Анализ статьи
-            function analyzeArticle() {
-                const input = document.getElementById('article-input').value.trim();
-                if (!input) {
-                    alert('Please enter article URL or text');
-                    return;
-                }
-
-                const resultsDiv = document.getElementById('analysis-results');
-                resultsDiv.innerHTML = '<p>Analyzing...</p>';
-
-                fetch('/analyze', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ input_text: input })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        const article = data.article;
-                        resultsDiv.innerHTML = `
-                            <div class="article">
-                                <h2>${article.title}</h2>
-                                <p><strong>Source:</strong> ${article.source}</p>
-                                <p>${article.short_summary}</p>
-                                <p><strong>Credibility:</strong> <span class="credibility-${article.credibility_level.toLowerCase()}">${article.credibility_level}</span></p>
-                                <h3>Analysis:</h3>
-                                <p><strong>Topics:</strong> ${article.analysis.topics.map(t => t.name || t).join(', ')}</p>
-                            </div>
-                        `;
-
-                        // Загрузка похожих статей
-                        if (data.similar_articles && data.similar_articles.length > 0) {
-                            const similarDiv = document.getElementById('similar-articles');
-                            similarDiv.innerHTML = data.similar_articles.map(article => `
-                                <div class="article">
-                                    <h3><a href="${article.url}" target="_blank">${article.title}</a></h3>
-                                    <p><strong>Source:</strong> ${article.source}</p>
-                                    <p>${article.summary}</p>
-                                    <p><strong>Credibility:</strong> <span class="credibility-${article.credibility.toLowerCase()}">${article.credibility}</span></p>
-                                </div>
-                            `).join('');
-                        }
-                    } else {
-                        resultsDiv.innerHTML = `<p>Error: ${data.message}</p>`;
-                    }
-                })
-                .catch(error => {
-                    console.error('Error analyzing article:', error);
-                    resultsDiv.innerHTML = '<p>Failed to analyze article</p>';
-                });
-            }
         </script>
     </body>
     </html>
@@ -308,8 +548,14 @@ def index():
 def get_daily_buzz():
     """Возвращает статью дня"""
     try:
-        # Используем Claude API для получения buzz-анализа
+        # Проверяем кэш
+        cached_buzz = cache.get_cached_buzz_analysis()
+        if cached_buzz:
+            return jsonify({"article": cached_buzz})
+
+        # Получаем новый анализ
         buzz_analysis = claude_api.get_buzz_analysis()
+        cache.cache_buzz_analysis(buzz_analysis)
         return jsonify({"article": buzz_analysis})
     except Exception as e:
         logger.error(f"Error getting daily buzz: {str(e)}")
@@ -325,9 +571,11 @@ def get_analysis_history():
     """Возвращает историю анализов"""
     return jsonify({"history": analysis_history})
 
-@app.route('/analyze', methods=['POST'])
-def analyze_article():
-    """Анализирует статью"""
+@app.route('/start-analysis', methods=['POST'])
+@csrf.exempt
+@limiter.limit("5 per minute")
+def start_analysis():
+    """Начинает асинхронный анализ статьи"""
     try:
         data = request.get_json()
         if not data or 'input_text' not in data:
@@ -335,8 +583,86 @@ def analyze_article():
 
         input_text = data['input_text'].strip()
 
+        # Валидация входных данных
+        try:
+            if input_text.startswith(('http://', 'https://')):
+                URLInput(url=input_text)
+            else:
+                if len(input_text) < 50:
+                    raise ValueError('Content is too short for analysis')
+        except ValidationError as e:
+            return jsonify({'status': 'error', 'message': str(e)}), 400
+
+        # Запускаем асинхронную задачу
+        task = analyze_article_async.delay(input_text)
+        return jsonify({'status': 'started', 'task_id': task.id})
+
+    except Exception as e:
+        logger.error(f"Error starting analysis: {str(e)}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/task-status/<task_id>')
+def get_task_status(task_id):
+    """Проверяет статус асинхронной задачи"""
+    task = analyze_article_async.AsyncResult(task_id)
+
+    if task.state == 'PENDING':
+        response = {
+            'status': task.state,
+            'message': 'Task not yet started'
+        }
+    elif task.state == 'PROGRESS':
+        response = {
+            'status': task.state,
+            'progress': task.info.get('progress', 0),
+            'message': task.info.get('message', '')
+        }
+    elif task.state == 'SUCCESS':
+        response = {
+            'status': task.state,
+            'result': task.result
+        }
+    else:
+        response = {
+            'status': task.state,
+            'message': str(task.info) if task.info else 'Task failed'
+        }
+
+    return jsonify(response)
+
+@app.route('/analyze', methods=['POST'])
+@csrf.exempt
+@limiter.limit("5 per minute")
+def analyze_article():
+    """Анализирует статью синхронно (альтернативный вариант)"""
+    try:
+        data = request.get_json()
+        if not data or 'input_text' not in data:
+            return jsonify({'status': 'error', 'message': 'Input text is required'}), 400
+
+        input_text = data['input_text'].strip()
+
+        # Валидация входных данных
+        try:
+            if input_text.startswith(('http://', 'https://')):
+                URLInput(url=input_text)
+            else:
+                if len(input_text) < 50:
+                    raise ValueError('Content is too short for analysis')
+        except ValidationError as e:
+            return jsonify({'status': 'error', 'message': str(e)}), 400
+
+        # Проверяем кэш
+        cached_result = cache.get_cached_article_analysis(input_text)
+        if cached_result:
+            return jsonify({
+                'status': 'success',
+                'article': cached_result['article'],
+                'similar_articles': cached_result.get('similar_articles', [])
+            })
+
+        # Анализ статьи
         if input_text.startswith(('http://', 'https://')):
-            # Если это URL, сначала получаем текст статьи
             content, source, title, error = extract_text_from_url(input_text)
             if error:
                 return jsonify({
@@ -346,45 +672,35 @@ def analyze_article():
                     'title': title
                 }), 400
         else:
-            if len(input_text) < 50:
-                return jsonify({
-                    'status': 'error',
-                    'message': 'Content is too short for analysis'
-                }), 400
             content = input_text
             source = 'Direct Input'
             title = 'User-provided Text'
 
-        # Используем метод analyze_article из claude_api
+        # Анализ через Claude API
         analysis = claude_api.analyze_article(content, source)
+        credibility_level = determine_credibility_level(analysis.get('credibility_score', {}).get('score', 0.6))
 
-        # Получаем похожие статьи через NewsAPI
+        # Получаем похожие статьи
         topics = [t['name'] if isinstance(t, dict) else t for t in analysis.get('topics', [])]
         similar_articles = []
 
         if topics:
-            # Ищем статьи по темам
-            query = ' OR '.join(topics[:3])  # Берем первые 3 темы
-            similar_articles = news_api.get_everything(
-                query=query,
-                page_size=5,
-                sort_by='publishedAt'
-            ) or []
+            query = ' OR '.join(topics[:3])
+            similar_articles = news_api.get_everything(query=query, page_size=5) or []
 
-            # Фильтруем и форматируем статьи
-            similar_articles = [
-                {
-                    'title': article['title'],
-                    'source': article['source']['name'],
-                    'url': article['url'],
-                    'summary': article['description'],
-                    'credibility': determine_credibility_level_from_source(article['source']['name'])
-                }
-                for article in similar_articles
-                if article['url'] != input_text  # Исключаем оригинальную статью
-            ]
+        # Формируем результат
+        result = {
+            'title': title,
+            'source': source,
+            'url': input_text if input_text.startswith(('http://', 'https://')) else None,
+            'short_summary': content[:200] + '...' if len(content) > 200 else content,
+            'analysis': analysis,
+            'credibility_level': credibility_level,
+            'similar_articles': similar_articles
+        }
 
-        credibility_level = determine_credibility_level(analysis.get('credibility_score', {}).get('score', 0.6))
+        # Кэшируем результат
+        cache.cache_article_analysis(input_text, result)
 
         # Сохраняем в историю
         analysis_history.insert(0, {
@@ -398,15 +714,7 @@ def analyze_article():
 
         return jsonify({
             'status': 'success',
-            'article': {
-                'title': title,
-                'source': source,
-                'url': input_text if input_text.startswith(('http://', 'https://')) else None,
-                'short_summary': content[:200] + '...' if len(content) > 200 else content,
-                'analysis': analysis,
-                'credibility_level': credibility_level
-            },
-            'similar_articles': similar_articles
+            'article': result
         })
 
     except Exception as e:
@@ -416,98 +724,6 @@ def analyze_article():
             'message': 'An unexpected error occurred during analysis',
             'details': str(e)
         }), 500
-
-def determine_credibility_level_from_source(source_name: str) -> str:
-    """Определяет уровень достоверности на основе источника"""
-    source_name = source_name.lower()
-
-    # Список надежных источников
-    high_credibility_sources = [
-        'bbc', 'reuters', 'associated press', 'the new york times',
-        'the guardian', 'the wall street journal', 'bloomberg'
-    ]
-
-    medium_credibility_sources = [
-        'cnn', 'fox news', 'usa today', 'the washington post',
-        'npr', 'al jazeera', 'the independent'
-    ]
-
-    if any(source in source_name for source in high_credibility_sources):
-        return "High"
-    elif any(source in source_name for source in medium_credibility_sources):
-        return "Medium"
-    else:
-        return "Low"
-
-def extract_text_from_url(url: str) -> tuple:
-    """Извлекает текст из URL"""
-    try:
-        parsed = urlparse(url)
-        if not all([parsed.scheme, parsed.netloc]):
-            return None, None, None, "Invalid URL format"
-
-        clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
-
-        if any(domain in parsed.netloc for domain in ['youtube.com', 'vimeo.com', 'twitch.tv']):
-            return None, parsed.netloc.replace('www.', ''), "Video content detected", None
-
-        try:
-            article = Article(clean_url, config=config)
-            article.download()
-            article.parse()
-
-            if article.text and len(article.text.strip()) >= 100:
-                return (article.text.strip(),
-                        parsed.netloc.replace('www.', ''),
-                        article.title.strip() if article.title else "No title available",
-                        None)
-        except Exception as e:
-            logger.warning(f"Newspaper failed to process {url}: {str(e)}")
-
-        try:
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            }
-
-            response = session.get(clean_url, headers=headers, timeout=15)
-            response.raise_for_status()
-
-            soup = BeautifulSoup(response.text, 'html.parser')
-
-            for element in soup(['script', 'style', 'noscript', 'iframe', 'svg', 'nav', 'footer', 'header']):
-                element.decompose()
-
-            main_content = soup.find('article') or soup.find('div', {'class': re.compile('article|content|main')})
-
-            if main_content:
-                text = ' '.join([p.get_text() for p in main_content.find_all('p')])
-                if len(text.strip()) >= 100:
-                    return (text.strip(),
-                            parsed.netloc.replace('www.', ''),
-                            soup.title.string.strip() if soup.title else "No title available",
-                            None)
-
-            return None, parsed.netloc.replace('www.', ''), "Failed to extract content", "Content extraction failed"
-
-        except Exception as e:
-            logger.error(f"Alternative extraction failed for {url}: {str(e)}")
-            return None, parsed.netloc.replace('www.', ''), "Error occurred", str(e)
-
-    except Exception as e:
-        logger.error(f"Unexpected error extracting article from {url}: {str(e)}")
-        return None, parsed.netloc.replace('www.', ''), "Error occurred", str(e)
-
-def determine_credibility_level(score: float) -> str:
-    """Определяет уровень достоверности"""
-    if isinstance(score, dict):
-        score = score.get('score', 0.6)
-    if score >= 0.8:
-        return "High"
-    elif score >= 0.6:
-        return "Medium"
-    else:
-        return "Low"
 
 @app.route('/feedback')
 def feedback():
@@ -670,6 +886,129 @@ def terms():
 def favicon():
     return send_from_directory(os.path.join(app.root_path, 'static'),
                                'favicon.ico', mimetype='image/vnd.microsoft.icon')
+
+def extract_text_from_url(url: str) -> tuple:
+    """Извлекает текст из URL с улучшенной обработкой ошибок"""
+    try:
+        parsed = urlparse(url)
+        if not all([parsed.scheme, parsed.netloc]):
+            return None, None, None, "Invalid URL format"
+
+        clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+
+        # Проверяем, не является ли это видео-контентом
+        if any(domain in parsed.netloc for domain in ['youtube.com', 'vimeo.com', 'twitch.tv']):
+            return None, parsed.netloc.replace('www.', ''), "Video content detected", None
+
+        # Пытаемся извлечь текст с помощью newspaper
+        try:
+            article = Article(clean_url, config=config)
+            article.download()
+            article.parse()
+
+            if article.text and len(article.text.strip()) >= 100:
+                return (article.text.strip(),
+                        parsed.netloc.replace('www.', ''),
+                        article.title.strip() if article.title else "No title available",
+                        None)
+        except Exception as e:
+            logger.warning(f"Newspaper failed to process {url}: {str(e)}")
+
+        # Альтернативный метод извлечения
+        try:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            }
+
+            response = session.get(clean_url, headers=headers, timeout=15)
+            response.raise_for_status()
+
+            soup = BeautifulSoup(response.text, 'html.parser')
+
+            # Удаляем ненужные элементы
+            for element in soup(['script', 'style', 'noscript', 'iframe', 'svg', 'nav', 'footer', 'header']):
+                element.decompose()
+
+            # Ищем основной контент
+            main_content = soup.find('article') or soup.find('div', {'class': re.compile('article|content|main')})
+
+            if main_content:
+                text = ' '.join([p.get_text() for p in main_content.find_all('p')])
+                if len(text.strip()) >= 100:
+                    return (text.strip(),
+                            parsed.netloc.replace('www.', ''),
+                            soup.title.string.strip() if soup.title else "No title available",
+                            None)
+
+            return None, parsed.netloc.replace('www.', ''), "Failed to extract content", "Content extraction failed"
+
+        except Exception as e:
+            logger.error(f"Alternative extraction failed for {url}: {str(e)}")
+            return None, parsed.netloc.replace('www.', ''), "Error occurred", str(e)
+
+    except Exception as e:
+        logger.error(f"Unexpected error extracting article from {url}: {str(e)}")
+        return None, parsed.netloc.replace('www.', ''), "Error occurred", str(e)
+
+def determine_credibility_level(score: float) -> str:
+    """Определяет уровень достоверности"""
+    if isinstance(score, dict):
+        score = score.get('score', 0.6)
+    if score >= 0.8:
+        return "High"
+    elif score >= 0.6:
+        return "Medium"
+    else:
+        return "Low"
+
+def get_similar_articles(topics: list) -> list:
+    """Возвращает похожие статьи с использованием NewsAPI"""
+    if not topics:
+        return []
+
+    try:
+        query = ' OR '.join([str(t) for t in topics[:3]])  # Берем первые 3 темы
+        articles = news_api.get_everything(
+            query=query,
+            page_size=5,
+            sort_by='publishedAt'
+        ) or []
+
+        return [
+            {
+                "title": article['title'],
+                "source": article['source']['name'],
+                "url": article['url'],
+                "summary": article['description'],
+                "credibility": determine_credibility_level_from_source(article['source']['name'])
+            }
+            for article in articles
+        ]
+    except Exception as e:
+        logger.error(f"Error getting similar articles: {str(e)}")
+        return []
+
+def determine_credibility_level_from_source(source_name: str) -> str:
+    """Определяет уровень достоверности на основе источника"""
+    source_name = source_name.lower()
+
+    high_credibility_sources = [
+        'bbc', 'reuters', 'associated press', 'the new york times',
+        'the guardian', 'the wall street journal', 'bloomberg'
+    ]
+
+    medium_credibility_sources = [
+        'cnn', 'fox news', 'usa today', 'the washington post',
+        'npr', 'al jazeera', 'the independent'
+    ]
+
+    if any(source in source_name for source in high_credibility_sources):
+        return "High"
+    elif any(source in source_name for source in medium_credibility_sources):
+        return "Medium"
+    else:
+        return "Low"
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
