@@ -2,6 +2,7 @@ import os
 import logging
 import re
 import json
+import requests
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
 from flask import Flask, request, jsonify, render_template, send_from_directory, make_response, redirect, url_for
@@ -12,6 +13,7 @@ from database import Database
 from news_api import NewsAPI
 import hashlib
 from functools import lru_cache
+from bs4 import BeautifulSoup
 
 # Инициализация приложения
 app = Flask(__name__, static_folder='static', template_folder='templates')
@@ -33,10 +35,11 @@ if not anthropic_api_key:
 anthropic_client = anthropic.Anthropic(api_key=anthropic_api_key)
 
 # Конфигурация библиотеки newspaper
-user_agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 config = Config()
 config.browser_user_agent = user_agent
 config.request_timeout = 30
+config.memoize_articles = False
 
 def generate_cache_key(*args, **kwargs):
     """Генерирует ключ кэша на основе аргументов"""
@@ -51,7 +54,6 @@ def cache_response(timeout=300):
         def wrapped(*args, **kwargs):
             cache_key = generate_cache_key(*args, **kwargs)
 
-            # Проверяем, есть ли ответ в кэше
             if cache_key in cached_responses:
                 response_data, timestamp = cached_responses[cache_key]
                 if datetime.now() - timestamp < timedelta(seconds=timeout):
@@ -59,14 +61,10 @@ def cache_response(timeout=300):
                     response.headers['X-Cache'] = 'HIT'
                     return response
 
-            # Если нет в кэше, выполняем функцию
             response = f(*args, **kwargs)
             response_data = response.get_data()
-
-            # Сохраняем ответ в кэше
             cached_responses[cache_key] = (response_data, datetime.now())
             response.headers['X-Cache'] = 'MISS'
-
             return response
 
         wrapped.__name__ = f"wrapped_{f.__name__}"
@@ -76,6 +74,11 @@ def cache_response(timeout=300):
 @app.route('/')
 def home():
     """Главная страница с анализом"""
+    return redirect(url_for('index'))
+
+@app.route('/index')
+def index():
+    """Главная страница приложения"""
     try:
         buzz_result = db.get_daily_buzz()
         if buzz_result['status'] != 'success':
@@ -116,11 +119,6 @@ def home():
     except Exception as e:
         logger.error(f"Error loading home page: {str(e)}", exc_info=True)
         return render_template('error.html', message="Failed to load home page")
-
-@app.route('/index')
-def index():
-    """Главная страница приложения"""
-    return home()
 
 @app.route('/faq')
 def faq():
@@ -196,6 +194,7 @@ def analysis_history_route():
 
 @app.route('/analyze', methods=['POST'])
 def analyze_article():
+    """Маршрут для анализа статьи"""
     try:
         data = request.get_json()
         if not data:
@@ -206,19 +205,11 @@ def analyze_article():
             return jsonify({'status': 'error', 'message': 'Input text is required'}), 400
 
         if input_text.startswith(('http://', 'https://')):
-            content, source, title = extract_text_from_url(input_text)
-            if not content:
-                error_message = "Could not extract article content"
-                if "Failed to download" in title:
-                    error_message = f"Failed to download article: {title}"
-                elif "Failed to parse" in title:
-                    error_message = "Failed to parse article content"
-                elif "Insufficient content" in title:
-                    error_message = "Insufficient content in the article"
-
+            content, source, title, error = extract_text_from_url(input_text)
+            if error:
                 return jsonify({
                     'status': 'error',
-                    'message': error_message,
+                    'message': error,
                     'source': source,
                     'title': title
                 }), 400
@@ -226,58 +217,41 @@ def analyze_article():
             content = input_text
             source = 'Direct Input'
             title = 'User-provided Text'
+            error = None
 
-        # Проверяем минимальную длину контента
         if len(content) < 50 and not input_text.startswith(('http://', 'https://')):
             return jsonify({
                 'status': 'error',
                 'message': 'Content is too short for analysis (minimum 50 characters required)'
             }), 400
 
-        try:
-            analysis = analyze_with_claude(content, source)
-            if not analysis or 'index_of_credibility' not in analysis:
-                logger.warning("Received incomplete analysis from Claude, using default values")
-                analysis = get_default_analysis()
-        except Exception as claude_error:
-            logger.error(f"Error with Claude analysis: {str(claude_error)}")
-            return jsonify({
-                'status': 'error',
-                'message': 'Error during article analysis',
-                'details': str(claude_error)
-            }), 500
+        analysis = analyze_with_claude(content, source)
+        if not analysis or 'index_of_credibility' not in analysis:
+            logger.warning("Received incomplete analysis from Claude, using default values")
+            analysis = get_default_analysis()
 
         credibility_level = determine_credibility_level(analysis.get('index_of_credibility', 0.0))
 
-        try:
-            article_id = db.save_article(
-                title=title,
-                source=source,
-                url=input_text if input_text.startswith(('http://', 'https://')) else None,
-                content=content,
-                short_summary=content[:200] + '...' if len(content) > 200 else content,
-                analysis_data=analysis,
-                credibility_level=credibility_level
-            )
-        except Exception as db_error:
-            logger.error(f"Error saving article to database: {str(db_error)}")
-            return jsonify({
-                'status': 'error',
-                'message': 'Error saving analysis results',
-                'details': str(db_error)
-            }), 500
+        article_id = db.save_article(
+            title=title,
+            source=source,
+            url=input_text if input_text.startswith(('http://', 'https://')) else None,
+            content=content,
+            short_summary=content[:200] + '...' if len(content) > 200 else content,
+            analysis_data=analysis,
+            credibility_level=credibility_level
+        )
 
         try:
             db.update_source_stats(source, credibility_level)
         except Exception as stats_error:
             logger.error(f"Error updating source stats: {str(stats_error)}")
-            # Продолжаем, несмотря на ошибку, так как это не критично
 
+        similar_articles = []
         try:
             similar_articles = get_similar_articles(analysis.get('topics', []))
         except Exception as similar_error:
             logger.error(f"Error getting similar articles: {str(similar_error)}")
-            similar_articles = []
 
         return jsonify({
             'status': 'success',
@@ -300,50 +274,13 @@ def analyze_article():
             'details': str(e)
         }), 500
 
-
-@app.route('/health')
-def health_check():
-    """Проверка состояния API"""
-    try:
-        # Проверяем соединение с базой данных
-        with db.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT 1")
-            cursor.fetchone()
-
-        # Проверяем доступность API новостей
-        test_articles = news_api.get_everything(query="test", page_size=1)
-
-        return jsonify({
-            'status': 'healthy',
-            'database': 'connected',
-            'news_api': 'available' if test_articles else 'unavailable',
-            'timestamp': datetime.now().isoformat()
-        })
-    except Exception as e:
-        return jsonify({
-            'status': 'unhealthy',
-            'error': str(e),
-            'timestamp': datetime.now().isoformat()
-        }), 500
-
-@app.route('/system-info')
-def system_info():
-    """Возвращает информацию о системе"""
-    return jsonify({
-        'system': 'Media Credibility Index',
-        'version': '1.0',
-        'status': 'operational',
-        'timestamp': datetime.now().isoformat(),
-        'environment': os.getenv('FLASK_ENV', 'development')
-    })
-
 def extract_text_from_url(url: str) -> tuple:
+    """Улучшенная функция для извлечения текста из URL"""
     try:
         parsed = urlparse(url)
         if not all([parsed.scheme, parsed.netloc]):
             logger.error(f"Invalid URL format: {url}")
-            return None, None, None
+            return None, None, None, "Invalid URL format"
 
         clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
 
@@ -351,45 +288,62 @@ def extract_text_from_url(url: str) -> tuple:
         video_domains = ['youtube.com', 'vimeo.com', 'twitch.tv']
         if any(domain in parsed.netloc for domain in video_domains):
             domain = parsed.netloc.replace('www.', '')
-            return None, domain, "Video content detected"
+            return None, domain, "Video content detected", None
 
-        # Улучшенная обработка загрузки статьи
-        article = Article(clean_url, config=config)
+        # Сначала пробуем с библиотекой newspaper
         try:
+            article = Article(clean_url, config=config)
             article.download()
-        except Exception as download_error:
-            logger.error(f"Failed to download article from {url}: {str(download_error)}")
-            return None, parsed.netloc.replace('www.', ''), "Failed to download content"
 
-        # Проверяем статус загрузки
-        if article.download_state != 200:
-            logger.error(f"Failed to download article from {url}, status code: {article.download_state}")
-            return None, parsed.netloc.replace('www.', ''), f"Failed to download, status code: {article.download_state}"
+            if article.download_state == 200:
+                article.parse()
+                if article.text and len(article.text.strip()) >= 100:
+                    domain = parsed.netloc.replace('www.', '')
+                    title = article.title.strip() if article.title else "No title available"
+                    return article.text.strip(), domain, title, None
+        except Exception as e:
+            logger.warning(f"Newspaper failed to process {url}: {str(e)}")
 
+        # Если newspaper не сработал, пробуем с requests и BeautifulSoup
         try:
-            article.parse()
-        except Exception as parse_error:
-            logger.error(f"Failed to parse article from {url}: {str(parse_error)}")
-            return None, parsed.netloc.replace('www.', ''), "Failed to parse content"
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            }
 
-        # Проверяем наличие контента
-        if not article.text or len(article.text.strip()) < 100:
-            logger.warning(f"Insufficient content extracted from {url}")
-            return article.text.strip() if article.text else None, parsed.netloc.replace('www.', ''), "Insufficient content"
+            response = requests.get(clean_url, headers=headers, timeout=15)
+            response.raise_for_status()
 
-        domain = parsed.netloc.replace('www.', '')
-        title = article.title.strip() if article.title else "No title available"
+            soup = BeautifulSoup(response.text, 'html.parser')
 
-        return article.text.strip(), domain, title
+            # Удаляем ненужные элементы
+            for element in soup(['script', 'style', 'noscript', 'iframe', 'svg', 'nav', 'footer', 'header']):
+                element.decompose()
+
+            # Ищем основной контент статьи
+            main_content = soup.find('article') or soup.find('div', {'class': re.compile('article|content|main')})
+
+            if main_content:
+                text = ' '.join([p.get_text() for p in main_content.find_all('p')])
+                if len(text.strip()) >= 100:
+                    domain = parsed.netloc.replace('www.', '')
+                    title = soup.title.string.strip() if soup.title else "No title available"
+                    return text.strip(), domain, title, None
+
+            return None, parsed.netloc.replace('www.', ''), "Failed to extract content", "Content extraction failed"
+
+        except Exception as e:
+            logger.error(f"Alternative extraction failed for {url}: {str(e)}")
+            return None, parsed.netloc.replace('www.', ''), "Error occurred", str(e)
+
     except Exception as e:
         logger.error(f"Unexpected error extracting article from {url}: {str(e)}", exc_info=True)
-        return None, parsed.netloc.replace('www.', '') if 'parsed' in locals() else "Unknown domain", "Error occurred"
-
+        return None, parsed.netloc.replace('www.', ''), "Error occurred", str(e)
 
 def analyze_with_claude(content: str, source: str) -> dict:
+    """Анализ статьи с помощью Claude"""
     try:
         prompt = f"""Analyze the following news article and provide a detailed JSON response with these fields:
-
 1. news_integrity: float between 0.0-1.0 indicating overall integrity
 2. fact_check_needed_score: float between 0.0-1.0 indicating likelihood that fact-checking is needed
 3. sentiment_score: float between 0.0-1.0 indicating emotional tone (0.0 negative, 0.5 neutral, 1.0 positive)
@@ -447,6 +401,7 @@ Ensure all required fields are included in the response."""
         return get_default_analysis()
 
 def determine_credibility_level(score: float) -> str:
+    """Определение уровня достоверности"""
     if score >= 0.8:
         return "High"
     elif score >= 0.6:
@@ -455,6 +410,7 @@ def determine_credibility_level(score: float) -> str:
         return "Low"
 
 def get_similar_articles(topics: list) -> list:
+    """Получение похожих статей"""
     try:
         similar_articles = db.get_similar_articles(topics)
         if len(similar_articles) < 5 and topics:
@@ -496,6 +452,7 @@ def get_similar_articles(topics: list) -> list:
         return []
 
 def get_default_analysis() -> dict:
+    """Получение анализа по умолчанию"""
     return {
         "news_integrity": 0.7,
         "fact_check_needed_score": 0.3,
@@ -516,6 +473,7 @@ def get_default_analysis() -> dict:
 
 @app.route('/static/<path:filename>')
 def static_files(filename):
+    """Отдача статических файлов"""
     return send_from_directory(app.static_folder, filename)
 
 if __name__ == '__main__':
