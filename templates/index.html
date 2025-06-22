@@ -377,6 +377,14 @@
             gap: 0.5rem;
         }
 
+        .error-dismiss {
+            background: none;
+            border: none;
+            color: var(--danger-color);
+            cursor: pointer;
+            margin-left: 0.5rem;
+        }
+
         /* Article Credibility */
         .article-credibility {
             display: inline-block;
@@ -412,7 +420,6 @@
         }
 
         .collapsible-content {
-            padding: 0.5rem 0;
             overflow: hidden;
             transition: max-height 0.3s ease-out;
         }
@@ -809,7 +816,23 @@
         // Improved fetch function with error handling
         async function fetchWithRetry(url, options = {}, retries = 3, delay = 1000) {
             try {
-                const response = await fetch(url, options);
+                // Ensure URL starts with correct protocol
+                if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                    url = 'https://' + url.split('//').pop();
+                }
+
+                // Add credentials if needed
+                const fetchOptions = {
+                    ...options,
+                    headers: {
+                        ...options.headers,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    credentials: 'include'
+                };
+
+                const response = await fetch(url, fetchOptions);
 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
@@ -819,11 +842,22 @@
                 return await response.json();
             } catch (error) {
                 if (retries > 0) {
-                    console.log(`Attempt failed, retrying in ${delay}ms... (${retries} attempts left)`);
+                    console.log(`Attempt failed: ${error.message}, retrying in ${delay}ms... (${retries} attempts left)`);
                     await new Promise(resolve => setTimeout(resolve, delay));
                     return fetchWithRetry(url, options, retries - 1, delay * 2);
                 }
-                throw error;
+
+                // If all attempts are exhausted, show more informative error message
+                let errorMessage = 'Failed to complete the request';
+                if (error.message.includes('net::ERR_CONNECTION_CLOSED')) {
+                    errorMessage = 'Connection to server was closed. Please check your internet connection and try again.';
+                } else if (error.message.includes('Failed to fetch')) {
+                    errorMessage = 'Unable to connect to the server. The service may be temporarily unavailable.';
+                } else if (error.message.includes('HTTP error')) {
+                    errorMessage = error.message;
+                }
+
+                throw new Error(errorMessage);
             }
         }
 
@@ -1235,7 +1269,13 @@
                             </div>
                         `;
 
-                        const response = await fetchWithRetry('/analyze', {
+                        // Ensure URL is correct
+                        let endpoint = '/analyze';
+                        if (!inputText.startsWith('http')) {
+                            endpoint = 'https://indexing.media/analyze';
+                        }
+
+                        const response = await fetchWithRetry(endpoint, {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
@@ -1257,7 +1297,7 @@
                         }
                     } catch (error) {
                         console.error('Analysis error:', error);
-                        showError('analysisOutput', error.message || 'Failed to analyze article');
+                        showError('analysisOutput', error.message || 'Failed to analyze article. Please try again later.');
                     }
                 });
             }
