@@ -648,6 +648,70 @@
             left: -0.75rem;
             color: var(--primary-color);
         }
+
+        /* Animation classes */
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .slide-up {
+            animation: slideUp 0.5s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Tabs for analysis history */
+        .analysis-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            overflow-x: auto;
+            padding-bottom: 0.5rem;
+        }
+
+        .analysis-tab {
+            padding: 0.5rem 1rem;
+            background-color: var(--secondary-color);
+            border-radius: var(--border-radius) var(--border-radius) 0 0;
+            cursor: pointer;
+            transition: var(--transition);
+            white-space: nowrap;
+        }
+
+        .analysis-tab:hover {
+            background-color: rgba(37, 99, 235, 0.1);
+        }
+
+        .analysis-tab.active {
+            background-color: white;
+            border-bottom: 2px solid var(--primary-color);
+        }
+
+        .analysis-tab-close {
+            margin-left: 0.5rem;
+            background: none;
+            border: none;
+            color: #6b7280;
+            cursor: pointer;
+        }
+
+        .analysis-tab-close:hover {
+            color: var(--danger-color);
+        }
     </style>
 </head>
 <body>
@@ -671,44 +735,20 @@
         <div class="main-container">
             <!-- Left Column - Analysis -->
             <div class="analysis-column">
-                <!-- Daily Buzz Section -->
-                <div class="analysis-section">
-                    <div class="analysis-title">
-                        <h2>Today's Featured Analysis</h2>
-                        <i class="bi bi-chevron-down" id="dailyBuzzToggle"></i>
-                    </div>
-                    <div class="collapsible-content" id="dailyBuzzContent">
-                        <div class="loading-container">
-                            <div class="spinner"></div>
-                            <p>Loading today's featured analysis...</p>
-                        </div>
-                    </div>
+                <!-- Analysis Tabs -->
+                <div class="analysis-tabs" id="analysisTabs">
+                    <!-- Tabs will be added dynamically -->
                 </div>
 
                 <!-- Analysis Results -->
                 <div class="analysis-section">
                     <div class="analysis-title">
                         <h2>Analysis Results</h2>
-                        <i class="bi bi-chevron-down" id="analysisResultsToggle"></i>
                     </div>
-                    <div class="collapsible-content" id="analysisOutput">
+                    <div id="analysisOutput">
                         <div class="loading-container">
                             <div class="spinner"></div>
                             <p>Analyzing article content...</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- News Feed from analyzed articles -->
-                <div class="news-feed-container">
-                    <div class="analysis-title">
-                        <h2>Analyzed News Feed</h2>
-                        <i class="bi bi-chevron-down" id="newsFeedToggle"></i>
-                    </div>
-                    <div class="collapsible-content" id="newsFeed">
-                        <div class="loading-container">
-                            <div class="spinner"></div>
-                            <p>Loading analyzed news feed...</p>
                         </div>
                     </div>
                 </div>
@@ -739,11 +779,8 @@
 
                 <!-- Similar Articles -->
                 <div class="similar-articles-container">
-                    <div class="analysis-title">
-                        <h2>Similar Articles</h2>
-                        <i class="bi bi-chevron-down" id="similarArticlesToggle"></i>
-                    </div>
-                    <div class="collapsible-content" id="similarArticles">
+                    <h2>Similar Articles</h2>
+                    <div id="similarArticles">
                         <div class="loading-container">
                             <div class="spinner"></div>
                             <p>Loading similar articles...</p>
@@ -768,63 +805,196 @@
         // Global variables
         let currentUserId = 'guest_' + Math.random().toString(36).substring(2, 15);
         let currentArticleId = null;
+        let analysisHistory = JSON.parse(localStorage.getItem('analysisHistory')) || [];
+        let currentAnalysisTab = null;
 
         // DOM Elements
         const elements = {
-            dailyBuzzContent: document.getElementById('dailyBuzzContent'),
+            analysisTabs: document.getElementById('analysisTabs'),
             analysisForm: document.getElementById('analysisForm'),
             articleInput: document.getElementById('articleInput'),
             analysisOutput: document.getElementById('analysisOutput'),
             similarArticles: document.getElementById('similarArticles'),
-            newsFeed: document.getElementById('newsFeed'),
-            sourceCredibilityChart: document.getElementById('sourceCredibilityChart'),
-            dailyBuzzToggle: document.getElementById('dailyBuzzToggle'),
-            analysisResultsToggle: document.getElementById('analysisResultsToggle'),
-            newsFeedToggle: document.getElementById('newsFeedToggle'),
-            similarArticlesToggle: document.getElementById('similarArticlesToggle')
+            sourceCredibilityChart: document.getElementById('sourceCredibilityChart')
         };
 
-        // Helper function to safely access nested properties
+        // Helper functions
         function getNestedProperty(obj, path, defaultValue = null) {
             return path.split('.').reduce((o, p) => (o && o[p] !== undefined ? o[p] : defaultValue), obj);
         }
 
-        // Toggle collapsible sections
-        function setupCollapsibleSections() {
-            const toggles = [
-                { toggle: elements.dailyBuzzToggle, content: elements.dailyBuzzContent },
-                { toggle: elements.analysisResultsToggle, content: elements.analysisOutput },
-                { toggle: elements.newsFeedToggle, content: elements.newsFeed },
-                { toggle: elements.similarArticlesToggle, content: elements.similarArticles }
-            ];
+        function renderMeta({ source, date, credibility }) {
+            const credibilityClass = (credibility || 'Medium').toLowerCase();
+            return `
+                <div class="article-meta">
+                    ${source ? `<span class="article-source"><i class="bi bi-newspaper"></i> ${source}</span>` : ''}
+                    ${date ? `<span class="article-date"><i class="bi bi-calendar"></i> ${date}</span>` : ''}
+                    <span class="article-credibility ${credibilityClass}">
+                        <i class="bi bi-shield-check"></i> ${credibility || 'Medium'}
+                    </span>
+                </div>
+            `;
+        }
 
-            toggles.forEach(item => {
-                if (item.toggle && item.content) {
-                    item.toggle.addEventListener('click', () => {
-                        if (item.content.style.maxHeight) {
-                            item.content.style.maxHeight = null;
-                        } else {
-                            item.content.style.maxHeight = item.content.scrollHeight + "px";
-                        }
-                        item.toggle.classList.toggle('bi-chevron-down');
-                        item.toggle.classList.toggle('bi-chevron-up');
-                    });
-                }
+        function renderScoreCard({ name, value, icon, description }) {
+            return `
+                <div class="score-card fade-in">
+                    <div class="score-name">
+                        <i class="${icon}"></i> ${name}
+                    </div>
+                    <div class="score-value">${value}</div>
+                    <div class="score-description">${description}</div>
+                </div>
+            `;
+        }
+
+        function renderPerspectiveCard({ name, icon, summary, keyPoints, credibility }) {
+            const credibilityClass = (credibility || 'Medium').toLowerCase();
+            return `
+                <div class="perspective-card ${credibilityClass} fade-in">
+                    <div class="perspective-title">
+                        <i class="${icon}"></i> ${name} Perspective
+                    </div>
+                    <div class="perspective-content">
+                        <p>${summary || 'No summary available'}</p>
+                    </div>
+                    ${keyPoints && keyPoints.length > 0 ? `
+                        <div class="key-points">
+                            <h5>Key Points:</h5>
+                            <ul>
+                                ${keyPoints.map(point => `<li class="key-point">${point}</li>`).join('')}
+                            </ul>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        function renderAnalysisTab(analysis, isActive = false) {
+            return `
+                <div class="analysis-tab ${isActive ? 'active' : ''}" data-id="${analysis.id}">
+                    ${analysis.title || 'Untitled Analysis'}
+                    <button class="analysis-tab-close" onclick="removeAnalysisTab('${analysis.id}')">
+                        <i class="bi bi-x"></i>
+                    </button>
+                </div>
+            `;
+        }
+
+        // Toggle analysis tabs
+        function setupAnalysisTabs() {
+            // Load saved tabs from localStorage
+            const savedTabs = JSON.parse(localStorage.getItem('analysisTabs')) || [];
+
+            // Render tabs
+            elements.analysisTabs.innerHTML = savedTabs.map(tab => renderAnalysisTab(tab)).join('');
+
+            // Add click handlers
+            document.querySelectorAll('.analysis-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const tabId = tab.getAttribute('data-id');
+                    loadAnalysis(tabId);
+                });
             });
+
+            // Set active tab if exists
+            const activeTabId = localStorage.getItem('activeAnalysisTab');
+            if (activeTabId) {
+                document.querySelectorAll('.analysis-tab').forEach(tab => {
+                    if (tab.getAttribute('data-id') === activeTabId) {
+                        tab.classList.add('active');
+                    }
+                });
+            }
+        }
+
+        function addAnalysisTab(analysis) {
+            // Add to history
+            analysisHistory.unshift(analysis);
+            analysisHistory = analysisHistory.slice(0, 10);
+            localStorage.setItem('analysisHistory', JSON.stringify(analysisHistory));
+
+            // Add to tabs
+            const tabs = JSON.parse(localStorage.getItem('analysisTabs')) || [];
+            tabs.unshift(analysis);
+            localStorage.setItem('analysisTabs', JSON.stringify(tabs));
+
+            // Update UI
+            elements.analysisTabs.insertAdjacentHTML('afterbegin',
+                renderAnalysisTab(analysis, true));
+
+            // Set as active
+            currentAnalysisTab = analysis.id;
+            localStorage.setItem('activeAnalysisTab', analysis.id);
+
+            // Add click handler
+            const newTab = elements.analysisTabs.querySelector('.analysis-tab:first-child');
+            newTab.addEventListener('click', () => {
+                loadAnalysis(analysis.id);
+            });
+        }
+
+        function removeAnalysisTab(tabId) {
+            // Remove from tabs
+            let tabs = JSON.parse(localStorage.getItem('analysisTabs')) || [];
+            tabs = tabs.filter(tab => tab.id !== tabId);
+            localStorage.setItem('analysisTabs', JSON.stringify(tabs));
+
+            // Remove from history
+            analysisHistory = analysisHistory.filter(analysis => analysis.id !== tabId);
+            localStorage.setItem('analysisHistory', JSON.stringify(analysisHistory));
+
+            // Update UI
+            document.querySelector(`.analysis-tab[data-id="${tabId}"]`)?.remove();
+
+            // If removed tab was active, set first tab as active
+            if (currentAnalysisTab === tabId) {
+                const firstTab = tabs[0];
+                if (firstTab) {
+                    currentAnalysisTab = firstTab.id;
+                    localStorage.setItem('activeAnalysisTab', firstTab.id);
+                    loadAnalysis(firstTab.id);
+                } else {
+                    currentAnalysisTab = null;
+                    localStorage.removeItem('activeAnalysisTab');
+                    elements.analysisOutput.innerHTML = `
+                        <div class="loading-container">
+                            <div class="spinner"></div>
+                            <p>Select an analysis or enter new content to analyze</p>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        function loadAnalysis(tabId) {
+            // Find analysis in history
+            const analysis = analysisHistory.find(a => a.id === tabId);
+
+            if (analysis) {
+                // Set as active
+                currentAnalysisTab = tabId;
+                localStorage.setItem('activeAnalysisTab', tabId);
+
+                // Update active tab
+                document.querySelectorAll('.analysis-tab').forEach(tab => {
+                    tab.classList.remove('active');
+                    if (tab.getAttribute('data-id') === tabId) {
+                        tab.classList.add('active');
+                    }
+                });
+
+                // Display analysis
+                displayAnalysisResults(analysis);
+            }
         }
 
         // Improved fetch function with error handling
         async function fetchWithRetry(url, options = {}, retries = 3, delay = 1000) {
             try {
-                // Ensure URL is correct
-                let fullUrl = url;
-                if (!url.startsWith('http')) {
-                    // Use relative path for API on the same domain
-                    fullUrl = window.location.origin + url;
-                }
+                const fullUrl = url.startsWith('http') ? url : window.location.origin + url;
 
-                // Add credentials if needed
-                const fetchOptions = {
+                const response = await fetch(fullUrl, {
                     ...options,
                     headers: {
                         'Content-Type': 'application/json',
@@ -832,9 +1002,7 @@
                         ...options.headers
                     },
                     credentials: 'include'
-                };
-
-                const response = await fetch(fullUrl, fetchOptions);
+                });
 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
@@ -849,7 +1017,6 @@
                     return fetchWithRetry(url, options, retries - 1, delay * 2);
                 }
 
-                // If all attempts are exhausted, show more informative error message
                 let errorMessage = 'Failed to complete the request';
                 if (error.message.includes('net::ERR_NAME_NOT_RESOLVED')) {
                     errorMessage = 'Service unavailable. Please check your internet connection and try again.';
@@ -874,20 +1041,30 @@
                 const analysis = article.analysis || {};
                 const detailedAnalysis = analysis.detailed_analysis || {};
 
+                // Add to history if not already there
+                if (!analysisHistory.some(a => a.id === article.id)) {
+                    addAnalysisTab({
+                        id: article.id || Date.now(),
+                        title: article.title || 'No title',
+                        source: article.source || 'Unknown source',
+                        date: new Date().toISOString(),
+                        summary: article.short_summary || 'No summary',
+                        credibility: article.credibility_level || 'Medium',
+                        fullData: data
+                    });
+                }
+
                 let analysisHtml = `
-                    <div class="article-header">
+                    <div class="article-header fade-in">
                         <h3 class="article-title">${article.title || 'No title available'}</h3>
-                        <div class="article-meta">
-                            <span class="article-source">
-                                <i class="bi bi-newspaper"></i> ${article.source || 'Unknown source'}
-                            </span>
-                            <span class="article-credibility ${(article.credibility_level || 'Medium').toLowerCase()}">
-                                <i class="bi bi-shield-check"></i> ${article.credibility_level || 'Medium'}
-                            </span>
-                        </div>
+                        ${renderMeta({
+                            source: article.source,
+                            date: article.date ? new Date(article.date).toLocaleString() : 'N/A',
+                            credibility: article.credibility_level
+                        })}
                     </div>
 
-                    <div class="analysis-summary">
+                    <div class="analysis-summary fade-in">
                         <p>${article.short_summary || 'No summary available'}</p>
                     </div>
                 `;
@@ -927,15 +1104,12 @@
                         const value = getNestedProperty(detailedAnalysis, score.key);
                         if (value !== null) {
                             const displayValue = parseFloat(value).toFixed(2);
-                            analysisHtml += `
-                                <div class="score-card">
-                                    <div class="score-name">
-                                        <i class="${score.icon}"></i> ${score.name}
-                                    </div>
-                                    <div class="score-value">${displayValue}</div>
-                                    <div class="score-description">${score.description}</div>
-                                </div>
-                            `;
+                            analysisHtml += renderScoreCard({
+                                name: score.name,
+                                value: displayValue,
+                                icon: score.icon,
+                                description: score.description
+                            });
                         }
                     });
 
@@ -953,32 +1127,42 @@
                     `;
 
                     const perspectives = [
-                        { key: 'western', name: 'Western', icon: 'bi bi-flag' },
-                        { key: 'iranian', name: 'Iranian', icon: 'bi bi-flag' },
-                        { key: 'israeli', name: 'Israeli', icon: 'bi bi-flag' },
-                        { key: 'neutral', name: 'Neutral', icon: 'bi bi-flag' }
+                        {
+                            key: 'western',
+                            name: 'Western',
+                            icon: 'bi bi-flag',
+                            credibility: detailedAnalysis.perspectives.western?.credibility
+                        },
+                        {
+                            key: 'iranian',
+                            name: 'Iranian',
+                            icon: 'bi bi-flag',
+                            credibility: detailedAnalysis.perspectives.iranian?.credibility
+                        },
+                        {
+                            key: 'israeli',
+                            name: 'Israeli',
+                            icon: 'bi bi-flag',
+                            credibility: detailedAnalysis.perspectives.israeli?.credibility
+                        },
+                        {
+                            key: 'neutral',
+                            name: 'Neutral',
+                            icon: 'bi bi-flag',
+                            credibility: detailedAnalysis.perspectives.neutral?.credibility
+                        }
                     ];
 
                     perspectives.forEach(perspective => {
                         const perspectiveData = detailedAnalysis.perspectives[perspective.key];
                         if (perspectiveData) {
-                            const credibility = perspectiveData.credibility || 'Medium';
-                            analysisHtml += `
-                                <div class="perspective-card ${credibility.toLowerCase()}">
-                                    <div class="perspective-title">
-                                        <i class="${perspective.icon}"></i> ${perspective.name} Perspective
-                                    </div>
-                                    <div class="perspective-content">
-                                        <p>${perspectiveData.summary || 'No summary available'}</p>
-                                    </div>
-                                    <div class="key-points">
-                                        <h5>Key Points:</h5>
-                                        <ul>
-                                            ${perspectiveData.key_points ? perspectiveData.key_points.map(point => `<li class="key-point">${point}</li>`).join('') : '<li>No key points available</li>'}
-                                        </ul>
-                                    </div>
-                                </div>
-                            `;
+                            analysisHtml += renderPerspectiveCard({
+                                name: perspective.name,
+                                icon: perspective.icon,
+                                summary: perspectiveData.summary,
+                                keyPoints: perspectiveData.key_points,
+                                credibility: perspective.credibility
+                            });
                         }
                     });
 
@@ -1040,8 +1224,24 @@
         // Load source credibility chart
         async function loadSourceCredibilityChart() {
             try {
+                // Check if we already have chart data in localStorage
+                const cachedChartData = localStorage.getItem('sourceCredibilityChartData');
+                if (cachedChartData) {
+                    const parsedData = JSON.parse(cachedChartData);
+                    if (parsedData.timestamp && (Date.now() - parsedData.timestamp) < 3600000) {
+                        // Data is less than 1 hour old, use cached version
+                        renderSourceCredibilityChart(parsedData.data);
+                        return;
+                    }
+                }
+
                 const data = await fetchWithRetry('/source-credibility-chart');
                 if (data.status === 'success' && data.data) {
+                    // Cache the data
+                    localStorage.setItem('sourceCredibilityChartData', JSON.stringify({
+                        data: data.data,
+                        timestamp: Date.now()
+                    }));
                     renderSourceCredibilityChart(data.data);
                 } else {
                     showError('sourceCredibilityChart', data.message || 'Failed to load source credibility chart');
@@ -1103,16 +1303,12 @@
                 const articlesHtml = articles.map(article => {
                     const credibilityClass = (article.credibility || 'Medium').toLowerCase();
                     return `
-                        <div class="similar-article">
+                        <div class="similar-article fade-in">
                             <h4><a href="${article.url}" target="_blank">${article.title}</a></h4>
-                            <div class="article-meta">
-                                <span class="article-source">
-                                    <i class="bi bi-newspaper"></i> ${article.source}
-                                </span>
-                                <span class="article-credibility ${credibilityClass}">
-                                    <i class="bi bi-shield-check"></i> ${article.credibility || 'Medium'}
-                                </span>
-                            </div>
+                            ${renderMeta({
+                                source: article.source,
+                                credibility: article.credibility
+                            })}
                             <p>${article.summary || article.short_summary || 'No description available'}</p>
                         </div>
                     `;
@@ -1125,60 +1321,13 @@
             }
         }
 
-        // Load news feed from analyzed articles
-        async function loadNewsFeed() {
-            try {
-                const data = await fetchWithRetry('/analysis-history');
-                if (data.status === 'success' && data.history && data.history.length > 0) {
-                    renderNewsFeed(data.history);
-                } else {
-                    showError('newsFeed', data.message || 'No analyzed articles found');
-                }
-            } catch (error) {
-                console.error('Error loading news feed:', error);
-                showError('newsFeed', error.message || 'Error loading news feed');
-            }
-        }
-
-        // Render news feed from analyzed articles
-        function renderNewsFeed(articles) {
-            if (!articles || articles.length === 0) {
-                elements.newsFeed.innerHTML = '<p>No analyzed articles found</p>';
-                return;
-            }
-
-            const articlesHtml = articles.map(article => {
-                const credibilityClass = (article.credibility || 'Medium').toLowerCase();
-                const publishedDate = article.date ? new Date(article.date).toLocaleString() : 'N/A';
-                return `
-                    <div class="news-article">
-                        <h4><a href="${article.url || '#'}" target="_blank">${article.title || 'No title'}</a></h4>
-                        <div class="article-meta">
-                            <span class="article-source">
-                                <i class="bi bi-newspaper"></i> ${article.source || 'Unknown source'}
-                            </span>
-                            <span class="article-date">
-                                <i class="bi bi-calendar"></i> ${publishedDate}
-                            </span>
-                            <span class="article-credibility ${credibilityClass}">
-                                <i class="bi bi-shield-check"></i> ${article.credibility || 'Medium'}
-                            </span>
-                        </div>
-                        <p>${article.summary || 'No summary available'}</p>
-                    </div>
-                `;
-            }).join('');
-
-            elements.newsFeed.innerHTML = articlesHtml;
-        }
-
         // Show error message
         function showError(elementId, message) {
             const element = document.getElementById(elementId);
             if (!element) return;
 
             const errorHtml = `
-                <div class="error-message">
+                <div class="error-message fade-in">
                     <i class="bi bi-exclamation-triangle-fill"></i>
                     <span>${message}</span>
                     <button onclick="this.parentElement.style.display='none'" class="error-dismiss">
@@ -1190,62 +1339,12 @@
             element.innerHTML = errorHtml;
         }
 
-        // Load daily buzz article
-        async function loadDailyBuzz() {
-            try {
-                const data = await fetchWithRetry('/daily-buzz');
-                if (data.status === 'success' && data.article) {
-                    displayDailyBuzz(data.article);
-                    if (data.article.analysis) {
-                        displayAnalysisResults(data);
-                        if (data.article.analysis.topics) {
-                            loadSimilarArticles(data.article.analysis.topics);
-                        }
-                    }
-                } else {
-                    showError('dailyBuzzContent', data.message || 'Failed to load daily buzz article');
-                }
-            } catch (error) {
-                console.error('Error loading daily buzz:', error);
-                showError('dailyBuzzContent', error.message || 'Error loading daily buzz article');
-            }
-        }
-
-        // Display daily buzz article
-        function displayDailyBuzz(article) {
-            const publishedDate = article.created_at ? new Date(article.created_at).toLocaleString() : 'N/A';
-            const credibilityClass = (article.credibility_level || 'Medium').toLowerCase();
-
-            const articleHtml = `
-                <div class="article-header">
-                    <h3 class="article-title">${article.title || 'No title available'}</h3>
-                    <div class="article-meta">
-                        <span class="article-source">
-                            <i class="bi bi-newspaper"></i> ${article.source || 'Unknown source'}
-                        </span>
-                        <span class="article-date">
-                            <i class="bi bi-calendar"></i> ${publishedDate}
-                        </span>
-                        <span class="article-credibility ${credibilityClass}">
-                            <i class="bi bi-shield-check"></i> ${article.credibility_level || 'Medium'}
-                        </span>
-                    </div>
-                </div>
-                <div class="analysis-summary">
-                    <p>${article.short_summary || 'No summary available'}</p>
-                </div>
-            `;
-
-            elements.dailyBuzzContent.innerHTML = articleHtml;
-            currentArticleId = article.id || 0;
-        }
-
         // Initialize the page
         document.addEventListener('DOMContentLoaded', function() {
-            setupCollapsibleSections();
-            loadDailyBuzz();
+            setupAnalysisTabs();
+
+            // Load initial data
             loadSourceCredibilityChart();
-            loadNewsFeed();
 
             // Analysis form submission
             if (elements.analysisForm) {
@@ -1286,8 +1385,6 @@
                             if (response.similar_articles) {
                                 loadSimilarArticles(response.similar_articles);
                             }
-                            loadSourceCredibilityChart();
-                            loadNewsFeed();
                         } else {
                             throw new Error(response.message || 'Analysis failed');
                         }
@@ -1297,6 +1394,9 @@
                     }
                 });
             }
+
+            // Make functions available globally
+            window.removeAnalysisTab = removeAnalysisTab;
         });
     </script>
 </body>
