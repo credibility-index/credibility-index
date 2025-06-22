@@ -77,40 +77,38 @@ class Database:
             logger.error(f"Error initializing database schema: {str(e)}", exc_info=True)
             raise
 
-def _initialize_with_initial_data(self, conn: sqlite3.Connection) -> None:
-    """Инициализировать базу данных с начальными данными"""
-    try:
-        initial_sources = [
-            ('BBC News', 5, 1, 0),
-            ('Reuters', 5, 1, 0),
-            ('The New York Times', 4, 2, 0),
-            ('The Guardian', 4, 2, 0),
-            ('CNN', 3, 3, 0),
-            ('Fox News', 2, 3, 1),
-            ('Al Jazeera', 3, 2, 1),
-            ('RT', 1, 2, 3),
-            ('Breitbart', 1, 1, 4),
-            ('Daily Mail', 2, 2, 2)
-        ]
+    def _initialize_with_initial_data(self, conn: sqlite3.Connection) -> None:
+        """Инициализировать базу данных с начальными данными"""
+        try:
+            initial_sources = [
+                ('BBC News', 5, 1, 0),
+                ('Reuters', 5, 1, 0),
+                ('The New York Times', 4, 2, 0),
+                ('The Guardian', 4, 2, 0),
+                ('CNN', 3, 3, 0),
+                ('Fox News', 2, 3, 1),
+                ('Al Jazeera', 3, 2, 1),
+                ('RT', 1, 2, 3),
+                ('Breitbart', 1, 1, 4),
+                ('Daily Mail', 2, 2, 2)
+            ]
 
-        cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM source_stats")
-        count = cursor.fetchone()[0]
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM source_stats")
+            count = cursor.fetchone()[0]
 
-        if count == 0:
-            for source, high, medium, low in initial_sources:
-                cursor.execute("""
-                    INSERT INTO source_stats
-                    (source, high, medium, low, total_analyzed, is_initial)
-                    VALUES (?, ?, ?, ?, ?, 1)
-                """, (source, high, medium, low, high + medium + low))
+            if count == 0:
+                for source, high, medium, low in initial_sources:
+                    cursor.execute("""
+                        INSERT INTO source_stats
+                        (source, high, medium, low, total_analyzed, is_initial)
+                        VALUES (?, ?, ?, ?, ?, 1)
+                    """, (source, high, medium, low, high + medium + low))
+                logger.info("Database initialized with initial data successfully")
+        except Exception as e:
+            logger.error(f"Error initializing database with initial data: {str(e)}", exc_info=True)
+            raise
 
-            logger.info("Database initialized with initial data successfully")
-    except Exception as e:
-        logger.error(f"Error initializing database with initial data: {str(e)}", exc_info=True)
-        raise
-
-        
     def article_exists(self, title: str, url: Optional[str] = None) -> bool:
         """Проверить, существует ли статья с таким заголовком или URL"""
         try:
@@ -180,15 +178,15 @@ def _initialize_with_initial_data(self, conn: sqlite3.Connection) -> None:
         ))
 
     def get_connection(self) -> sqlite3.Connection:
-    """Получить соединение с базой данных"""
-    try:
-        conn = sqlite3.connect(self.db_path, check_same_thread=False)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA journal_mode=WAL;")  # Включаем WAL-режим для избежания блокировок
-        return conn
-    except Exception as e:
-        logger.error(f"Error getting database connection: {str(e)}", exc_info=True)
-        raise
+        """Получить соединение с базой данных"""
+        try:
+            conn = sqlite3.connect(self.db_path, check_same_thread=False)
+            conn.row_factory = sqlite3.Row
+            conn.execute("PRAGMA journal_mode=WAL;")  # Включаем WAL-режим для избежания блокировок
+            return conn
+        except Exception as e:
+            logger.error(f"Error getting database connection: {str(e)}", exc_info=True)
+            raise
 
     def get_daily_buzz(self) -> Dict[str, Any]:
         """Получить статью дня"""
@@ -230,22 +228,18 @@ def _initialize_with_initial_data(self, conn: sqlite3.Connection) -> None:
                     WHERE total_analyzed > 0
                     ORDER BY (high + medium * 0.5) / NULLIF(total_analyzed, 0) DESC
                 """)
-
                 rows = cursor.fetchall()
                 sources = []
                 credibility_scores = []
-
                 for row in rows:
                     source = row['source']
                     high = row['high']
                     medium = row['medium']
                     low = row['low']
                     total = row['total_analyzed']
-
                     score = (high * 1.0 + medium * 0.5) / total if total > 0 else 0.5
                     sources.append(source)
                     credibility_scores.append(round(score, 2))
-
                 return {
                     'status': 'success',
                     'data': {
@@ -328,11 +322,9 @@ def _initialize_with_initial_data(self, conn: sqlite3.Connection) -> None:
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
-
                 # Проверяем, существует ли источник
                 cursor.execute("SELECT * FROM source_stats WHERE source = ?", (source,))
                 existing = cursor.fetchone()
-
                 if existing:
                     # Обновляем существующий источник
                     if credibility_level == "High":
@@ -376,7 +368,6 @@ def _initialize_with_initial_data(self, conn: sqlite3.Connection) -> None:
                             INSERT INTO source_stats (source, high, medium, low, total_analyzed, is_initial)
                             VALUES (?, 0, 0, 1, 1, 0)
                         """, (source,))
-
                 conn.commit()
         except Exception as e:
             logger.error(f"Error updating source stats: {str(e)}", exc_info=True)
@@ -387,17 +378,14 @@ def _initialize_with_initial_data(self, conn: sqlite3.Connection) -> None:
         try:
             if not topics:
                 return []
-
             with self.get_connection() as conn:
                 cursor = conn.cursor()
-
                 # Создаем запрос для поиска статей с похожими темами
                 conditions = []
                 params = []
                 for topic in topics:
                     conditions.append("(short_summary LIKE ? OR content LIKE ?)")
                     params.extend([f"%{topic}%", f"%{topic}%"])
-
                 query = f"""
                     SELECT id, title, source, short_summary, credibility_level, url
                     FROM articles
@@ -405,10 +393,8 @@ def _initialize_with_initial_data(self, conn: sqlite3.Connection) -> None:
                     ORDER BY created_at DESC
                     LIMIT 5
                 """
-
                 cursor.execute(query, params)
                 articles = cursor.fetchall()
-
                 return [{
                     'id': article['id'],
                     'title': article['title'],
