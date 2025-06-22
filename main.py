@@ -19,6 +19,7 @@ from functools import lru_cache
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from werkzeug.serving import WSGIRequestHandler
+from jinja2 import TemplateNotFound
 
 # Увеличиваем таймаут для запросов и поддерживаем соединение
 WSGIRequestHandler.protocol_version = "HTTP/1.1"
@@ -47,6 +48,15 @@ logger = logging.getLogger(__name__)
 # Инициализация базы данных и API
 db = Database()
 news_api = NewsAPI()
+
+# Проверка существования шаблонов
+def check_template_exists(template_name):
+    """Проверяет существование шаблона"""
+    try:
+        return os.path.exists(os.path.join(app.template_folder, template_name))
+    except Exception as e:
+        logger.error(f"Error checking template existence: {str(e)}")
+        return False
 
 # Настройка повторных попыток для запросов
 session = requests.Session()
@@ -151,9 +161,12 @@ def index():
             'analyzed_articles': history_result['history'] if history_result['status'] == 'success' else []
         }
         return render_template('index.html', **context)
+    except TemplateNotFound as e:
+        logger.error(f"Template not found: {str(e)}")
+        return jsonify({'status': 'error', 'message': 'Template not found'}), 500
     except Exception as e:
         logger.error(f"Error loading home page: {str(e)}", exc_info=True)
-        return render_template('error.html', message="Failed to load home page")
+        return jsonify({'status': 'error', 'message': 'Failed to load home page'}), 500
 
 @app.route('/health')
 def health_check():
@@ -579,15 +592,19 @@ def get_default_analysis() -> dict:
 @app.route('/static/<path:filename>')
 def static_files(filename):
     """Отдача статических файлов"""
-    response = send_from_directory(app.static_folder, filename)
-    response.headers['Connection'] = 'keep-alive'
-    response.headers['Keep-Alive'] = 'timeout=30, max=100'
-    return response
+    try:
+        response = send_from_directory(app.static_folder, filename)
+        response.headers['Connection'] = 'keep-alive'
+        response.headers['Keep-Alive'] = 'timeout=30, max=100'
+        return response
+    except Exception as e:
+        logger.error(f"Error serving static file: {str(e)}")
+        return jsonify({'status': 'error', 'message': 'File not found'}), 404
 
 @app.errorhandler(404)
 def not_found_error(error):
     """Обработчик ошибки 404"""
-    response = render_template('error.html', message="Page not found")
+    response = make_response(jsonify({'status': 'error', 'message': 'Page not found'}))
     response.headers['Connection'] = 'keep-alive'
     response.headers['Keep-Alive'] = 'timeout=30, max=100'
     return response, 404
@@ -595,7 +612,20 @@ def not_found_error(error):
 @app.errorhandler(500)
 def internal_error(error):
     """Обработчик ошибки 500"""
-    response = render_template('error.html', message="Internal server error")
+    response = make_response(jsonify({'status': 'error', 'message': 'Internal server error'}))
+    response.headers['Connection'] = 'keep-alive'
+    response.headers['Keep-Alive'] = 'timeout=30, max=100'
+    return response, 500
+
+@app.errorhandler(TemplateNotFound)
+def template_not_found_error(error):
+    """Обработчик ошибки отсутствия шаблона"""
+    logger.error(f"Template not found: {str(error)}")
+    response = make_response(jsonify({
+        'status': 'error',
+        'message': 'Template not found',
+        'details': str(error)
+    }))
     response.headers['Connection'] = 'keep-alive'
     response.headers['Keep-Alive'] = 'timeout=30, max=100'
     return response, 500
@@ -606,6 +636,13 @@ if __name__ == '__main__':
         # Проверка DNS перед запуском
         if not check_dns_resolution('indexing.media'):
             raise ConnectionError("Failed to resolve domain name")
+
+        # Проверка существования шаблонов
+        required_templates = ['index.html', 'error.html']
+        missing_templates = [t for t in required_templates if not check_template_exists(t)]
+
+        if missing_templates:
+            raise FileNotFoundError(f"Missing required templates: {', '.join(missing_templates)}")
 
         port = int(os.environ.get('PORT', 5000))
         app.run(host='0.0.0.0', port=port, debug=False, threaded=True)
