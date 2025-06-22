@@ -2,7 +2,7 @@ import os
 import logging
 import re
 import json
-import dns.resolver
+import socket
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
 from flask import Flask, request, jsonify, render_template, send_from_directory, make_response, redirect, url_for
@@ -54,40 +54,19 @@ retries = Retry(
 session.mount('http://', HTTPAdapter(max_retries=retries))
 session.mount('https://', HTTPAdapter(max_retries=retries))
 
-# Функция для проверки DNS через Cloudflare
-def check_dns_with_cloudflare(domain):
-    """Проверка DNS записи через Cloudflare"""
+# Функция для проверки DNS без использования dnspython
+def check_dns_resolution(domain):
+    """Проверка разрешения DNS без использования dnspython"""
     try:
-        resolver = dns.resolver.Resolver()
-        resolver.nameservers = ['1.1.1.1', '1.0.0.1']  # DNS серверы Cloudflare
-
         # Проверка A записи
-        a_records = resolver.resolve(domain, 'A')
-        logger.info(f"DNS A records for {domain}: {[str(r) for r in a_records]}")
-
-        # Проверка CNAME записи
-        try:
-            cname_records = resolver.resolve(domain, 'CNAME')
-            logger.info(f"DNS CNAME records for {domain}: {[str(r) for r in cname_records]}")
-        except dns.resolver.NoAnswer:
-            logger.info(f"No CNAME records found for {domain}")
-
-        # Проверка MX записей
-        try:
-            mx_records = resolver.resolve(domain, 'MX')
-            logger.info(f"DNS MX records for {domain}: {[str(r) for r in mx_records]}")
-        except dns.resolver.NoAnswer:
-            logger.info(f"No MX records found for {domain}")
-
+        socket.gethostbyname(domain)
+        logger.info(f"DNS resolution successful for {domain}")
         return True
-    except dns.resolver.NXDOMAIN:
-        logger.error(f"Domain {domain} does not exist")
-        return False
-    except dns.resolver.NoNameservers:
-        logger.error(f"No nameservers found for {domain}")
+    except socket.gaierror as e:
+        logger.error(f"DNS resolution failed for {domain}: {str(e)}")
         return False
     except Exception as e:
-        logger.error(f"Error checking DNS for {domain}: {str(e)}")
+        logger.error(f"Unexpected error during DNS resolution for {domain}: {str(e)}")
         return False
 
 # Инициализация клиента Anthropic с проверкой доступности
@@ -97,7 +76,7 @@ try:
         raise ValueError("ANTHROPIC_API_KEY is not set in environment variables")
 
     # Проверка DNS перед инициализацией клиента
-    if not check_dns_with_cloudflare('api.anthropic.com'):
+    if not check_dns_resolution('api.anthropic.com'):
         raise ConnectionError("Failed to resolve Anthropic API domain")
 
     anthropic_client = anthropic.Anthropic(api_key=anthropic_api_key)
@@ -147,7 +126,7 @@ def index():
     """Главная страница приложения"""
     try:
         # Проверка DNS перед загрузкой данных
-        if not check_dns_with_cloudflare('indexing.media'):
+        if not check_dns_resolution('indexing.media'):
             return render_template('error.html', message="DNS resolution failed for service domain")
 
         buzz_result = db.get_daily_buzz()
@@ -175,9 +154,9 @@ def health_check():
     try:
         # Проверка DNS для критичных сервисов
         dns_checks = {
-            'database': check_dns_with_cloudflare('your-database-domain.com'),
-            'news_api': check_dns_with_cloudflare('newsapi.org'),
-            'anthropic': check_dns_with_cloudflare('api.anthropic.com')
+            'database': check_dns_resolution('your-database-domain.com'),
+            'news_api': check_dns_resolution('newsapi.org'),
+            'anthropic': check_dns_resolution('api.anthropic.com')
         }
 
         if not all(dns_checks.values()):
@@ -264,7 +243,6 @@ def analyze_article():
                 'message': 'Analysis service is temporarily unavailable'
             }), 503
 
-        # Проверка DNS для домена статьи
         data = request.get_json()
         if not data or 'input_text' not in data:
             return jsonify({'status': 'error', 'message': 'Input text is required'}), 400
@@ -276,7 +254,7 @@ def analyze_article():
             try:
                 parsed = urlparse(input_text)
                 domain = parsed.netloc
-                if not check_dns_with_cloudflare(domain):
+                if not check_dns_resolution(domain):
                     return jsonify({
                         'status': 'error',
                         'message': f'Failed to resolve domain: {domain}'
@@ -461,7 +439,7 @@ def analyze_with_claude(content: str, source: str) -> dict:
             raise Exception("Anthropic client is not initialized")
 
         # Проверка DNS перед анализом
-        if not check_dns_with_cloudflare('api.anthropic.com'):
+        if not check_dns_resolution('api.anthropic.com'):
             raise ConnectionError("Failed to resolve Anthropic API domain")
 
         prompt = f"""Analyze this news article and provide a comprehensive JSON response with:
@@ -612,7 +590,7 @@ if __name__ == '__main__':
     # Улучшенный запуск сервера с обработкой ошибок
     try:
         # Проверка DNS перед запуском
-        if not check_dns_with_cloudflare('indexing.media'):
+        if not check_dns_resolution('indexing.media'):
             raise ConnectionError("Failed to resolve domain name")
 
         port = int(os.environ.get('PORT', 5000))
