@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 import re
 import json
+import requests  # Добавлен импорт requests
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
 from flask import Flask, request, jsonify, render_template_string, send_from_directory, session
@@ -14,7 +15,6 @@ from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from werkzeug.middleware.proxy_fix import ProxyFix
-import redis
 import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
 from celery import Celery
@@ -43,8 +43,8 @@ if os.getenv('SENTRY_DSN'):
 # Инициализация приложения
 app = Flask(__name__, static_folder='static')
 app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'your-secret-key-here')
-app.config['CELERY_BROKER_URL'] = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
-app.config['CELERY_RESULT_BACKEND'] = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+app.config['CELERY_BROKER_URL'] = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+app.config['CELERY_RESULT_BACKEND'] = os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
 
 # Настройка CORS
 CORS(app, resources={
@@ -63,26 +63,35 @@ def rate_limit(max_per_minute=60):
             # Получаем IP клиента
             client_ip = request.remote_addr
 
-            # Используем Redis для хранения информации о запросах
-            redis_conn = redis.Redis.from_url(os.getenv('REDIS_URL', 'redis://localhost:6379/0'))
+            # Используем локальное хранилище для хранения информации о запросах
+            # В production среде лучше использовать Redis
+            if not hasattr(app, 'rate_limit_store'):
+                app.rate_limit_store = {}
 
             # Ключ для хранения количества запросов
             key = f"rate_limit:{client_ip}:{request.path}"
 
             # Получаем текущее количество запросов
-            current = redis_conn.get(key)
-            current_count = int(current) if current else 0
+            current = app.rate_limit_store.get(key, 0)
 
             # Проверяем, не превышен ли лимит
-            if current_count >= max_per_minute:
+            if current >= max_per_minute:
                 return jsonify({
                     'status': 'error',
                     'message': 'Rate limit exceeded. Please try again later.'
                 }), 429
 
             # Увеличиваем счётчик
-            redis_conn.incr(key)
-            redis_conn.expire(key, 60)  # Сбрасываем счётчик через 60 секунд
+            app.rate_limit_store[key] = current + 1
+
+            # Сбрасываем счётчик через 60 секунд
+            if not hasattr(app, 'rate_limit_cleanup'):
+                app.rate_limit_cleanup = True
+                def cleanup():
+                    time.sleep(60)
+                    app.rate_limit_store = {}
+                import threading
+                threading.Thread(target=cleanup, daemon=True).start()
 
             return f(*args, **kwargs)
         return wrapper
@@ -575,7 +584,7 @@ def index():
         </script>
     </body>
     </html>
-    '''.replace('{{ csrf_token }}', app.config['SECRET_KEY']))
+    '''.replace('{{ csrf_token }}', csrf_token))
 
 @app.route('/daily-buzz')
 def get_daily_buzz():
