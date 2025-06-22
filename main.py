@@ -2,6 +2,7 @@ import os
 import logging
 import re
 import json
+import dns.resolver
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
 from flask import Flask, request, jsonify, render_template, send_from_directory, make_response, redirect, url_for
@@ -14,10 +15,22 @@ import hashlib
 import requests
 from bs4 import BeautifulSoup
 from functools import lru_cache
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 # Инициализация приложения
 app = Flask(__name__, static_folder='static', template_folder='templates')
-CORS(app)
+
+# Настройка CORS с конкретными параметрами
+cors = CORS(app, resources={
+    r"/*": {
+        "origins": ["https://indexing.media", "http://localhost:*", "https://yourdomain.com"],
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"],
+        "supports_credentials": True,
+        "max_age": 3600
+    }
+})
 
 # Настройка логирования
 logging.basicConfig(
@@ -29,10 +42,68 @@ logger = logging.getLogger(__name__)
 # Инициализация базы данных и API
 db = Database()
 news_api = NewsAPI()
-anthropic_api_key = os.getenv('ANTHROPIC_API_KEY')
-if not anthropic_api_key:
-    logger.warning("ANTHROPIC_API_KEY is not set in environment variables")
-anthropic_client = anthropic.Anthropic(api_key=anthropic_api_key)
+
+# Настройка повторных попыток для запросов
+session = requests.Session()
+retries = Retry(
+    total=3,
+    backoff_factor=1,
+    status_forcelist=[500, 502, 503, 504, 408, 429],
+    allowed_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+)
+session.mount('http://', HTTPAdapter(max_retries=retries))
+session.mount('https://', HTTPAdapter(max_retries=retries))
+
+# Функция для проверки DNS через Cloudflare
+def check_dns_with_cloudflare(domain):
+    """Проверка DNS записи через Cloudflare"""
+    try:
+        resolver = dns.resolver.Resolver()
+        resolver.nameservers = ['1.1.1.1', '1.0.0.1']  # DNS серверы Cloudflare
+
+        # Проверка A записи
+        a_records = resolver.resolve(domain, 'A')
+        logger.info(f"DNS A records for {domain}: {[str(r) for r in a_records]}")
+
+        # Проверка CNAME записи
+        try:
+            cname_records = resolver.resolve(domain, 'CNAME')
+            logger.info(f"DNS CNAME records for {domain}: {[str(r) for r in cname_records]}")
+        except dns.resolver.NoAnswer:
+            logger.info(f"No CNAME records found for {domain}")
+
+        # Проверка MX записей
+        try:
+            mx_records = resolver.resolve(domain, 'MX')
+            logger.info(f"DNS MX records for {domain}: {[str(r) for r in mx_records]}")
+        except dns.resolver.NoAnswer:
+            logger.info(f"No MX records found for {domain}")
+
+        return True
+    except dns.resolver.NXDOMAIN:
+        logger.error(f"Domain {domain} does not exist")
+        return False
+    except dns.resolver.NoNameservers:
+        logger.error(f"No nameservers found for {domain}")
+        return False
+    except Exception as e:
+        logger.error(f"Error checking DNS for {domain}: {str(e)}")
+        return False
+
+# Инициализация клиента Anthropic с проверкой доступности
+try:
+    anthropic_api_key = os.getenv('ANTHROPIC_API_KEY')
+    if not anthropic_api_key:
+        raise ValueError("ANTHROPIC_API_KEY is not set in environment variables")
+
+    # Проверка DNS перед инициализацией клиента
+    if not check_dns_with_cloudflare('api.anthropic.com'):
+        raise ConnectionError("Failed to resolve Anthropic API domain")
+
+    anthropic_client = anthropic.Anthropic(api_key=anthropic_api_key)
+except Exception as e:
+    logger.error(f"Failed to initialize Anthropic client: {str(e)}")
+    anthropic_client = None
 
 # Конфигурация библиотеки newspaper
 config = Config()
@@ -49,23 +120,19 @@ def cache_response(timeout=300):
     """Декоратор для кэширования ответов"""
     def decorator(f):
         cached_responses = {}
-
         def wrapped(*args, **kwargs):
             cache_key = generate_cache_key(*args, **kwargs)
-
             if cache_key in cached_responses:
                 response_data, timestamp = cached_responses[cache_key]
                 if datetime.now() - timestamp < timedelta(seconds=timeout):
                     response = make_response(response_data)
                     response.headers['X-Cache'] = 'HIT'
                     return response
-
             response = f(*args, **kwargs)
             response_data = response.get_data()
             cached_responses[cache_key] = (response_data, datetime.now())
             response.headers['X-Cache'] = 'MISS'
             return response
-
         wrapped.__name__ = f"wrapped_{f.__name__}"
         return wrapped
     return decorator
@@ -79,12 +146,14 @@ def home():
 def index():
     """Главная страница приложения"""
     try:
-        # Получаем данные для главной страницы
+        # Проверка DNS перед загрузкой данных
+        if not check_dns_with_cloudflare('indexing.media'):
+            return render_template('error.html', message="DNS resolution failed for service domain")
+
         buzz_result = db.get_daily_buzz()
         source_result = db.get_source_credibility_chart()
         history_result = db.get_analysis_history()
 
-        # Подготавливаем данные для шаблона
         context = {
             'buzz_article': buzz_result.get('article') if buzz_result['status'] == 'success' else None,
             'buzz_analysis': buzz_result.get('article', {}).get('analysis') if buzz_result['status'] == 'success' else get_default_analysis(),
@@ -95,41 +164,53 @@ def index():
             },
             'analyzed_articles': history_result['history'] if history_result['status'] == 'success' else []
         }
-
         return render_template('index.html', **context)
     except Exception as e:
         logger.error(f"Error loading home page: {str(e)}", exc_info=True)
         return render_template('error.html', message="Failed to load home page")
 
-@app.route('/faq')
-def faq():
-    """Страница с часто задаваемыми вопросами"""
-    return render_template('faq.html')
+@app.route('/health')
+def health_check():
+    """Проверка состояния API с проверкой DNS"""
+    try:
+        # Проверка DNS для критичных сервисов
+        dns_checks = {
+            'database': check_dns_with_cloudflare('your-database-domain.com'),
+            'news_api': check_dns_with_cloudflare('newsapi.org'),
+            'anthropic': check_dns_with_cloudflare('api.anthropic.com')
+        }
 
-@app.route('/feedback')
-def feedback():
-    """Страница с формой обратной связи"""
-    return render_template('feedback.html')
+        if not all(dns_checks.values()):
+            failed_services = [service for service, status in dns_checks.items() if not status]
+            return jsonify({
+                'status': 'unhealthy',
+                'failed_dns_checks': failed_services,
+                'timestamp': datetime.now().isoformat()
+            }), 500
 
-@app.route('/feedback_success')
-def feedback_success():
-    """Страница подтверждения отправки обратной связи"""
-    return render_template('feedback_success.html')
+        # Проверка соединения с базой данных
+        try:
+            with db.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT 1")
+                cursor.fetchone()
+        except Exception as db_error:
+            return jsonify({
+                'status': 'unhealthy',
+                'database': str(db_error),
+                'timestamp': datetime.now().isoformat()
+            }), 500
 
-@app.route('/privacy')
-def privacy():
-    """Страница политики конфиденциальности"""
-    return render_template('privacy.html')
-
-@app.route('/terms')
-def terms():
-    """Страница условий использования"""
-    return render_template('terms.html')
-
-@app.route('/maintenance')
-def maintenance():
-    """Страница технического обслуживания"""
-    return render_template('maintenance.html')
+        return jsonify({
+            'status': 'healthy',
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
 
 @app.route('/daily-buzz')
 @cache_response(timeout=300)
@@ -174,14 +255,39 @@ def analysis_history():
 
 @app.route('/analyze', methods=['POST'])
 def analyze_article():
-    """Маршрут для анализа статьи с более детальной информацией"""
+    """Улучшенный маршрут для анализа статьи с проверкой DNS"""
     try:
+        # Проверка доступности API перед обработкой
+        if anthropic_client is None:
+            return jsonify({
+                'status': 'error',
+                'message': 'Analysis service is temporarily unavailable'
+            }), 503
+
+        # Проверка DNS для домена статьи
         data = request.get_json()
-        if not data or not data.get('input_text'):
+        if not data or 'input_text' not in data:
             return jsonify({'status': 'error', 'message': 'Input text is required'}), 400
 
         input_text = data['input_text'].strip()
 
+        # Если это URL, проверяем DNS
+        if input_text.startswith(('http://', 'https://')):
+            try:
+                parsed = urlparse(input_text)
+                domain = parsed.netloc
+                if not check_dns_with_cloudflare(domain):
+                    return jsonify({
+                        'status': 'error',
+                        'message': f'Failed to resolve domain: {domain}'
+                    }), 400
+            except Exception as e:
+                return jsonify({
+                    'status': 'error',
+                    'message': f'Invalid URL or DNS resolution failed: {str(e)}'
+                }), 400
+
+        # Обработка URL или текста
         if input_text.startswith(('http://', 'https://')):
             content, source, title, error = extract_text_from_url(input_text)
             if error:
@@ -201,32 +307,57 @@ def analyze_article():
             source = 'Direct Input'
             title = 'User-provided Text'
 
-        # Получаем более детальный анализ
-        analysis = analyze_with_claude(content, source)
+        # Анализ с повторными попытками
+        max_retries = 3
+        analysis = None
+        for attempt in range(max_retries):
+            try:
+                analysis = analyze_with_claude(content, source)
+                if analysis:
+                    break
+            except Exception as e:
+                logger.warning(f"Analysis attempt {attempt + 1} failed: {str(e)}")
+                if attempt == max_retries - 1:
+                    logger.error("All analysis attempts failed")
+                    return jsonify({
+                        'status': 'error',
+                        'message': 'Failed to analyze article after multiple attempts'
+                    }), 500
+
         credibility_level = determine_credibility_level(analysis.get('index_of_credibility', 0.6))
 
-        # Сохраняем статью в базу данных
-        article_id = db.save_article(
-            title=title,
-            source=source,
-            url=input_text if input_text.startswith(('http://', 'https://')) else None,
-            content=content,
-            short_summary=content[:200] + '...' if len(content) > 200 else content,
-            analysis_data=analysis,
-            credibility_level=credibility_level
-        )
+        # Сохранение в базу данных с повторными попытками
+        max_db_retries = 3
+        article_id = None
+        for attempt in range(max_db_retries):
+            try:
+                article_id = db.save_article(
+                    title=title,
+                    source=source,
+                    url=input_text if input_text.startswith(('http://', 'https://')) else None,
+                    content=content,
+                    short_summary=content[:200] + '...' if len(content) > 200 else content,
+                    analysis_data=analysis,
+                    credibility_level=credibility_level
+                )
+                break
+            except Exception as e:
+                logger.warning(f"Database save attempt {attempt + 1} failed: {str(e)}")
+                if attempt == max_db_retries - 1:
+                    logger.error("All database save attempts failed")
+                    return jsonify({
+                        'status': 'error',
+                        'message': 'Failed to save analysis results'
+                    }), 500
 
-        # Обновляем статистику источника
+        # Получение похожих статей
+        similar_articles = []
         try:
-            db.update_source_stats(source, credibility_level)
+            similar_articles = get_similar_articles(analysis.get('topics', []))
         except Exception as e:
-            logger.error(f"Error updating source stats: {str(e)}")
+            logger.error(f"Error getting similar articles: {str(e)}")
 
-        # Получаем похожие статьи
-        similar_articles = get_similar_articles(analysis.get('topics', []))
-
-        # Формируем более детальный ответ
-        response_data = {
+        return jsonify({
             'status': 'success',
             'article': {
                 'id': article_id,
@@ -249,11 +380,10 @@ def analyze_article():
                 }
             },
             'similar_articles': similar_articles
-        }
+        })
 
-        return jsonify(response_data)
     except Exception as e:
-        logger.error(f"Error analyzing article: {str(e)}", exc_info=True)
+        logger.error(f"Unexpected error analyzing article: {str(e)}", exc_info=True)
         return jsonify({
             'status': 'error',
             'message': 'An unexpected error occurred during analysis',
@@ -261,7 +391,7 @@ def analyze_article():
         }), 500
 
 def extract_text_from_url(url: str) -> tuple:
-    """Улучшенная функция для извлечения текста из URL с более детальной обработкой"""
+    """Улучшенная функция для извлечения текста из URL с обработкой ошибок"""
     try:
         parsed = urlparse(url)
         if not all([parsed.scheme, parsed.netloc]):
@@ -294,7 +424,7 @@ def extract_text_from_url(url: str) -> tuple:
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
             }
 
-            response = requests.get(clean_url, headers=headers, timeout=15)
+            response = session.get(clean_url, headers=headers, timeout=15)
             response.raise_for_status()
 
             soup = BeautifulSoup(response.text, 'html.parser')
@@ -325,8 +455,15 @@ def extract_text_from_url(url: str) -> tuple:
         return None, parsed.netloc.replace('www.', ''), "Error occurred", str(e)
 
 def analyze_with_claude(content: str, source: str) -> dict:
-    """Анализ статьи с помощью Claude с более детальным выводом"""
+    """Анализ статьи с помощью Claude с обработкой ошибок"""
     try:
+        if not anthropic_client:
+            raise Exception("Anthropic client is not initialized")
+
+        # Проверка DNS перед анализом
+        if not check_dns_with_cloudflare('api.anthropic.com'):
+            raise ConnectionError("Failed to resolve Anthropic API domain")
+
         prompt = f"""Analyze this news article and provide a comprehensive JSON response with:
 1. Credibility score (0-1) with explanation
 2. Key topics (max 5) with brief descriptions
@@ -373,7 +510,7 @@ def determine_credibility_level(score: float) -> str:
         return "Low"
 
 def get_similar_articles(topics: list) -> list:
-    """Получение похожих статей по темам"""
+    """Получение похожих статей по темам с обработкой ошибок"""
     try:
         similar_articles = db.get_similar_articles(topics)
         if len(similar_articles) < 5 and topics:
@@ -400,7 +537,7 @@ def get_similar_articles(topics: list) -> list:
         return []
 
 def get_default_analysis() -> dict:
-    """Получение анализа по умолчанию с более детальной информацией"""
+    """Получение анализа по умолчанию"""
     return {
         "credibility_score": {
             "score": 0.6,
@@ -414,19 +551,23 @@ def get_default_analysis() -> dict:
         "perspectives": {
             "western": {
                 "summary": "Western perspective on the event, typically focusing on democratic values and international relations.",
-                "key_points": ["Point 1", "Point 2"]
+                "key_points": ["Point 1", "Point 2"],
+                "credibility": "Medium"
             },
             "iranian": {
                 "summary": "Iranian perspective on the event, often emphasizing regional security and sovereignty.",
-                "key_points": ["Point 1", "Point 2"]
+                "key_points": ["Point 1", "Point 2"],
+                "credibility": "Medium"
             },
             "israeli": {
                 "summary": "Israeli perspective on the event, usually centered around national security concerns.",
-                "key_points": ["Point 1", "Point 2"]
+                "key_points": ["Point 1", "Point 2"],
+                "credibility": "Medium"
             },
             "neutral": {
                 "summary": "Neutral analysis of the event, attempting to present balanced viewpoints.",
-                "key_points": ["Point 1", "Point 2"]
+                "key_points": ["Point 1", "Point 2"],
+                "credibility": "Medium"
             }
         },
         "sentiment": {
@@ -457,5 +598,25 @@ def static_files(filename):
     """Отдача статических файлов"""
     return send_from_directory(app.static_folder, filename)
 
+@app.errorhandler(404)
+def not_found_error(error):
+    """Обработчик ошибки 404"""
+    return render_template('error.html', message="Page not found"), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    """Обработчик ошибки 500"""
+    return render_template('error.html', message="Internal server error"), 500
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+    # Улучшенный запуск сервера с обработкой ошибок
+    try:
+        # Проверка DNS перед запуском
+        if not check_dns_with_cloudflare('indexing.media'):
+            raise ConnectionError("Failed to resolve domain name")
+
+        port = int(os.environ.get('PORT', 5000))
+        app.run(host='0.0.0.0', port=port, debug=False)
+    except Exception as e:
+        logger.error(f"Failed to start server: {str(e)}", exc_info=True)
+        raise
