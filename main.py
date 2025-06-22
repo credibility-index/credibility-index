@@ -10,7 +10,6 @@ import anthropic
 from newspaper import Article, Config
 from database import Database
 from news_api import NewsAPI
-import sqlite3
 import hashlib
 from functools import lru_cache
 
@@ -24,10 +23,6 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
-
-# Настройка кэширования
-app.config['CACHE_TYPE'] = 'SimpleCache'
-app.config['CACHE_DEFAULT_TIMEOUT'] = 300
 
 # Инициализация базы данных и API
 db = Database()
@@ -89,6 +84,7 @@ def home():
         else:
             buzz_article = buzz_result['article']
             buzz_analysis = buzz_article['analysis']
+
         buzz_topics = buzz_analysis.get('topics', [])
         if not buzz_topics:
             buzz_topics = ["Israel", "Iran"]
@@ -246,7 +242,6 @@ def analyze_article():
             },
             'similar_articles': similar_articles
         })
-
     except Exception as e:
         logger.error(f"Error analyzing article: {str(e)}", exc_info=True)
         return jsonify({
@@ -324,7 +319,6 @@ def extract_text_from_url(url: str) -> tuple:
         title = article.title.strip() if article.title else "No title available"
 
         return article.text.strip(), domain, title
-
     except Exception as e:
         logger.error(f"Error extracting article from {url}: {str(e)}", exc_info=True)
         return None, None, None
@@ -382,11 +376,9 @@ Ensure all required fields are included in the response."""
                 return analysis
 
             return json.loads(response_text)
-
         except json.JSONDecodeError:
             logger.error("Failed to parse JSON from Claude response")
             return get_default_analysis()
-
     except Exception as e:
         logger.error(f"Error analyzing with Claude: {str(e)}", exc_info=True)
         return get_default_analysis()
