@@ -12,6 +12,7 @@ from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from app.claude_api import ClaudeAPI
+from app.news_api import NewsAPI  # Импортируем NewsAPI
 
 # Инициализация приложения
 app = Flask(__name__, static_folder='static')
@@ -34,6 +35,7 @@ session.mount('https://', HTTPAdapter(max_retries=retries))
 
 # Инициализация API клиентов
 claude_api = ClaudeAPI()
+news_api = NewsAPI()  # Инициализируем NewsAPI
 
 try:
     anthropic_api_key = os.getenv('ANTHROPIC_API_KEY')
@@ -44,7 +46,7 @@ except Exception as e:
     logger.error(f"Failed to initialize Anthropic client: {str(e)}")
     anthropic_client = None
 
-# Статические данные для тестирования
+# Тестовые данные
 daily_buzz = {
     "article": {
         "title": "Today's featured analysis: Israel-Iran relations",
@@ -334,6 +336,7 @@ def analyze_article():
         input_text = data['input_text'].strip()
 
         if input_text.startswith(('http://', 'https://')):
+            # Если это URL, сначала получаем текст статьи
             content, source, title, error = extract_text_from_url(input_text)
             if error:
                 return jsonify({
@@ -354,6 +357,33 @@ def analyze_article():
 
         # Используем метод analyze_article из claude_api
         analysis = claude_api.analyze_article(content, source)
+
+        # Получаем похожие статьи через NewsAPI
+        topics = [t['name'] if isinstance(t, dict) else t for t in analysis.get('topics', [])]
+        similar_articles = []
+
+        if topics:
+            # Ищем статьи по темам
+            query = ' OR '.join(topics[:3])  # Берем первые 3 темы
+            similar_articles = news_api.get_everything(
+                query=query,
+                page_size=5,
+                sort_by='publishedAt'
+            ) or []
+
+            # Фильтруем и форматируем статьи
+            similar_articles = [
+                {
+                    'title': article['title'],
+                    'source': article['source']['name'],
+                    'url': article['url'],
+                    'summary': article['description'],
+                    'credibility': determine_credibility_level_from_source(article['source']['name'])
+                }
+                for article in similar_articles
+                if article['url'] != input_text  # Исключаем оригинальную статью
+            ]
+
         credibility_level = determine_credibility_level(analysis.get('credibility_score', {}).get('score', 0.6))
 
         # Сохраняем в историю
@@ -376,7 +406,7 @@ def analyze_article():
                 'analysis': analysis,
                 'credibility_level': credibility_level
             },
-            'similar_articles': get_similar_articles(analysis.get('topics', []))
+            'similar_articles': similar_articles
         })
 
     except Exception as e:
@@ -386,6 +416,98 @@ def analyze_article():
             'message': 'An unexpected error occurred during analysis',
             'details': str(e)
         }), 500
+
+def determine_credibility_level_from_source(source_name: str) -> str:
+    """Определяет уровень достоверности на основе источника"""
+    source_name = source_name.lower()
+
+    # Список надежных источников
+    high_credibility_sources = [
+        'bbc', 'reuters', 'associated press', 'the new york times',
+        'the guardian', 'the wall street journal', 'bloomberg'
+    ]
+
+    medium_credibility_sources = [
+        'cnn', 'fox news', 'usa today', 'the washington post',
+        'npr', 'al jazeera', 'the independent'
+    ]
+
+    if any(source in source_name for source in high_credibility_sources):
+        return "High"
+    elif any(source in source_name for source in medium_credibility_sources):
+        return "Medium"
+    else:
+        return "Low"
+
+def extract_text_from_url(url: str) -> tuple:
+    """Извлекает текст из URL"""
+    try:
+        parsed = urlparse(url)
+        if not all([parsed.scheme, parsed.netloc]):
+            return None, None, None, "Invalid URL format"
+
+        clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+
+        if any(domain in parsed.netloc for domain in ['youtube.com', 'vimeo.com', 'twitch.tv']):
+            return None, parsed.netloc.replace('www.', ''), "Video content detected", None
+
+        try:
+            article = Article(clean_url, config=config)
+            article.download()
+            article.parse()
+
+            if article.text and len(article.text.strip()) >= 100:
+                return (article.text.strip(),
+                        parsed.netloc.replace('www.', ''),
+                        article.title.strip() if article.title else "No title available",
+                        None)
+        except Exception as e:
+            logger.warning(f"Newspaper failed to process {url}: {str(e)}")
+
+        try:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            }
+
+            response = session.get(clean_url, headers=headers, timeout=15)
+            response.raise_for_status()
+
+            soup = BeautifulSoup(response.text, 'html.parser')
+
+            for element in soup(['script', 'style', 'noscript', 'iframe', 'svg', 'nav', 'footer', 'header']):
+                element.decompose()
+
+            main_content = soup.find('article') or soup.find('div', {'class': re.compile('article|content|main')})
+
+            if main_content:
+                text = ' '.join([p.get_text() for p in main_content.find_all('p')])
+                if len(text.strip()) >= 100:
+                    return (text.strip(),
+                            parsed.netloc.replace('www.', ''),
+                            soup.title.string.strip() if soup.title else "No title available",
+                            None)
+
+            return None, parsed.netloc.replace('www.', ''), "Failed to extract content", "Content extraction failed"
+
+        except Exception as e:
+            logger.error(f"Alternative extraction failed for {url}: {str(e)}")
+            return None, parsed.netloc.replace('www.', ''), "Error occurred", str(e)
+
+    except Exception as e:
+        logger.error(f"Unexpected error extracting article from {url}: {str(e)}")
+        return None, parsed.netloc.replace('www.', ''), "Error occurred", str(e)
+
+def determine_credibility_level(score: float) -> str:
+    """Определяет уровень достоверности"""
+    if isinstance(score, dict):
+        score = score.get('score', 0.6)
+    if score >= 0.8:
+        return "High"
+    elif score >= 0.6:
+        return "Medium"
+    else:
+        return "Low"
 
 @app.route('/feedback')
 def feedback():
@@ -548,96 +670,6 @@ def terms():
 def favicon():
     return send_from_directory(os.path.join(app.root_path, 'static'),
                                'favicon.ico', mimetype='image/vnd.microsoft.icon')
-
-def extract_text_from_url(url: str) -> tuple:
-    """Извлекает текст из URL"""
-    try:
-        parsed = urlparse(url)
-        if not all([parsed.scheme, parsed.netloc]):
-            return None, None, None, "Invalid URL format"
-
-        clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
-
-        if any(domain in parsed.netloc for domain in ['youtube.com', 'vimeo.com', 'twitch.tv']):
-            return None, parsed.netloc.replace('www.', ''), "Video content detected", None
-
-        try:
-            article = Article(clean_url, config=config)
-            article.download()
-            article.parse()
-
-            if article.text and len(article.text.strip()) >= 100:
-                return (article.text.strip(),
-                        parsed.netloc.replace('www.', ''),
-                        article.title.strip() if article.title else "No title available",
-                        None)
-        except Exception as e:
-            logger.warning(f"Newspaper failed to process {url}: {str(e)}")
-
-        try:
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            }
-
-            response = session.get(clean_url, headers=headers, timeout=15)
-            response.raise_for_status()
-
-            soup = BeautifulSoup(response.text, 'html.parser')
-
-            for element in soup(['script', 'style', 'noscript', 'iframe', 'svg', 'nav', 'footer', 'header']):
-                element.decompose()
-
-            main_content = soup.find('article') or soup.find('div', {'class': re.compile('article|content|main')})
-
-            if main_content:
-                text = ' '.join([p.get_text() for p in main_content.find_all('p')])
-                if len(text.strip()) >= 100:
-                    return (text.strip(),
-                            parsed.netloc.replace('www.', ''),
-                            soup.title.string.strip() if soup.title else "No title available",
-                            None)
-
-            return None, parsed.netloc.replace('www.', ''), "Failed to extract content", "Content extraction failed"
-
-        except Exception as e:
-            logger.error(f"Alternative extraction failed for {url}: {str(e)}")
-            return None, parsed.netloc.replace('www.', ''), "Error occurred", str(e)
-
-    except Exception as e:
-        logger.error(f"Unexpected error extracting article from {url}: {str(e)}")
-        return None, parsed.netloc.replace('www.', ''), "Error occurred", str(e)
-
-def determine_credibility_level(score: float) -> str:
-    """Определяет уровень достоверности"""
-    if isinstance(score, dict):
-        score = score.get('score', 0.6)
-    if score >= 0.8:
-        return "High"
-    elif score >= 0.6:
-        return "Medium"
-    else:
-        return "Low"
-
-def get_similar_articles(topics: list) -> list:
-    """Возвращает похожие статьи"""
-    # В реальном приложении здесь был бы вызов к базе данных или API
-    return [
-        {
-            "title": "Related article about Israel-Iran relations",
-            "source": "Media Analysis",
-            "summary": "Analysis of recent developments in Israel-Iran relations...",
-            "url": "https://example.com/related1",
-            "credibility": "High"
-        },
-        {
-            "title": "Middle East economic outlook",
-            "source": "Financial Times",
-            "summary": "Economic analysis of the Middle East region...",
-            "url": "https://example.com/related2",
-            "credibility": "Medium"
-        }
-    ]
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
