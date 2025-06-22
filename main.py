@@ -1,10 +1,11 @@
 import os
+iimport os
 import logging
 import re
 import json
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
-from flask import Flask, request, jsonify, render_template, send_from_directory, make_response
+from flask import Flask, request, jsonify, render_template, send_from_directory, make_response, redirect, url_for
 from flask_cors import CORS
 import anthropic
 from newspaper import Article, Config
@@ -69,7 +70,6 @@ def cache_response(timeout=300):
 
             return response
 
-        # Уникальное имя для каждого декоратора
         wrapped.__name__ = f"wrapped_{f.__name__}"
         return wrapped
     return decorator
@@ -77,11 +77,6 @@ def cache_response(timeout=300):
 @app.route('/')
 def home():
     """Главная страница с анализом"""
-    return redirect(url_for('index'))
-
-@app.route('/index')
-def index():
-    """Главная страница приложения"""
     try:
         buzz_result = db.get_daily_buzz()
         if buzz_result['status'] != 'success':
@@ -122,6 +117,11 @@ def index():
     except Exception as e:
         logger.error(f"Error loading home page: {str(e)}", exc_info=True)
         return render_template('error.html', message="Failed to load home page")
+
+@app.route('/index')
+def index():
+    """Главная страница приложения"""
+    return home()
 
 @app.route('/faq')
 def faq():
