@@ -8,7 +8,6 @@ from datetime import datetime, timedelta
 from urllib.parse import urlparse
 from flask import Flask, request, jsonify, render_template_string, send_from_directory, session
 from flask_cors import CORS
-from flask_wtf.csrf import CSRFProtect
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 import anthropic
@@ -41,21 +40,11 @@ if os.getenv('SENTRY_DSN'):
         environment=os.getenv('FLASK_ENV', 'development')
     )
 
-# Модели валидации с Pydantic
-class ArticleInput(BaseModel):
-    input_text: str
-
-class URLInput(BaseModel):
-    url: HttpUrl
-
 # Инициализация приложения
 app = Flask(__name__, static_folder='static')
 app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'your-secret-key-here')
 app.config['CELERY_BROKER_URL'] = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
 app.config['CELERY_RESULT_BACKEND'] = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
-
-# Настройка CSRF защиты
-csrf = CSRFProtect(app)
 
 # Настройка CORS
 CORS(app, resources={
@@ -103,6 +92,20 @@ session.mount('https://', HTTPAdapter(max_retries=retries))
 cache = CacheManager()
 claude_api = ClaudeAPI()
 news_api = NewsAPI()
+
+# Встроенная CSRF защита
+@app.before_request
+def csrf_protect():
+    if request.method == "POST":
+        token = session.pop('_csrf_token', None)
+        if not token or token != request.form.get('_csrf_token'):
+            return jsonify({'status': 'error', 'message': 'CSRF token missing or invalid'}), 403
+
+@app.after_request
+def add_csrf_token(response):
+    if request.endpoint in app.view_functions and request.method == "GET":
+        response.set_cookie('_csrf_token', app.config['SECRET_KEY'])
+    return response
 
 # Инициализация клиента Anthropic
 try:
@@ -205,6 +208,7 @@ def analyze_article_async(self, url_or_text: str):
 @app.route('/')
 def index():
     """Главная страница приложения"""
+    csrf_token = app.config['SECRET_KEY']
     return render_template_string('''
     <!DOCTYPE html>
     <html>
@@ -310,8 +314,11 @@ def index():
         <div class="right-panel">
             <div class="analysis-form">
                 <h2>Analyze Article</h2>
-                <textarea id="article-input" placeholder="Enter article URL or text..."></textarea>
-                <button onclick="startAnalysis()" id="analyze-btn">Analyze</button>
+                <form id="analysis-form" method="post">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+                    <textarea id="article-input" name="article-input" placeholder="Enter article URL or text..."></textarea>
+                    <button type="submit" onclick="startAnalysis(event)" id="analyze-btn">Analyze</button>
+                </form>
                 <div id="progress-container">
                     <div id="progress-bar">
                         <div id="progress">0%</div>
@@ -345,7 +352,8 @@ def index():
             });
 
             // Функция для анализа статьи
-            function startAnalysis() {
+            function startAnalysis(event) {
+                event.preventDefault();
                 const input = document.getElementById('article-input').value.trim();
                 const analyzeBtn = document.getElementById('analyze-btn');
                 const progressContainer = document.getElementById('progress-container');
@@ -356,7 +364,7 @@ def index():
 
                 if (!input) {
                     alert('Please enter article URL or text');
-                    return;
+                    return false;
                 }
 
                 // Отключаем кнопку и показываем прогресс
@@ -372,7 +380,6 @@ def index():
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-CSRFToken': '{{ csrf_token() }}'
                     },
                     body: JSON.stringify({ input_text: input })
                 })
@@ -390,6 +397,7 @@ def index():
                     resultsDiv.innerHTML = `<p>Error: ${error.message}</p>`;
                     resetAnalysisUI();
                 });
+                return false;
             }
 
             // Проверка статуса задачи
@@ -542,7 +550,7 @@ def index():
         </script>
     </body>
     </html>
-    ''')
+    '''.replace('{{ csrf_token }}', csrf_token))
 
 @app.route('/daily-buzz')
 def get_daily_buzz():
@@ -572,7 +580,6 @@ def get_analysis_history():
     return jsonify({"history": analysis_history})
 
 @app.route('/start-analysis', methods=['POST'])
-@csrf.exempt
 @limiter.limit("5 per minute")
 def start_analysis():
     """Начинает асинхронный анализ статьи"""
@@ -586,7 +593,8 @@ def start_analysis():
         # Валидация входных данных
         try:
             if input_text.startswith(('http://', 'https://')):
-                URLInput(url=input_text)
+                if not re.match(r'^https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+', input_text):
+                    raise ValueError('Invalid URL format')
             else:
                 if len(input_text) < 50:
                     raise ValueError('Content is too short for analysis')
@@ -631,7 +639,6 @@ def get_task_status(task_id):
     return jsonify(response)
 
 @app.route('/analyze', methods=['POST'])
-@csrf.exempt
 @limiter.limit("5 per minute")
 def analyze_article():
     """Анализирует статью синхронно (альтернативный вариант)"""
@@ -645,11 +652,12 @@ def analyze_article():
         # Валидация входных данных
         try:
             if input_text.startswith(('http://', 'https://')):
-                URLInput(url=input_text)
+                if not re.match(r'^https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+', input_text):
+                    raise ValueError('Invalid URL format')
             else:
                 if len(input_text) < 50:
                     raise ValueError('Content is too short for analysis')
-        except ValidationError as e:
+        except Exception as e:
             return jsonify({'status': 'error', 'message': str(e)}), 400
 
         # Проверяем кэш
@@ -728,6 +736,7 @@ def analyze_article():
 @app.route('/feedback')
 def feedback():
     """Страница обратной связи"""
+    csrf_token = app.config['SECRET_KEY']
     return render_template_string('''
     <!DOCTYPE html>
     <html>
@@ -755,7 +764,8 @@ def feedback():
             <h1>Feedback</h1>
             <p>We appreciate your feedback about our media analysis service.</p>
 
-            <form id="feedback-form">
+            <form id="feedback-form" method="post">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
                 <div>
                     <label for="name">Name:</label>
                     <input type="text" id="name" name="name">
@@ -781,7 +791,7 @@ def feedback():
         </script>
     </body>
     </html>
-    ''')
+    '''.replace('{{ csrf_token }}', csrf_token))
 
 @app.route('/privacy')
 def privacy():
@@ -885,7 +895,7 @@ def terms():
 @app.route('/favicon.ico')
 def favicon():
     return send_from_directory(os.path.join(app.root_path, 'static'),
-                               'favicon.ico', mimetype='image/vnd.microsoft.icon')
+                             'favicon.ico', mimetype='image/vnd.microsoft.icon')
 
 def extract_text_from_url(url: str) -> tuple:
     """Извлекает текст из URL с улучшенной обработкой ошибок"""
