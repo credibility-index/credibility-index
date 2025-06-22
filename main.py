@@ -174,7 +174,7 @@ def analysis_history():
 
 @app.route('/analyze', methods=['POST'])
 def analyze_article():
-    """Маршрут для анализа статьи"""
+    """Маршрут для анализа статьи с более детальной информацией"""
     try:
         data = request.get_json()
         if not data or not data.get('input_text'):
@@ -201,9 +201,11 @@ def analyze_article():
             source = 'Direct Input'
             title = 'User-provided Text'
 
+        # Получаем более детальный анализ
         analysis = analyze_with_claude(content, source)
         credibility_level = determine_credibility_level(analysis.get('index_of_credibility', 0.6))
 
+        # Сохраняем статью в базу данных
         article_id = db.save_article(
             title=title,
             source=source,
@@ -214,14 +216,17 @@ def analyze_article():
             credibility_level=credibility_level
         )
 
+        # Обновляем статистику источника
         try:
             db.update_source_stats(source, credibility_level)
         except Exception as e:
             logger.error(f"Error updating source stats: {str(e)}")
 
+        # Получаем похожие статьи
         similar_articles = get_similar_articles(analysis.get('topics', []))
 
-        return jsonify({
+        # Формируем более детальный ответ
+        response_data = {
             'status': 'success',
             'article': {
                 'id': article_id,
@@ -230,10 +235,23 @@ def analyze_article():
                 'url': input_text if input_text.startswith(('http://', 'https://')) else None,
                 'short_summary': content[:200] + '...' if len(content) > 200 else content,
                 'analysis': analysis,
-                'credibility_level': credibility_level
+                'credibility_level': credibility_level,
+                'detailed_analysis': {
+                    'credibility_score': analysis.get('credibility_score', 0.6),
+                    'topics': analysis.get('topics', []),
+                    'summary': analysis.get('summary', ''),
+                    'perspectives': analysis.get('perspectives', {}),
+                    'sentiment': analysis.get('sentiment', 'neutral'),
+                    'bias': analysis.get('bias', 'medium'),
+                    'key_arguments': analysis.get('key_arguments', []),
+                    'mentioned_facts': analysis.get('mentioned_facts', []),
+                    'potential_biases': analysis.get('potential_biases_identified', [])
+                }
             },
             'similar_articles': similar_articles
-        })
+        }
+
+        return jsonify(response_data)
     except Exception as e:
         logger.error(f"Error analyzing article: {str(e)}", exc_info=True)
         return jsonify({
@@ -243,7 +261,7 @@ def analyze_article():
         }), 500
 
 def extract_text_from_url(url: str) -> tuple:
-    """Улучшенная функция для извлечения текста из URL"""
+    """Улучшенная функция для извлечения текста из URL с более детальной обработкой"""
     try:
         parsed = urlparse(url)
         if not all([parsed.scheme, parsed.netloc]):
@@ -307,22 +325,26 @@ def extract_text_from_url(url: str) -> tuple:
         return None, parsed.netloc.replace('www.', ''), "Error occurred", str(e)
 
 def analyze_with_claude(content: str, source: str) -> dict:
-    """Анализ статьи с помощью Claude с более компактным выводом"""
+    """Анализ статьи с помощью Claude с более детальным выводом"""
     try:
-        prompt = f"""Analyze this news article and provide a structured JSON response with:
-1. Credibility score (0-1)
-2. Key topics (max 5)
-3. Brief summary (2-3 sentences)
-4. Main perspectives (Western, Iranian, Israeli, Neutral - 1 sentence each)
-5. Sentiment analysis (positive/neutral/negative)
-6. Bias detection (low/medium/high)
+        prompt = f"""Analyze this news article and provide a comprehensive JSON response with:
+1. Credibility score (0-1) with explanation
+2. Key topics (max 5) with brief descriptions
+3. Detailed summary (3-5 sentences)
+4. Main perspectives (Western, Iranian, Israeli, Neutral - 2-3 sentences each)
+5. Sentiment analysis (positive/neutral/negative) with explanation
+6. Bias detection (low/medium/high) with explanation
+7. Key arguments presented (3-5 main points)
+8. Mentioned facts (3-5 key facts)
+9. Potential biases identified (list with explanations)
+10. Author's purpose (1-2 sentences)
 
-Article content (first 3000 characters):
-{content[:3000]}"""
+Article content (first 4000 characters):
+{content[:4000]}"""
 
         response = anthropic_client.messages.create(
             model=os.getenv('ANTHROPIC_MODEL', 'claude-3-opus-20240229'),
-            max_tokens=1500,
+            max_tokens=2000,
             temperature=0.3,
             messages=[{"role": "user", "content": prompt}]
         )
@@ -354,9 +376,9 @@ def get_similar_articles(topics: list) -> list:
     """Получение похожих статей по темам"""
     try:
         similar_articles = db.get_similar_articles(topics)
-        if len(similar_articles) < 3 and topics:
+        if len(similar_articles) < 5 and topics:
             query = " OR ".join(topics[:3])
-            news_articles = news_api.get_everything(query=query, page_size=3)
+            news_articles = news_api.get_everything(query=query, page_size=5)
 
             if news_articles:
                 for article in news_articles:
@@ -372,25 +394,62 @@ def get_similar_articles(topics: list) -> list:
                         'credibility': "Medium"
                     })
 
-        return similar_articles[:3]
+        return similar_articles[:5]
     except Exception as e:
         logger.error(f"Error getting similar articles: {str(e)}", exc_info=True)
         return []
 
 def get_default_analysis() -> dict:
-    """Получение анализа по умолчанию"""
+    """Получение анализа по умолчанию с более детальной информацией"""
     return {
-        "credibility_score": 0.6,
-        "topics": ["general"],
-        "summary": "This article discusses various perspectives on a current event.",
-        "perspectives": {
-            "western": "Western perspective on the event.",
-            "iranian": "Iranian perspective on the event.",
-            "israeli": "Israeli perspective on the event.",
-            "neutral": "Neutral analysis of the event."
+        "credibility_score": {
+            "score": 0.6,
+            "explanation": "Default credibility score based on average analysis"
         },
-        "sentiment": "neutral",
-        "bias": "medium"
+        "topics": [
+            {"name": "general", "description": "General news topic"},
+            {"name": "politics", "description": "Political news topic"}
+        ],
+        "summary": "This article discusses various perspectives on a current event. It presents multiple viewpoints and analyzes the situation from different angles.",
+        "perspectives": {
+            "western": {
+                "summary": "Western perspective on the event, typically focusing on democratic values and international relations.",
+                "key_points": ["Point 1", "Point 2"]
+            },
+            "iranian": {
+                "summary": "Iranian perspective on the event, often emphasizing regional security and sovereignty.",
+                "key_points": ["Point 1", "Point 2"]
+            },
+            "israeli": {
+                "summary": "Israeli perspective on the event, usually centered around national security concerns.",
+                "key_points": ["Point 1", "Point 2"]
+            },
+            "neutral": {
+                "summary": "Neutral analysis of the event, attempting to present balanced viewpoints.",
+                "key_points": ["Point 1", "Point 2"]
+            }
+        },
+        "sentiment": {
+            "score": "neutral",
+            "explanation": "The article presents a balanced view without strong emotional bias"
+        },
+        "bias": {
+            "level": "medium",
+            "explanation": "The article shows some bias but attempts to present multiple viewpoints"
+        },
+        "key_arguments": [
+            "Argument 1 with brief explanation",
+            "Argument 2 with brief explanation"
+        ],
+        "mentioned_facts": [
+            "Fact 1 with brief context",
+            "Fact 2 with brief context"
+        ],
+        "potential_biases": [
+            {"bias": "Bias 1", "explanation": "Explanation of potential bias"},
+            {"bias": "Bias 2", "explanation": "Explanation of potential bias"}
+        ],
+        "author_purpose": "The author aims to inform readers about the event while presenting multiple perspectives."
     }
 
 @app.route('/static/<path:filename>')
