@@ -50,7 +50,7 @@ CORS(app, resources={
     r"/*": {
         "origins": os.getenv('CORS_ORIGINS', '*').split(','),
         "methods": ["GET", "POST", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization"]
+        "allow_headers": ["Content-Type", "Authorization", "X-CSRFToken", "X-Requested-With"]
     }
 })
 
@@ -61,27 +61,21 @@ def rate_limit(max_per_minute=60):
         def wrapper(*args, **kwargs):
             # Получаем IP клиента
             client_ip = request.remote_addr
-
             # Используем локальное хранилище для хранения информации о запросах
             if not hasattr(app, 'rate_limit_store'):
                 app.rate_limit_store = {}
-
             # Ключ для хранения количества запросов
             key = f"rate_limit:{client_ip}:{request.path}"
-
             # Получаем текущее количество запросов
             current = app.rate_limit_store.get(key, 0)
-
             # Проверяем, не превышен ли лимит
             if current >= max_per_minute:
                 return jsonify({
                     'status': 'error',
                     'message': 'Rate limit exceeded. Please try again later.'
                 }), 429
-
             # Увеличиваем счётчик
             app.rate_limit_store[key] = current + 1
-
             # Сбрасываем счётчик через 60 секунд
             if not hasattr(app, 'rate_limit_cleanup'):
                 app.rate_limit_cleanup = True
@@ -90,11 +84,9 @@ def rate_limit(max_per_minute=60):
                     app.rate_limit_store = {}
                 import threading
                 threading.Thread(target=cleanup, daemon=True).start()
-
             return f(*args, **kwargs)
         return wrapper
     return decorator
-
 
 # Настройка для работы за обратным прокси
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
@@ -149,12 +141,10 @@ daily_buzz = {
         }
     }
 }
-
 source_credibility_data = {
     "sources": ["BBC", "Reuters", "CNN", "The Guardian", "Fox News"],
     "credibility_scores": [0.92, 0.88, 0.75, 0.85, 0.65]
 }
-
 analysis_history = []
 
 # Celery задача для анализа статьи
@@ -166,37 +156,29 @@ def analyze_article_async(self, url_or_text: str):
         cached_result = cache.get_cached_article_analysis(url_or_text)
         if cached_result:
             return {"status": "success", "result": cached_result, "cached": True}
-
         # Обновляем прогресс
         self.update_state(state='PROGRESS', meta={'progress': 10, 'message': 'Starting analysis'})
-
         # Логика анализа
         if url_or_text.startswith(('http://', 'https://')):
             content, source, title, error = extract_text_from_url(url_or_text)
             if error:
                 return {"status": "error", "message": error}
-
             self.update_state(state='PROGRESS', meta={'progress': 30, 'message': 'Article extracted'})
         else:
             content = url_or_text
             source = 'Direct Input'
             title = 'User-provided Text'
-
         # Анализ через Claude API
         analysis = claude_api.analyze_article(content, source)
         self.update_state(state='PROGRESS', meta={'progress': 70, 'message': 'Analysis completed'})
-
         # Получаем похожие статьи
         topics = [t['name'] if isinstance(t, dict) else t for t in analysis.get('topics', [])]
         similar_articles = []
-
         if topics:
             query = ' OR '.join(topics[:3])
             similar_articles = news_api.get_everything(query=query, page_size=5) or []
-
         # Определяем уровень достоверности
         credibility_level = determine_credibility_level(analysis.get('credibility_score', {}).get('score', 0.6))
-
         # Формируем результат
         result = {
             'title': title,
@@ -207,13 +189,10 @@ def analyze_article_async(self, url_or_text: str):
             'credibility_level': credibility_level,
             'similar_articles': similar_articles
         }
-
         # Кэшируем результат
         cache.cache_article_analysis(url_or_text, result)
-
         self.update_state(state='PROGRESS', meta={'progress': 100, 'message': 'Completed'})
         return {"status": "success", "result": result}
-
     except Exception as e:
         logger.error(f"Error in async article analysis: {str(e)}", exc_info=True)
         return {"status": "error", "message": str(e)}
@@ -221,8 +200,7 @@ def analyze_article_async(self, url_or_text: str):
 @app.route('/')
 def index():
     """Главная страница приложения"""
-    csrf_token = app.config['SECRET_KEY']
-    return render_template('index.html', csrf_token=csrf_token)
+    return render_template('index.html')
 
 @app.route('/daily-buzz')
 def get_daily_buzz():
@@ -232,7 +210,6 @@ def get_daily_buzz():
         cached_buzz = cache.get_cached_buzz_analysis()
         if cached_buzz:
             return jsonify({"article": cached_buzz})
-
         # Получаем новый анализ
         buzz_analysis = claude_api.get_buzz_analysis()
         cache.cache_buzz_analysis(buzz_analysis)
@@ -259,9 +236,7 @@ def start_analysis():
         data = request.get_json()
         if not data or 'input_text' not in data:
             return jsonify({'status': 'error', 'message': 'Input text is required'}), 400
-
         input_text = data['input_text'].strip()
-
         # Валидация входных данных
         try:
             if input_text.startswith(('http://', 'https://')):
@@ -272,11 +247,9 @@ def start_analysis():
                     raise ValueError('Content is too short for analysis')
         except Exception as e:
             return jsonify({'status': 'error', 'message': str(e)}), 400
-
         # Запускаем асинхронную задачу
         task = analyze_article_async.delay(input_text)
         return jsonify({'status': 'started', 'task_id': task.id})
-
     except Exception as e:
         logger.error(f"Error starting analysis: {str(e)}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
@@ -285,7 +258,6 @@ def start_analysis():
 def get_task_status(task_id):
     """Проверяет статус асинхронной задачи"""
     task = analyze_article_async.AsyncResult(task_id)
-
     if task.state == 'PENDING':
         response = {
             'status': task.state,
@@ -307,7 +279,6 @@ def get_task_status(task_id):
             'status': task.state,
             'message': str(task.info) if task.info else 'Task failed'
         }
-
     return jsonify(response)
 
 @app.route('/analyze', methods=['POST'])
@@ -318,9 +289,7 @@ def analyze_article():
         data = request.get_json()
         if not data or 'input_text' not in data:
             return jsonify({'status': 'error', 'message': 'Input text is required'}), 400
-
         input_text = data['input_text'].strip()
-
         # Валидация входных данных
         try:
             if input_text.startswith(('http://', 'https://')):
@@ -331,7 +300,6 @@ def analyze_article():
                     raise ValueError('Content is too short for analysis')
         except Exception as e:
             return jsonify({'status': 'error', 'message': str(e)}), 400
-
         # Проверяем кэш
         cached_result = cache.get_cached_article_analysis(input_text)
         if cached_result:
@@ -340,7 +308,6 @@ def analyze_article():
                 'article': cached_result['article'],
                 'similar_articles': cached_result.get('similar_articles', [])
             })
-
         # Анализ статьи
         if input_text.startswith(('http://', 'https://')):
             content, source, title, error = extract_text_from_url(input_text)
@@ -355,19 +322,15 @@ def analyze_article():
             content = input_text
             source = 'Direct Input'
             title = 'User-provided Text'
-
         # Анализ через Claude API
         analysis = claude_api.analyze_article(content, source)
         credibility_level = determine_credibility_level(analysis.get('credibility_score', {}).get('score', 0.6))
-
         # Получаем похожие статьи
         topics = [t['name'] if isinstance(t, dict) else t for t in analysis.get('topics', [])]
         similar_articles = []
-
         if topics:
             query = ' OR '.join(topics[:3])
             similar_articles = news_api.get_everything(query=query, page_size=5) or []
-
         # Формируем результат
         result = {
             'title': title,
@@ -378,10 +341,8 @@ def analyze_article():
             'credibility_level': credibility_level,
             'similar_articles': similar_articles
         }
-
         # Кэшируем результат
         cache.cache_article_analysis(input_text, result)
-
         # Сохраняем в историю
         analysis_history.insert(0, {
             "title": title,
@@ -391,12 +352,10 @@ def analyze_article():
             "credibility": credibility_level
         })
         analysis_history = analysis_history[:10]  # Оставляем только последние 10
-
         return jsonify({
             'status': 'success',
             'article': result
         })
-
     except Exception as e:
         logger.error(f"Error analyzing article: {str(e)}")
         return jsonify({
@@ -408,8 +367,7 @@ def analyze_article():
 @app.route('/feedback')
 def feedback():
     """Страница обратной связи"""
-    csrf_token = app.config['SECRET_KEY']
-    return render_template('feedback.html', csrf_token=csrf_token)
+    return render_template('feedback.html')
 
 @app.route('/privacy')
 def privacy():
@@ -432,19 +390,15 @@ def extract_text_from_url(url: str) -> tuple:
         parsed = urlparse(url)
         if not all([parsed.scheme, parsed.netloc]):
             return None, None, None, "Invalid URL format"
-
         clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
-
         # Проверяем, не является ли это видео-контентом
         if any(domain in parsed.netloc for domain in ['youtube.com', 'vimeo.com', 'twitch.tv']):
             return None, parsed.netloc.replace('www.', ''), "Video content detected", None
-
         # Пытаемся извлечь текст с помощью newspaper
         try:
             article = Article(clean_url, config=config)
             article.download()
             article.parse()
-
             if article.text and len(article.text.strip()) >= 100:
                 return (article.text.strip(),
                         parsed.netloc.replace('www.', ''),
@@ -452,26 +406,20 @@ def extract_text_from_url(url: str) -> tuple:
                         None)
         except Exception as e:
             logger.warning(f"Newspaper failed to process {url}: {str(e)}")
-
         # Альтернативный метод извлечения
         try:
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
             }
-
             response = session.get(clean_url, headers=headers, timeout=15)
             response.raise_for_status()
-
             soup = BeautifulSoup(response.text, 'html.parser')
-
             # Удаляем ненужные элементы
             for element in soup(['script', 'style', 'noscript', 'iframe', 'svg', 'nav', 'footer', 'header']):
                 element.decompose()
-
             # Ищем основной контент
             main_content = soup.find('article') or soup.find('div', {'class': re.compile('article|content|main')})
-
             if main_content:
                 text = ' '.join([p.get_text() for p in main_content.find_all('p')])
                 if len(text.strip()) >= 100:
@@ -479,13 +427,10 @@ def extract_text_from_url(url: str) -> tuple:
                             parsed.netloc.replace('www.', ''),
                             soup.title.string.strip() if soup.title else "No title available",
                             None)
-
             return None, parsed.netloc.replace('www.', ''), "Failed to extract content", "Content extraction failed"
-
         except Exception as e:
             logger.error(f"Alternative extraction failed for {url}: {str(e)}")
             return None, parsed.netloc.replace('www.', ''), "Error occurred", str(e)
-
     except Exception as e:
         logger.error(f"Unexpected error extracting article from {url}: {str(e)}")
         return None, parsed.netloc.replace('www.', ''), "Error occurred", str(e)
@@ -505,7 +450,6 @@ def get_similar_articles(topics: list) -> list:
     """Возвращает похожие статьи с использованием NewsAPI"""
     if not topics:
         return []
-
     try:
         query = ' OR '.join([str(t) for t in topics[:3]])  # Берем первые 3 темы
         articles = news_api.get_everything(
@@ -513,7 +457,6 @@ def get_similar_articles(topics: list) -> list:
             page_size=5,
             sort_by='publishedAt'
         ) or []
-
         return [
             {
                 "title": article['title'],
@@ -531,17 +474,14 @@ def get_similar_articles(topics: list) -> list:
 def determine_credibility_level_from_source(source_name: str) -> str:
     """Определяет уровень достоверности на основе источника"""
     source_name = source_name.lower()
-
     high_credibility_sources = [
         'bbc', 'reuters', 'associated press', 'the new york times',
         'the guardian', 'the wall street journal', 'bloomberg'
     ]
-
     medium_credibility_sources = [
         'cnn', 'fox news', 'usa today', 'the washington post',
         'npr', 'al jazeera', 'the independent'
     ]
-
     if any(source in source_name for source in high_credibility_sources):
         return "High"
     elif any(source in source_name for source in medium_credibility_sources):
