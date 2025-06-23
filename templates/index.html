@@ -49,11 +49,16 @@
             font-size: 1.5rem;
             font-weight: bold;
             color: var(--primary-color);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         .main-content {
             display: flex;
             gap: 30px;
+            margin-top: 20px;
         }
 
         .analysis-section {
@@ -153,6 +158,7 @@
             border-left: 3px solid var(--primary-color);
             border-radius: var(--border-radius);
             background: var(--secondary-color);
+            transition: transform 0.2s ease;
         }
 
         .similar-article:hover {
@@ -205,9 +211,10 @@
 <body>
     <div class="container">
         <div class="header">
-            <div class="logo">
-                <i class="bi bi-newspaper"></i> Media Credibility Index
-            </div>
+            <a href="main.html" class="logo">
+                <i class="bi bi-newspaper"></i>
+                <span>Media Credibility Index</span>
+            </a>
         </div>
 
         <div class="main-content">
@@ -259,7 +266,7 @@
                 <div class="similar-articles">
                     <h2>Related Articles</h2>
                     <div class="similar-article">
-                        <h3>Global News Trends Analysis</h3>
+                        <h3><a href="article1.html">Global News Trends Analysis</a></h3>
                         <div class="article-meta">
                             <span><i class="bi bi-newspaper"></i> BBC</span>
                             <span class="credibility-badge high"><i class="bi bi-shield-check"></i> High</span>
@@ -267,7 +274,7 @@
                         <p>Comprehensive analysis of current global news trends and their credibility patterns.</p>
                     </div>
                     <div class="similar-article">
-                        <h3>Media Bias in Political Reporting</h3>
+                        <h3><a href="article2.html">Media Bias in Political Reporting</a></h3>
                         <div class="article-meta">
                             <span><i class="bi bi-newspaper"></i> The Guardian</span>
                             <span class="credibility-badge medium"><i class="bi bi-shield-check"></i> Medium</span>
