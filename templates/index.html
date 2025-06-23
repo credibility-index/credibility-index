@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Media Credibility Index - News Analysis</title>
+    <title>Media Credibility Index</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <script src="https://cdn.plot.ly/plotly-2.20.0.min.js"></script>
     <style>
@@ -14,7 +14,6 @@
             --border-color: #e2e8f0;
             --border-radius: 8px;
             --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            --transition: all 0.3s ease;
             --success-color: #10b981;
             --warning-color: #f59e0b;
             --danger-color: #ef4444;
@@ -28,7 +27,7 @@
 
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
+            background-color: #f5f5f5;
             color: var(--text-color);
             line-height: 1.6;
         }
@@ -36,128 +35,69 @@
         .container {
             max-width: 1200px;
             margin: 0 auto;
-            padding: 0 1rem;
+            padding: 20px;
         }
 
-        /* Navigation */
-        .navbar {
-            background-color: white;
-            padding: 1rem;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-        }
-
-        .navbar-container {
+        .header {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            margin-bottom: 30px;
         }
 
-        .navbar-brand {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 1.2rem;
-            font-weight: 600;
-            color: var(--text-color);
-            text-decoration: none;
-        }
-
-        .navbar-links {
-            display: flex;
-            gap: 1.5rem;
-            list-style: none;
-        }
-
-        .navbar-link {
-            color: var(--text-color);
-            font-weight: 500;
-            text-decoration: none;
-            transition: var(--transition);
-        }
-
-        .navbar-link:hover {
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
             color: var(--primary-color);
         }
 
-        /* Main Layout */
-        .main-container {
+        .main-content {
             display: flex;
-            gap: 2rem;
-            margin-top: 2rem;
+            gap: 30px;
         }
 
-        /* Left Column - Analysis */
-        .analysis-column {
+        .analysis-section {
             flex: 2;
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
+            background: white;
+            border-radius: var(--border-radius);
+            padding: 20px;
+            box-shadow: var(--box-shadow);
         }
 
-        /* Right Column - Form and Charts */
-        .form-column {
+        .sidebar {
             flex: 1;
             display: flex;
             flex-direction: column;
-            gap: 1.5rem;
+            gap: 20px;
         }
 
-        /* Analysis Section */
-        .analysis-section {
-            background-color: white;
+        .chart-container, .similar-articles {
+            background: white;
             border-radius: var(--border-radius);
+            padding: 20px;
             box-shadow: var(--box-shadow);
-            padding: 1.5rem;
         }
 
-        .analysis-title {
+        .article-header {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .article-title {
             font-size: 1.5rem;
-            margin-bottom: 1rem;
-            color: var(--text-color);
+            margin-bottom: 10px;
+        }
+
+        .article-meta {
             display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .analysis-title i {
-            cursor: pointer;
-            transition: var(--transition);
-        }
-
-        .analysis-title i:hover {
-            color: var(--primary-color);
-        }
-
-        /* Score Items */
-        .score-item {
-            margin-bottom: 1.5rem;
-        }
-
-        .score-name {
-            font-weight: 600;
-            margin-bottom: 0.25rem;
+            gap: 15px;
+            color: #6b7280;
             font-size: 0.9rem;
-            color: #6b7280;
         }
 
-        .score-value {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--primary-color);
-        }
-
-        .score-description {
-            font-size: 0.8rem;
-            color: #6b7280;
-        }
-
-        /* Credibility Badge */
         .credibility-badge {
-            display: inline-block;
-            padding: 0.25rem 0.5rem;
+            padding: 3px 8px;
             border-radius: 4px;
             font-size: 0.8rem;
             font-weight: 600;
@@ -178,413 +118,28 @@
             color: #ef4444;
         }
 
-        /* Form Elements */
-        .analysis-form {
-            background-color: white;
-            border-radius: var(--border-radius);
-            box-shadow: var(--box-shadow);
-            padding: 1.5rem;
+        .analysis-content {
+            margin: 20px 0;
         }
 
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-
-        .form-label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 500;
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 0.75rem;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            font-size: 1rem;
-            resize: vertical;
-            min-height: 150px;
-            transition: var(--transition);
-        }
-
-        .form-control:focus {
-            outline: none;
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
-        }
-
-        .btn {
-            display: inline-block;
-            padding: 0.75rem 1.5rem;
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            border-radius: 4px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: var(--transition);
-            width: 100%;
-        }
-
-        .btn:hover {
-            background-color: #1d4ed8;
-        }
-
-        /* Chart Container */
-        .chart-container {
-            background-color: white;
-            border-radius: var(--border-radius);
-            box-shadow: var(--box-shadow);
-            padding: 1.5rem;
-        }
-
-        /* Analysis Details */
-        .analysis-details {
-            margin-top: 1rem;
-        }
-
-        .detail-section {
-            margin-bottom: 1.5rem;
-            padding-bottom: 1.5rem;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .detail-section:last-child {
-            border-bottom: none;
-            padding-bottom: 0;
-            margin-bottom: 0;
-        }
-
-        .detail-title {
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-            color: var(--text-color);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .detail-content {
-            margin-top: 0.5rem;
-        }
-
-        .topics-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            margin-top: 0.5rem;
-        }
-
-        .badge {
-            background-color: var(--secondary-color);
-            padding: 0.25rem 0.75rem;
-            border-radius: 4px;
-            font-size: 0.8rem;
-            color: var(--text-color);
-        }
-
-        /* Similar Articles */
-        .similar-articles-container {
-            background-color: white;
-            border-radius: var(--border-radius);
-            box-shadow: var(--box-shadow);
-            padding: 1.5rem;
-        }
-
-        .similar-article {
-            background-color: var(--secondary-color);
-            border-radius: var(--border-radius);
-            padding: 1rem;
-            margin-bottom: 1rem;
-            border-left: 4px solid var(--primary-color);
-            transition: var(--transition);
-        }
-
-        .similar-article:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-
-        .article-meta {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            margin-bottom: 0.5rem;
-            font-size: 0.8rem;
-            color: #6b7280;
-        }
-
-        .article-source, .article-date, .article-credibility {
-            display: flex;
-            align-items: center;
-            gap: 0.25rem;
-        }
-
-        /* News Feed */
-        .news-feed-container {
-            background-color: white;
-            border-radius: var(--border-radius);
-            box-shadow: var(--box-shadow);
-            padding: 1.5rem;
-            margin-top: 1.5rem;
-        }
-
-        .news-article {
-            background-color: var(--secondary-color);
-            border-radius: var(--border-radius);
-            padding: 1rem;
-            margin-bottom: 1rem;
-            border-left: 4px solid var(--primary-color);
-            transition: var(--transition);
-        }
-
-        .news-article:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-
-        /* Loading Indicator */
-        .loading-container {
-            text-align: center;
-            margin: 1rem 0;
-            padding: 1rem;
-        }
-
-        .spinner {
-            width: 40px;
-            height: 40px;
-            margin: 0 auto;
-            border: 3px solid rgba(59, 130, 246, 0.1);
-            border-radius: 50%;
-            border-top: 3px solid var(--primary-color);
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        /* Error Display */
-        .error-message {
-            color: var(--danger-color);
-            background-color: rgba(239, 68, 68, 0.1);
-            padding: 1rem;
-            border-radius: var(--border-radius);
-            margin: 1rem 0;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .error-dismiss {
-            background: none;
-            border: none;
-            color: var(--danger-color);
-            cursor: pointer;
-            margin-left: 0.5rem;
-        }
-
-        /* Article Credibility */
-        .article-credibility {
-            display: inline-block;
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            margin-left: 0.5rem;
-        }
-
-        .article-credibility.high {
-            background-color: rgba(16, 185, 129, 0.2);
-            color: #10b981;
-        }
-
-        .article-credibility.medium {
-            background-color: rgba(245, 158, 11, 0.2);
-            color: #f59e0b;
-        }
-
-        .article-credibility.low {
-            background-color: rgba(239, 68, 68, 0.2);
-            color: #ef4444;
-        }
-
-        /* Collapsible Sections */
-        .collapsible {
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.5rem 0;
-        }
-
-        .collapsible-content {
-            overflow: hidden;
-            transition: max-height 0.3s ease-out;
-        }
-
-        /* Footer */
-        .footer {
-            background-color: white;
-            padding: 1.5rem 0;
-            margin-top: 3rem;
-            border-top: 1px solid var(--border-color);
-        }
-
-        .footer-links {
-            display: flex;
-            justify-content: center;
-            gap: 1.5rem;
-            list-style: none;
-            margin-bottom: 1rem;
-        }
-
-        .footer-link {
-            color: var(--text-color);
-            text-decoration: none;
-        }
-
-        .footer-link:hover {
-            color: var(--primary-color);
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .main-container {
-                flex-direction: column;
-            }
-
-            .navbar-links {
-                display: none;
-            }
-
-            .analysis-column, .form-column {
-                width: 100%;
-            }
-        }
-
-        /* Analysis Details */
-        .analysis-details {
-            margin-top: 1rem;
-        }
-
-        .detail-section {
-            margin-bottom: 1.5rem;
-            padding-bottom: 1.5rem;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .detail-section:last-child {
-            border-bottom: none;
-            padding-bottom: 0;
-            margin-bottom: 0;
-        }
-
-        .detail-title {
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-            color: var(--text-color);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .detail-content {
-            margin-top: 0.5rem;
-        }
-
-        .topics-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            margin-top: 0.5rem;
-        }
-
-        .badge {
-            background-color: var(--secondary-color);
-            padding: 0.25rem 0.75rem;
-            border-radius: 4px;
-            font-size: 0.8rem;
-            color: var(--text-color);
-        }
-
-        /* Perspective Sections */
-        .perspective-section {
-            margin-bottom: 1.5rem;
-        }
-
-        .perspective-title {
-            font-weight: 600;
-            color: var(--primary-color);
-            margin-bottom: 0.5rem;
-        }
-
-        .perspective-content {
-            margin-top: 0.5rem;
-        }
-
-        /* Analysis Summary */
-        .analysis-summary {
-            background-color: rgba(37, 99, 235, 0.05);
-            padding: 1rem;
-            border-radius: var(--border-radius);
-            margin-bottom: 1.5rem;
-        }
-
-        /* Article Header */
-        .article-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-        }
-
-        .article-title {
-            font-size: 1.2rem;
-            font-weight: 600;
-            color: var(--text-color);
-        }
-
-        .article-meta {
-            display: flex;
-            gap: 0.75rem;
-            align-items: center;
-        }
-
-        .article-source {
-            display: flex;
-            align-items: center;
-            gap: 0.25rem;
-            font-size: 0.9rem;
-            color: #6b7280;
-        }
-
-        /* Analysis Scores Grid */
         .scores-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 1rem;
-            margin-bottom: 1.5rem;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
         }
 
         .score-card {
-            background-color: var(--secondary-color);
-            padding: 1rem;
+            background: var(--secondary-color);
+            padding: 15px;
             border-radius: var(--border-radius);
-        }
-
-        .score-name {
-            font-size: 0.9rem;
-            color: #6b7280;
-            margin-bottom: 0.5rem;
+            text-align: center;
         }
 
         .score-value {
             font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--primary-color);
-            margin-bottom: 0.25rem;
+            font-weight: bold;
+            margin: 5px 0;
         }
 
         .score-description {
@@ -592,711 +147,194 @@
             color: #6b7280;
         }
 
-        /* Perspective Cards */
-        .perspective-cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .perspective-card {
-            background-color: var(--secondary-color);
-            padding: 1rem;
+        .similar-article {
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 3px solid var(--primary-color);
             border-radius: var(--border-radius);
+            background: var(--secondary-color);
+        }
+
+        .similar-article:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+            display: inline-block;
+        }
+
+        .btn:hover {
+            background: #1d4ed8;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 3px solid rgba(0,0,0,0.1);
+            border-radius: 50%;
             border-top: 3px solid var(--primary-color);
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
         }
 
-        .perspective-card.high {
-            border-top-color: #10b981;
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
 
-        .perspective-card.medium {
-            border-top-color: #f59e0b;
-        }
-
-        .perspective-card.low {
-            border-top-color: #ef4444;
-        }
-
-        .perspective-title {
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-            color: var(--text-color);
-        }
-
-        .perspective-content {
-            font-size: 0.9rem;
-            color: var(--text-color);
-        }
-
-        /* Key Points List */
-        .key-points {
-            margin-top: 0.5rem;
-            padding-left: 1rem;
-        }
-
-        .key-point {
-            margin-bottom: 0.25rem;
-            position: relative;
-            padding-left: 0.75rem;
-        }
-
-        .key-point:before {
-            content: "•";
-            position: absolute;
-            left: -0.75rem;
-            color: var(--primary-color);
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column;
+            }
         }
     </style>
 </head>
 <body>
-    <nav class="navbar">
-        <div class="container navbar-container">
-            <a href="/" class="navbar-brand">
-                <i class="bi bi-newspaper"></i>
-                <span>Media Credibility Index</span>
-            </a>
-            <ul class="navbar-links">
-                <li><a href="/" class="navbar-link">Home</a></li>
-                <li><a href="/faq" class="navbar-link">FAQ</a></li>
-                <li><a href="/feedback" class="navbar-link">Feedback</a></li>
-                <li><a href="/privacy" class="navbar-link">Privacy</a></li>
-                <li><a href="/terms" class="navbar-link">Terms</a></li>
-            </ul>
-        </div>
-    </nav>
-
     <div class="container">
-        <div class="main-container">
-            <!-- Left Column - Analysis -->
-            <div class="analysis-column">
-                <!-- Daily Buzz Section -->
-                <div class="analysis-section">
-                    <div class="analysis-title">
-                        <h2>Today's Featured Analysis</h2>
-                        <i class="bi bi-chevron-down" id="dailyBuzzToggle"></i>
-                    </div>
-                    <div class="collapsible-content" id="dailyBuzzContent">
-                        <div class="loading-container">
-                            <div class="spinner"></div>
-                            <p>Loading today's featured analysis...</p>
-                        </div>
+        <div class="header">
+            <div class="logo">
+                <i class="bi bi-newspaper"></i> Media Credibility Index
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="analysis-section">
+                <div class="article-header">
+                    <h1 class="article-title">Analysis of Current News Trends</h1>
+                    <div class="article-meta">
+                        <span><i class="bi bi-newspaper"></i> Multiple Sources</span>
+                        <span class="credibility-badge high"><i class="bi bi-shield-check"></i> High</span>
                     </div>
                 </div>
 
-                <!-- Analysis Results -->
-                <div class="analysis-section">
-                    <div class="analysis-title">
-                        <h2>Analysis Results</h2>
-                        <i class="bi bi-chevron-down" id="analysisResultsToggle"></i>
-                    </div>
-                    <div class="collapsible-content" id="analysisOutput">
-                        <div class="loading-container">
-                            <div class="spinner"></div>
-                            <p>Analyzing article content...</p>
-                        </div>
-                    </div>
-                </div>
+                <div class="analysis-content">
+                    <p>This analysis examines current news trends across multiple sources, evaluating credibility patterns and potential biases in reporting.</p>
 
-                <!-- News Feed from analyzed articles -->
-                <div class="news-feed-container">
-                    <div class="analysis-title">
-                        <h2>Analyzed News Feed</h2>
-                        <i class="bi bi-chevron-down" id="newsFeedToggle"></i>
-                    </div>
-                    <div class="collapsible-content" id="newsFeed">
-                        <div class="loading-container">
-                            <div class="spinner"></div>
-                            <p>Loading analyzed news feed...</p>
+                    <div class="scores-grid">
+                        <div class="score-card">
+                            <div class="score-value">0.88</div>
+                            <div class="score-description">Credibility Score</div>
+                        </div>
+                        <div class="score-card">
+                            <div class="score-value">0.15</div>
+                            <div class="score-description">Sentiment</div>
+                        </div>
+                        <div class="score-card">
+                            <div class="score-value">0.25</div>
+                            <div class="score-description">Bias Level</div>
                         </div>
                     </div>
+
+                    <h3>Key Findings</h3>
+                    <ul>
+                        <li>Major news outlets maintain high credibility scores (0.8-0.95)</li>
+                        <li>Minimal bias detected in most political reporting</li>
+                        <li>Sentiment analysis shows neutral to slightly positive tone</li>
+                    </ul>
                 </div>
             </div>
 
-            <!-- Right Column - Form and Charts -->
-            <div class="form-column">
-                <!-- Analysis Form -->
-                <div class="analysis-form">
-                    <h2>Analyze Article Content</h2>
-                    <form id="analysisForm">
-                        <div class="form-group">
-                            <label for="articleInput" class="form-label">Article URL or Text</label>
-                            <textarea class="form-control" id="articleInput" rows="8"
-                                    placeholder="Paste article URL or text content here for analysis..."></textarea>
-                        </div>
-                        <button type="submit" class="btn">
-                            <i class="bi bi-search"></i> Analyze Article
-                        </button>
-                    </form>
-                </div>
-
-                <!-- Source Credibility Chart -->
+            <div class="sidebar">
                 <div class="chart-container">
                     <h2>Source Credibility Comparison</h2>
-                    <div id="sourceCredibilityChart"></div>
+                    <button onclick="updateChart()" class="btn">
+                        <i class="bi bi-arrow-clockwise"></i> Update Chart
+                    </button>
+                    <div id="chart"></div>
                 </div>
 
-                <!-- Similar Articles -->
-                <div class="similar-articles-container">
-                    <div class="analysis-title">
-                        <h2>Same Topic Articles</h2>
-                        <i class="bi bi-chevron-down" id="similarArticlesToggle"></i>
-                    </div>
-                    <div class="collapsible-content" id="similarArticles">
-                        <div class="loading-container">
-                            <div class="spinner"></div>
-                            <p>Loading similar articles...</p>
+                <div class="similar-articles">
+                    <h2>Related Articles</h2>
+                    <div class="similar-article">
+                        <h3>Global News Trends Analysis</h3>
+                        <div class="article-meta">
+                            <span><i class="bi bi-newspaper"></i> BBC</span>
+                            <span class="credibility-badge high"><i class="bi bi-shield-check"></i> High</span>
                         </div>
+                        <p>Comprehensive analysis of current global news trends and their credibility patterns.</p>
+                    </div>
+                    <div class="similar-article">
+                        <h3>Media Bias in Political Reporting</h3>
+                        <div class="article-meta">
+                            <span><i class="bi bi-newspaper"></i> The Guardian</span>
+                            <span class="credibility-badge medium"><i class="bi bi-shield-check"></i> Medium</span>
+                        </div>
+                        <p>Examination of potential biases in political news coverage across major outlets.</p>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <footer class="footer">
-        <div class="container">
-            <ul class="footer-links">
-                <li><a href="/privacy" class="footer-link">Privacy Policy</a></li>
-                <li><a href="/terms" class="footer-link">Terms of Service</a></li>
-            </ul>
-            <p style="text-align: center;">&copy; 2025 Media Credibility Index. All rights reserved.</p>
-        </div>
-    </footer>
-
     <script>
-        // Global variables
-        let currentUserId = 'guest_' + Math.random().toString(36).substring(2, 15);
-        let currentArticleId = null;
-
-        // DOM Elements
-        const elements = {
-            dailyBuzzContent: document.getElementById('dailyBuzzContent'),
-            analysisForm: document.getElementById('analysisForm'),
-            articleInput: document.getElementById('articleInput'),
-            analysisOutput: document.getElementById('analysisOutput'),
-            similarArticles: document.getElementById('similarArticles'),
-            newsFeed: document.getElementById('newsFeed'),
-            sourceCredibilityChart: document.getElementById('sourceCredibilityChart'),
-            dailyBuzzToggle: document.getElementById('dailyBuzzToggle'),
-            analysisResultsToggle: document.getElementById('analysisResultsToggle'),
-            newsFeedToggle: document.getElementById('newsFeedToggle'),
-            similarArticlesToggle: document.getElementById('similarArticlesToggle')
-        };
-
-        // Helper function to safely access nested properties
-        function getNestedProperty(obj, path, defaultValue = null) {
-            return path.split('.').reduce((o, p) => (o && o[p] !== undefined ? o[p] : defaultValue), obj);
+        // Моковые данные для графика
+        function getMockData() {
+            return {
+                sources: ['BBC', 'CNN', 'Fox News', 'The Guardian', 'Reuters'],
+                scores: [0.9, 0.75, 0.65, 0.85, 0.95]
+            };
         }
 
-        // Toggle collapsible sections
-        function setupCollapsibleSections() {
-            const toggles = [
-                { toggle: elements.dailyBuzzToggle, content: elements.dailyBuzzContent },
-                { toggle: elements.analysisResultsToggle, content: elements.analysisOutput },
-                { toggle: elements.newsFeedToggle, content: elements.newsFeed },
-                { toggle: elements.similarArticlesToggle, content: elements.similarArticles }
-            ];
-
-            toggles.forEach(item => {
-                if (item.toggle && item.content) {
-                    item.toggle.addEventListener('click', () => {
-                        if (item.content.style.maxHeight) {
-                            item.content.style.maxHeight = null;
-                        } else {
-                            item.content.style.maxHeight = item.content.scrollHeight + "px";
-                        }
-                        item.toggle.classList.toggle('bi-chevron-down');
-                        item.toggle.classList.toggle('bi-chevron-up');
-                    });
-                }
-            });
-        }
-
-        // Improved fetch function with error handling
-        async function fetchWithRetry(url, options = {}, retries = 3, delay = 1000) {
-            try {
-                // Ensure URL is correct
-                let fullUrl = url;
-                if (!url.startsWith('http')) {
-                    // Use relative path for API on the same domain
-                    fullUrl = window.location.origin + url;
-                }
-
-                // Add credentials if needed
-                const fetchOptions = {
-                    ...options,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        ...options.headers
-                    },
-                    credentials: 'include'
-                };
-
-                const response = await fetch(fullUrl, fetchOptions);
-
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-                }
-
-                return await response.json();
-            } catch (error) {
-                if (retries > 0) {
-                    console.log(`Attempt failed: ${error.message}, retrying in ${delay}ms... (${retries} attempts left)`);
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                    return fetchWithRetry(url, options, retries - 1, delay * 2);
-                }
-
-                // If all attempts are exhausted, show more informative error message
-                let errorMessage = 'Failed to complete the request';
-                if (error.message.includes('net::ERR_NAME_NOT_RESOLVED')) {
-                    errorMessage = 'Service unavailable. Please check your internet connection and try again.';
-                } else if (error.message.includes('net::ERR_CONNECTION_CLOSED')) {
-                    errorMessage = 'Connection to server was closed. The service may be temporarily unavailable.';
-                } else if (error.message.includes('Failed to fetch')) {
-                    errorMessage = 'Unable to connect to the server. Please try again later.';
-                }
-
-                throw new Error(errorMessage);
-            }
-        }
-
-        // Display analysis results
-        function displayAnalysisResults(data) {
-            try {
-                if (!data || typeof data !== 'object') {
-                    throw new Error('Invalid data format');
-                }
-
-                const article = data.article || {};
-                const analysis = article.analysis || {};
-                const detailedAnalysis = analysis.detailed_analysis || {};
-
-                let analysisHtml = `
-                    <div class="article-header">
-                        <h3 class="article-title">${article.title || 'No title available'}</h3>
-                        <div class="article-meta">
-                            <span class="article-source">
-                                <i class="bi bi-newspaper"></i> ${article.source || 'Unknown source'}
-                            </span>
-                            <span class="article-credibility ${(article.credibility_level || 'Medium').toLowerCase()}">
-                                <i class="bi bi-shield-check"></i> ${article.credibility_level || 'Medium'}
-                            </span>
-                        </div>
-                    </div>
-
-                    <div class="analysis-summary">
-                        <p>${article.short_summary || 'No summary available'}</p>
-                    </div>
-                `;
-
-                // Add scores grid if they exist
-                if (Object.keys(detailedAnalysis).length > 0) {
-                    analysisHtml += `
-                        <div class="detail-section">
-                            <div class="detail-title">
-                                <h3>Analysis Scores</h3>
-                            </div>
-                            <div class="scores-grid">
-                    `;
-
-                    const scores = [
-                        {
-                            key: 'credibility_score.score',
-                            name: 'Credibility',
-                            description: 'Overall credibility score of the article',
-                            icon: 'bi bi-shield-check'
-                        },
-                        {
-                            key: 'sentiment.score',
-                            name: 'Sentiment',
-                            description: 'Emotional tone of the article',
-                            icon: 'bi bi-emoji-smile'
-                        },
-                        {
-                            key: 'bias.level',
-                            name: 'Bias',
-                            description: 'Degree of perceived bias',
-                            icon: 'bi bi-graph-up'
-                        }
-                    ];
-
-                    scores.forEach(score => {
-                        const value = getNestedProperty(detailedAnalysis, score.key);
-                        if (value !== null) {
-                            const displayValue = parseFloat(value).toFixed(2);
-                            analysisHtml += `
-                                <div class="score-card">
-                                    <div class="score-name">
-                                        <i class="${score.icon}"></i> ${score.name}
-                                    </div>
-                                    <div class="score-value">${displayValue}</div>
-                                    <div class="score-description">${score.description}</div>
-                                </div>
-                            `;
-                        }
-                    });
-
-                    analysisHtml += `</div></div>`;
-                }
-
-                // Add perspectives if they exist
-                if (detailedAnalysis.perspectives) {
-                    analysisHtml += `
-                        <div class="detail-section">
-                            <div class="detail-title">
-                                <h3>Perspectives</h3>
-                            </div>
-                            <div class="perspective-cards">
-                    `;
-
-                    const perspectives = [
-                        { key: 'western', name: 'Western', icon: 'bi bi-flag' },
-                        { key: 'iranian', name: 'Iranian', icon: 'bi bi-flag' },
-                        { key: 'israeli', name: 'Israeli', icon: 'bi bi-flag' },
-                        { key: 'neutral', name: 'Neutral', icon: 'bi bi-flag' }
-                    ];
-
-                    perspectives.forEach(perspective => {
-                        const perspectiveData = detailedAnalysis.perspectives[perspective.key];
-                        if (perspectiveData) {
-                            const credibility = perspectiveData.credibility || 'Medium';
-                            analysisHtml += `
-                                <div class="perspective-card ${credibility.toLowerCase()}">
-                                    <div class="perspective-title">
-                                        <i class="${perspective.icon}"></i> ${perspective.name} Perspective
-                                    </div>
-                                    <div class="perspective-content">
-                                        <p>${perspectiveData.summary || 'No summary available'}</p>
-                                    </div>
-                                    <div class="key-points">
-                                        <h5>Key Points:</h5>
-                                        <ul>
-                                            ${perspectiveData.key_points ? perspectiveData.key_points.map(point => `<li class="key-point">${point}</li>`).join('') : '<li>No key points available</li>'}
-                                        </ul>
-                                    </div>
-                                </div>
-                            `;
-                        }
-                    });
-
-                    analysisHtml += `</div></div>`;
-                }
-
-                // Add topics if they exist
-                if (detailedAnalysis.topics) {
-                    analysisHtml += `
-                        <div class="detail-section">
-                            <div class="detail-title">
-                                <h3>Key Topics</h3>
-                            </div>
-                            <div class="topics-list">
-                    `;
-
-                    detailedAnalysis.topics.forEach(topic => {
-                        analysisHtml += `
-                            <span class="badge">${topic.name || topic}</span>
-                        `;
-                    });
-
-                    analysisHtml += `</div></div>`;
-                }
-
-                // Add key arguments if they exist
-                if (detailedAnalysis.key_arguments) {
-                    analysisHtml += `
-                        <div class="detail-section">
-                            <div class="detail-title">
-                                <h3>Key Arguments</h3>
-                            </div>
-                            <div class="key-points">
-                                <ul>
-                    `;
-
-                    detailedAnalysis.key_arguments.forEach(argument => {
-                        analysisHtml += `
-                            <li class="key-point">${argument}</li>
-                        `;
-                    });
-
-                    analysisHtml += `
-                                </ul>
-                            </div>
-                        </div>
-                    `;
-                }
-
-                elements.analysisOutput.innerHTML = analysisHtml;
-                currentArticleId = article.id || 0;
-
-            } catch (error) {
-                console.error('Error displaying analysis:', error);
-                showError('analysisOutput', error.message || 'Failed to display analysis results');
-            }
-        }
-
-        // Load source credibility chart
-        async function loadSourceCredibilityChart() {
-            try {
-                const data = await fetchWithRetry('/source-credibility-chart');
-                if (data.status === 'success' && data.data) {
-                    renderSourceCredibilityChart(data.data);
-                } else {
-                    showError('sourceCredibilityChart', data.message || 'Failed to load source credibility chart');
-                }
-            } catch (error) {
-                console.error('Error loading source credibility chart:', error);
-                showError('sourceCredibilityChart', error.message || 'Error loading source credibility chart');
-            }
-        }
-
-        // Render source credibility chart
-        function renderSourceCredibilityChart(data) {
-            if (!data || !data.sources || !data.credibility_scores) {
-                showError('sourceCredibilityChart', 'Invalid chart data');
-                return;
-            }
-
+        // Функция для отображения графика
+        function renderChart(data) {
             const chartData = [{
                 x: data.sources,
-                y: data.credibility_scores,
+                y: data.scores,
                 type: 'bar',
                 marker: {
-                    color: data.credibility_scores.map(score => {
-                        if (score >= 0.8) return 'rgba(16, 185, 129, 0.8)';
-                        if (score >= 0.6) return 'rgba(245, 158, 11, 0.8)';
-                        return 'rgba(239, 68, 68, 0.8)';
-                    }),
-                    line: {
-                        color: data.credibility_scores.map(score => {
-                            if (score >= 0.8) return 'rgba(16, 185, 129, 1)';
-                            if (score >= 0.6) return 'rgba(245, 158, 11, 1)';
-                            return 'rgba(239, 68, 68, 1)';
-                        }),
-                        width: 1
-                    }
+                    color: data.scores.map(score => {
+                        if (score > 0.8) return 'rgba(40, 167, 69, 0.7)';
+                        if (score > 0.6) return 'rgba(255, 193, 7, 0.7)';
+                        return 'rgba(220, 53, 69, 0.7)';
+                    })
                 },
-                text: data.credibility_scores.map(score => (score * 100).toFixed(0) + '%'),
+                text: data.scores.map(score => (score * 100).toFixed(0) + '%'),
                 textposition: 'auto'
             }];
 
             const layout = {
                 title: 'Source Credibility Comparison',
-                xaxis: { title: 'News Sources', tickangle: 45 },
-                yaxis: { title: 'Credibility Score', range: [0, 1] },
-                margin: { l: 50, r: 20, t: 50, b: 100 }
+                xaxis: { title: 'News Sources' },
+                yaxis: { title: 'Credibility Score', range: [0, 1] }
             };
 
-            Plotly.newPlot('sourceCredibilityChart', chartData, layout);
+            Plotly.newPlot('chart', chartData, layout);
         }
 
-        // Load similar articles
-        async function loadSimilarArticles(articles) {
-            try {
-                if (!articles || articles.length === 0) {
-                    elements.similarArticles.innerHTML = '<p>No similar articles found</p>';
-                    return;
-                }
-
-                const articlesHtml = articles.map(article => {
-                    const credibilityClass = (article.credibility || 'Medium').toLowerCase();
-                    return `
-                        <div class="similar-article">
-                            <h4><a href="${article.url}" target="_blank">${article.title}</a></h4>
-                            <div class="article-meta">
-                                <span class="article-source">
-                                    <i class="bi bi-newspaper"></i> ${article.source}
-                                </span>
-                                <span class="article-credibility ${credibilityClass}">
-                                    <i class="bi bi-shield-check"></i> ${article.credibility || 'Medium'}
-                                </span>
-                            </div>
-                            <p>${article.summary || article.short_summary || 'No description available'}</p>
-                        </div>
-                    `;
-                }).join('');
-
-                elements.similarArticles.innerHTML = articlesHtml;
-            } catch (error) {
-                console.error('Error loading similar articles:', error);
-                showError('similarArticles', error.message || 'Error loading similar articles');
-            }
-        }
-
-        // Load news feed from analyzed articles
-        async function loadNewsFeed() {
-            try {
-                const data = await fetchWithRetry('/analysis-history');
-                if (data.status === 'success' && data.history && data.history.length > 0) {
-                    renderNewsFeed(data.history);
-                } else {
-                    showError('newsFeed', data.message || 'No analyzed articles found');
-                }
-            } catch (error) {
-                console.error('Error loading news feed:', error);
-                showError('newsFeed', error.message || 'Error loading news feed');
-            }
-        }
-
-        // Render news feed from analyzed articles
-        function renderNewsFeed(articles) {
-            if (!articles || articles.length === 0) {
-                elements.newsFeed.innerHTML = '<p>No analyzed articles found</p>';
-                return;
-            }
-
-            const articlesHtml = articles.map(article => {
-                const credibilityClass = (article.credibility || 'Medium').toLowerCase();
-                const publishedDate = article.date ? new Date(article.date).toLocaleString() : 'N/A';
-                return `
-                    <div class="news-article">
-                        <h4><a href="${article.url || '#'}" target="_blank">${article.title || 'No title'}</a></h4>
-                        <div class="article-meta">
-                            <span class="article-source">
-                                <i class="bi bi-newspaper"></i> ${article.source || 'Unknown source'}
-                            </span>
-                            <span class="article-date">
-                                <i class="bi bi-calendar"></i> ${publishedDate}
-                            </span>
-                            <span class="article-credibility ${credibilityClass}">
-                                <i class="bi bi-shield-check"></i> ${article.credibility || 'Medium'}
-                            </span>
-                        </div>
-                        <p>${article.summary || 'No summary available'}</p>
-                    </div>
-                `;
-            }).join('');
-
-            elements.newsFeed.innerHTML = articlesHtml;
-        }
-
-        // Show error message
-        function showError(elementId, message) {
-            const element = document.getElementById(elementId);
-            if (!element) return;
-
-            const errorHtml = `
-                <div class="error-message">
-                    <i class="bi bi-exclamation-triangle-fill"></i>
-                    <span>${message}</span>
-                    <button onclick="this.parentElement.style.display='none'" class="error-dismiss">
-                        <i class="bi bi-x"></i>
-                    </button>
+        // Функция для обновления графика
+        function updateChart() {
+            const container = document.getElementById('chart');
+            container.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Updating chart data...</p>
                 </div>
             `;
 
-            element.innerHTML = errorHtml;
+            // Имитация задержки сети
+            setTimeout(() => {
+                const mockData = getMockData();
+                renderChart(mockData);
+            }, 800);
         }
 
-        // Load daily buzz article
-        async function loadDailyBuzz() {
-            try {
-                const data = await fetchWithRetry('/daily-buzz');
-                if (data.status === 'success' && data.article) {
-                    displayDailyBuzz(data.article);
-                    if (data.article.analysis) {
-                        displayAnalysisResults(data);
-                        if (data.article.analysis.topics) {
-                            loadSimilarArticles(data.article.analysis.topics);
-                        }
-                    }
-                } else {
-                    showError('dailyBuzzContent', data.message || 'Failed to load daily buzz article');
-                }
-            } catch (error) {
-                console.error('Error loading daily buzz:', error);
-                showError('dailyBuzzContent', error.message || 'Error loading daily buzz article');
-            }
-        }
-
-        // Display daily buzz article
-        function displayDailyBuzz(article) {
-            const publishedDate = article.created_at ? new Date(article.created_at).toLocaleString() : 'N/A';
-            const credibilityClass = (article.credibility_level || 'Medium').toLowerCase();
-
-            const articleHtml = `
-                <div class="article-header">
-                    <h3 class="article-title">${article.title || 'No title available'}</h3>
-                    <div class="article-meta">
-                        <span class="article-source">
-                            <i class="bi bi-newspaper"></i> ${article.source || 'Unknown source'}
-                        </span>
-                        <span class="article-date">
-                            <i class="bi bi-calendar"></i> ${publishedDate}
-                        </span>
-                        <span class="article-credibility ${credibilityClass}">
-                            <i class="bi bi-shield-check"></i> ${article.credibility_level || 'Medium'}
-                        </span>
-                    </div>
-                </div>
-                <div class="analysis-summary">
-                    <p>${article.short_summary || 'No summary available'}</p>
-                </div>
-            `;
-
-            elements.dailyBuzzContent.innerHTML = articleHtml;
-            currentArticleId = article.id || 0;
-        }
-
-        // Initialize the page
-        document.addEventListener('DOMContentLoaded', function() {
-            setupCollapsibleSections();
-            loadDailyBuzz();
-            loadSourceCredibilityChart();
-            loadNewsFeed();
-
-            // Analysis form submission
-            if (elements.analysisForm) {
-                elements.analysisForm.addEventListener('submit', async function(e) {
-                    e.preventDefault();
-                    const inputText = elements.articleInput.value.trim();
-
-                    if (!inputText) {
-                        showError('analysisOutput', 'Please enter article text or URL for analysis');
-                        return;
-                    }
-
-                    if (inputText.length < 50 && !inputText.startsWith('http')) {
-                        showError('analysisOutput', 'Please enter at least 50 characters or a valid URL');
-                        return;
-                    }
-
-                    try {
-                        elements.analysisOutput.innerHTML = `
-                            <div class="loading-container">
-                                <div class="spinner"></div>
-                                <p>Analyzing article content...</p>
-                            </div>
-                        `;
-
-                        const response = await fetchWithRetry('/analyze', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                input_text: inputText
-                            })
-                        });
-
-                        if (response.status === 'success') {
-                            displayAnalysisResults(response);
-                            if (response.similar_articles) {
-                                loadSimilarArticles(response.similar_articles);
-                            }
-                            loadSourceCredibilityChart();
-                            loadNewsFeed();
-                        } else {
-                            throw new Error(response.message || 'Analysis failed');
-                        }
-                    } catch (error) {
-                        console.error('Analysis error:', error);
-                        showError('analysisOutput', error.message || 'Failed to analyze article. Please try again later.');
-                    }
-                });
-            }
+        // Инициализация
+        document.addEventListener('DOMContentLoaded', () => {
+            const mockData = getMockData();
+            renderChart(mockData);
         });
     </script>
 </body>
