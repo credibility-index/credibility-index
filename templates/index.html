@@ -55,6 +55,22 @@
             gap: 8px;
         }
 
+        .navbar-links {
+            display: flex;
+            gap: 15px;
+            list-style: none;
+        }
+
+        .navbar-link {
+            color: var(--text-color);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .navbar-link:hover {
+            color: var(--primary-color);
+        }
+
         .main-content {
             display: flex;
             gap: 30px;
@@ -201,9 +217,29 @@
             100% { transform: rotate(360deg); }
         }
 
+        .analysis-form {
+            margin-top: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            min-height: 100px;
+            resize: vertical;
+        }
+
         @media (max-width: 768px) {
             .main-content {
                 flex-direction: column;
+            }
+            .navbar-links {
+                display: none;
             }
         }
     </style>
@@ -215,6 +251,12 @@
                 <i class="bi bi-newspaper"></i>
                 <span>Media Credibility Index</span>
             </a>
+            <ul class="navbar-links">
+                <li><a href="faq.html" class="navbar-link">FAQ</a></li>
+                <li><a href="feedback.html" class="navbar-link">Feedback</a></li>
+                <li><a href="privacy.html" class="navbar-link">Privacy</a></li>
+                <li><a href="terms.html" class="navbar-link">Terms</a></li>
+            </ul>
         </div>
 
         <div class="main-content">
@@ -228,29 +270,19 @@
                 </div>
 
                 <div class="analysis-content">
-                    <p>This analysis examines current news trends across multiple sources, evaluating credibility patterns and potential biases in reporting.</p>
-
-                    <div class="scores-grid">
-                        <div class="score-card">
-                            <div class="score-value">0.88</div>
-                            <div class="score-description">Credibility Score</div>
+                    <div class="analysis-form">
+                        <div class="form-group">
+                            <label for="articleInput">Article URL or Text</label>
+                            <textarea class="form-control" id="articleInput" placeholder="Paste article URL or text content here for analysis..."></textarea>
                         </div>
-                        <div class="score-card">
-                            <div class="score-value">0.15</div>
-                            <div class="score-description">Sentiment</div>
-                        </div>
-                        <div class="score-card">
-                            <div class="score-value">0.25</div>
-                            <div class="score-description">Bias Level</div>
-                        </div>
+                        <button onclick="analyzeArticle()" class="btn">
+                            <i class="bi bi-search"></i> Analyze Article
+                        </button>
                     </div>
 
-                    <h3>Key Findings</h3>
-                    <ul>
-                        <li>Major news outlets maintain high credibility scores (0.8-0.95)</li>
-                        <li>Minimal bias detected in most political reporting</li>
-                        <li>Sentiment analysis shows neutral to slightly positive tone</li>
-                    </ul>
+                    <div id="analysisResults">
+                        <!-- Результаты анализа будут отображаться здесь -->
+                    </div>
                 </div>
             </div>
 
@@ -288,7 +320,7 @@
 
     <script>
         // Моковые данные для графика
-        function getMockData() {
+        function getMockChartData() {
             return {
                 sources: ['BBC', 'CNN', 'Fox News', 'The Guardian', 'Reuters'],
                 scores: [0.9, 0.75, 0.65, 0.85, 0.95]
@@ -333,14 +365,106 @@
 
             // Имитация задержки сети
             setTimeout(() => {
-                const mockData = getMockData();
+                const mockData = getMockChartData();
                 renderChart(mockData);
             }, 800);
         }
 
+        // Функция для анализа статьи
+        async function analyzeArticle() {
+            const articleInput = document.getElementById('articleInput').value.trim();
+
+            if (!articleInput) {
+                alert('Please enter article text or URL for analysis');
+                return;
+            }
+
+            const resultsContainer = document.getElementById('analysisResults');
+            resultsContainer.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Analyzing article content...</p>
+                </div>
+            `;
+
+            try {
+                // Отправка запроса к API
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        input_text: articleInput
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                // Отображение результатов анализа
+                displayAnalysisResults(data);
+
+            } catch (error) {
+                console.error('Error analyzing article:', error);
+                resultsContainer.innerHTML = `
+                    <div class="error-message">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <span>Failed to analyze article. Please try again later.</span>
+                    </div>
+                `;
+            }
+        }
+
+        // Функция для отображения результатов анализа
+        function displayAnalysisResults(data) {
+            const article = data.article || {};
+            const analysis = article.analysis || {};
+            const detailedAnalysis = analysis.detailed_analysis || {};
+
+            let analysisHtml = `
+                <div class="article-header">
+                    <h3 class="article-title">${article.title || 'No title available'}</h3>
+                    <div class="article-meta">
+                        <span><i class="bi bi-newspaper"></i> ${article.source || 'Unknown source'}</span>
+                        <span class="credibility-badge ${(article.credibility_level || 'Medium').toLowerCase()}">
+                            <i class="bi bi-shield-check"></i> ${article.credibility_level || 'Medium'}
+                        </span>
+                    </div>
+                </div>
+                <div class="analysis-summary">
+                    <p>${article.short_summary || 'No summary available'}</p>
+                </div>
+            `;
+
+            if (Object.keys(detailedAnalysis).length > 0) {
+                analysisHtml += `
+                    <div class="scores-grid">
+                        <div class="score-card">
+                            <div class="score-value">${detailedAnalysis.credibility_score?.score?.toFixed(2) || 'N/A'}</div>
+                            <div class="score-description">Credibility Score</div>
+                        </div>
+                        <div class="score-card">
+                            <div class="score-value">${detailedAnalysis.sentiment?.score?.toFixed(2) || 'N/A'}</div>
+                            <div class="score-description">Sentiment</div>
+                        </div>
+                        <div class="score-card">
+                            <div class="score-value">${detailedAnalysis.bias?.level?.toFixed(2) || 'N/A'}</div>
+                            <div class="score-description">Bias Level</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            document.getElementById('analysisResults').innerHTML = analysisHtml;
+        }
+
         // Инициализация
         document.addEventListener('DOMContentLoaded', () => {
-            const mockData = getMockData();
+            const mockData = getMockChartData();
             renderChart(mockData);
         });
     </script>
