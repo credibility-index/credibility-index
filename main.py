@@ -384,56 +384,143 @@ def favicon():
     return send_from_directory(os.path.join(app.root_path, 'static'),
                              'favicon.ico', mimetype='image/vnd.microsoft.icon')
 
-def extract_text_from_url(url: str) -> tuple:
-    """Извлекает текст из URL с улучшенной обработкой ошибок"""
+import requests
+from urllib.parse import urlparse
+from bs4 import BeautifulSoup
+from newspaper import Article, Config
+import logging
+import re
+from typing import Tuple, Optional
+
+# Настройка логирования
+logger = logging.getLogger(__name__)
+
+def extract_text_from_url(url: str) -> Tuple[Optional[str], Optional[str], Optional[str], Optional[str]]:
+    """
+    Извлекает текст из URL с улучшенной обработкой ошибок и поддержкой различных форматов контента.
+
+    Args:
+        url: URL статьи для извлечения
+
+    Returns:
+        Tuple содержащий: (текст статьи, источник, заголовок, сообщение об ошибке)
+    """
     try:
+        # Проверяем формат URL
         parsed = urlparse(url)
         if not all([parsed.scheme, parsed.netloc]):
             return None, None, None, "Invalid URL format"
+
+        # Очищаем URL
         clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+
         # Проверяем, не является ли это видео-контентом
-        if any(domain in parsed.netloc for domain in ['youtube.com', 'vimeo.com', 'twitch.tv']):
+        if any(domain in parsed.netloc for domain in ['youtube.com', 'vimeo.com', 'twitch.tv', 'tiktok.com']):
             return None, parsed.netloc.replace('www.', ''), "Video content detected", None
+
+        # Конфигурация для newspaper
+        config = Config()
+        config.browser_user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+        config.request_timeout = 30
+
         # Пытаемся извлечь текст с помощью newspaper
         try:
             article = Article(clean_url, config=config)
             article.download()
             article.parse()
+
             if article.text and len(article.text.strip()) >= 100:
-                return (article.text.strip(),
-                        parsed.netloc.replace('www.', ''),
-                        article.title.strip() if article.title else "No title available",
-                        None)
+                return (
+                    article.text.strip(),
+                    parsed.netloc.replace('www.', ''),
+                    article.title.strip() if article.title else "No title available",
+                    None
+                )
         except Exception as e:
             logger.warning(f"Newspaper failed to process {url}: {str(e)}")
-        # Альтернативный метод извлечения
+
+        # Альтернативный метод извлечения через requests и BeautifulSoup
         try:
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
             }
+
+            # Настройка сессии с повторными попытками
+            session = requests.Session()
+            retries = requests.adapters.HTTPAdapter(max_retries=3)
+            session.mount("http://", retries)
+            session.mount("https://", retries)
+
             response = session.get(clean_url, headers=headers, timeout=15)
             response.raise_for_status()
+
             soup = BeautifulSoup(response.text, 'html.parser')
+
             # Удаляем ненужные элементы
             for element in soup(['script', 'style', 'noscript', 'iframe', 'svg', 'nav', 'footer', 'header']):
                 element.decompose()
+
             # Ищем основной контент
-            main_content = soup.find('article') or soup.find('div', {'class': re.compile('article|content|main')})
+            main_content = soup.find('article') or \
+                          soup.find('div', {'class': re.compile('article|content|main|post|entry')}) or \
+                          soup.find('main') or \
+                          soup.find('div', {'id': re.compile('article|content|main|post|entry')})
+
             if main_content:
-                text = ' '.join([p.get_text() for p in main_content.find_all('p')])
-                if len(text.strip()) >= 100:
-                    return (text.strip(),
+                # Извлекаем текст из параграфов
+                paragraphs = main_content.find_all('p')
+                if paragraphs:
+                    text = ' '.join([p.get_text().strip() for p in paragraphs if p.get_text().strip()])
+                    if len(text) >= 100:
+                        return (
+                            text,
                             parsed.netloc.replace('www.', ''),
                             soup.title.string.strip() if soup.title else "No title available",
-                            None)
-            return None, parsed.netloc.replace('www.', ''), "Failed to extract content", "Content extraction failed"
+                            None
+                        )
+
+            # Если не удалось найти основной контент, пытаемся извлечь текст из всего документа
+            text = ' '.join([p.get_text().strip() for p in soup.find_all('p') if p.get_text().strip()])
+            if len(text) >= 100:
+                return (
+                    text,
+                    parsed.netloc.replace('www.', ''),
+                    soup.title.string.strip() if soup.title else "No title available",
+                    None
+                )
+
+            return None, parsed.netloc.replace('www.', ''), "Failed to extract sufficient content", None
+
         except Exception as e:
             logger.error(f"Alternative extraction failed for {url}: {str(e)}")
-            return None, parsed.netloc.replace('www.', ''), "Error occurred", str(e)
+            return None, parsed.netloc.replace('www.', ''), "Error occurred during extraction", str(e)
+
     except Exception as e:
         logger.error(f"Unexpected error extracting article from {url}: {str(e)}")
-        return None, parsed.netloc.replace('www.', ''), "Error occurred", str(e)
+        return None, None, "Unexpected error occurred", str(e)
+
+def extract_article_content(url_or_text: str) -> Tuple[Optional[str], Optional[str], Optional[str], Optional[str]]:
+    """
+    Универсальная функция для извлечения контента статьи из URL или текста.
+
+    Args:
+        url_or_text: URL статьи или непосредственно текст
+
+    Returns:
+        Tuple содержащий: (текст статьи, источник, заголовок, сообщение об ошибке)
+    """
+    if not url_or_text:
+        return None, None, None, "Empty input provided"
+
+    if url_or_text.startswith(('http://', 'https://')):
+        return extract_text_from_url(url_or_text)
+    else:
+        # Если это текст, а не URL
+        if len(url_or_text.strip()) >= 50:
+            return url_or_text.strip(), "Direct Input", "User-provided Text", None
+        else:
+            return None, None, None, "Text is too short for analysis"
 
 def determine_credibility_level(score: float) -> str:
     """Определяет уровень достоверности"""
