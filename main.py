@@ -95,19 +95,6 @@ def rate_limit(max_per_minute=60):
         return wrapper
     return decorator
 
-# Встроенная CSRF защита
-@app.before_request
-def csrf_protect():
-    if request.method == "POST":
-        token = session.pop('_csrf_token', None)
-        if not token or token != request.form.get('_csrf_token'):
-            return jsonify({'status': 'error', 'message': 'CSRF token missing or invalid'}), 403
-
-@app.after_request
-def add_csrf_token(response):
-    if request.endpoint in app.view_functions and request.method == "GET":
-        response.set_cookie('_csrf_token', app.config['SECRET_KEY'])
-    return response
 
 # Настройка для работы за обратным прокси
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
