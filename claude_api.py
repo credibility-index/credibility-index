@@ -1,311 +1,236 @@
 import os
-import requests
 import logging
-from typing import Dict, Any, Optional, List
-from datetime import datetime
 import json
+from typing import Dict, Any, Optional, List
+import anthropic
+from pydantic import BaseModel
+from datetime import datetime
+import re
+from cache import CacheManager
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+class ArticleAnalysis(BaseModel):
+    credibility_score: Dict[str, float]
+    sentiment: Dict[str, float]
+    bias: Dict[str, float]
+    topics: List[Dict[str, Any]]
+    perspectives: Dict[str, Dict[str, Any]]
+    key_arguments: List[str]
+
 class ClaudeAPI:
     def __init__(self):
-        """Инициализация API клиента для работы с Anthropic"""
-        self.api_key = os.getenv('ANTHROPIC_API_KEY')
-        if not self.api_key:
-            raise ValueError("ANTHROPIC_API_KEY environment variable is not set in Railway")
+        self.cache = CacheManager()
+        self.client = self._initialize_anthropic_client()
 
-        self.base_url = "https://api.anthropic.com/v1/messages"
-        self.session = requests.Session()
-        self.session.headers.update({
-            'Content-Type': 'application/json',
-            'x-api-key': self.api_key,
-            'anthropic-version': '2023-06-01'
-        })
-
-        # Текущая тема для buzz-анализа (можно менять в коде)
-        self.current_buzz_topic = {
-            "title": "Israel-Iran Conflict Analysis",
-            "description": """Comprehensive analysis of the current geopolitical tensions between Israel and Iran.
-            This analysis should cover recent developments, historical context, and potential future scenarios.
-            Include perspectives from Western, Middle Eastern, and neutral viewpoints.""",
-            "perspectives": [
-                "Western perspective",
-                "Middle Eastern perspective",
-                "Russian perspective",
-                "Neutral analysis"
-            ]
-        }
-
-    def analyze_article(self, article_text: str, article_url: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Анализ статьи по тексту или URL
-        Args:
-            article_text: Текст статьи или URL
-            article_url: URL статьи (если отличается от текста)
-        Returns:
-            Результат анализа в структурированном формате
-        """
+    def _initialize_anthropic_client(self):
+        """Инициализирует клиент Anthropic"""
         try:
-            # Если передан URL, можно сначала получить текст статьи
-            if article_url and article_url.startswith(('http://', 'https://')):
-                article_text = f"Article URL: {article_url}\n\n{article_text}"
-
-            prompt = f"""
-            Analyze the following news article for credibility, bias, and multiple perspectives.
-
-            Provide a detailed analysis in JSON format including:
-            {{
-                "credibility_score": 0.0-1.0,
-                "sentiment": -1.0-1.0,
-                "bias": 0.0-1.0,
-                "topics": ["list", "of", "topics"],
-                "arguments": ["list", "of", "arguments"],
-                "concerns": ["list", "of", "concerns"],
-                "suggestions": ["list", "of", "suggestions"],
-                "summary": "Brief summary",
-                "perspectives": {{
-                    "western": {{"summary": "summary", "key_points": ["list", "of", "points"]}},
-                    "neutral": {{"summary": "summary", "key_points": ["list", "of", "points"]}}
-                }},
-                "credibility_level": "High/Medium/Low"
-            }}
-
-            Article text:
-            {article_text[:15000]}  # Ограничиваем длину текста
-
-            Be very detailed in your analysis and provide specific examples from the text.
-            """
-
-            response = self._make_api_request(prompt)
-            return self._parse_response(response)
-
+            api_key = os.getenv('ANTHROPIC_API_KEY')
+            if not api_key:
+                raise ValueError("ANTHROPIC_API_KEY environment variable not set")
+            return anthropic.Anthropic(api_key=api_key)
         except Exception as e:
-            logger.error(f"Article analysis failed: {str(e)}")
-            return self._get_fallback_analysis()
+            logger.error(f"Failed to initialize Anthropic client: {str(e)}")
+            return None
 
     def get_buzz_analysis(self) -> Dict[str, Any]:
-        """
-        Получить анализ текущей buzz-темы
-        Тема задается в коде и может быть изменена
-        """
+        """Получает анализ популярных новостей"""
         try:
-            prompt = f"""
-            Provide a comprehensive analysis of the current {self.current_buzz_topic['title']}.
+            cached = self.cache.get_cached_buzz_analysis()
+            if cached:
+                return cached
 
-            Your analysis should include:
-            1. Background and context of the situation
-            2. Analysis from multiple perspectives: {', '.join(self.current_buzz_topic['perspectives'])}
-            3. Key developments and their significance
-            4. Potential future scenarios
-            5. Media coverage analysis
-            6. Credibility assessment of different narratives
+            # Получаем актуальный анализ
+            prompt = """Analyze current global news trends focusing on:
+1. Key geopolitical developments
+2. Economic indicators
+3. Technological advancements
+4. Social trends
 
-            Current topic description: {self.current_buzz_topic['description']}
+Provide a comprehensive analysis with:
+- Credibility assessment
+- Multiple perspectives
+- Key arguments
+- Potential biases
+- Future implications
 
-            Provide the analysis in this structured JSON format:
-            {{
-                "title": "{self.current_buzz_topic['title']}",
-                "summary": "Brief summary",
-                "background": "Detailed background",
-                "perspectives": {{
-                    {self._generate_perspectives_prompt()}
-                }},
-                "key_developments": ["list", "of", "developments"],
-                "future_scenarios": ["list", "of", "scenarios"],
-                "media_analysis": "Analysis of media coverage",
-                "credibility_assessment": "Assessment of different narratives",
-                "credibility_level": "High/Medium/Low"
-            }}
-            """
+Format the response as JSON with the following structure:
+{
+    "title": "string",
+    "source": "string",
+    "short_summary": "string",
+    "analysis": {
+        "credibility_score": {"score": number},
+        "sentiment": {"score": number},
+        "bias": {"level": number},
+        "topics": [{"name": "string", "relevance": number}],
+        "perspectives": {
+            "western": {"summary": "string", "credibility": "string"},
+            "eastern": {"summary": "string", "credibility": "string"},
+            "neutral": {"summary": "string", "credibility": "string"}
+        },
+        "key_arguments": ["string"]
+    }
+}"""
 
-            response = self._make_api_request(prompt)
-            return self._parse_response(response)
+            response = self.client.messages.create(
+                model="claude-3-opus-20240229",
+                max_tokens=2000,
+                temperature=0.7,
+                system="You are a professional news analyst with expertise in media credibility assessment.",
+                messages=[{"role": "user", "content": prompt}]
+            )
 
+            analysis = json.loads(response.content[0].text)
+            self.cache.cache_buzz_analysis(analysis)
+            return analysis
         except Exception as e:
-            logger.error(f"Buzz analysis failed: {str(e)}")
-            return self._get_fallback_buzz_analysis()
-
-    def _make_api_request(self, prompt: str) -> Dict[str, Any]:
-        """Внутренний метод для выполнения запроса к API"""
-        try:
-            payload = {
-                "model": "claude-3-opus-20240229",
-                "max_tokens": 4096,
-                "temperature": 0.3,
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ]
-            }
-
-            response = self.session.post(self.base_url, json=payload, timeout=30)
-            response.raise_for_status()
-
-            return response.json()
-
-        except requests.exceptions.RequestException as e:
-            logger.error(f"API request failed: {str(e)}")
-            raise Exception(f"API request failed: {str(e)}")
-
-    def _parse_response(self, response: Dict) -> Dict[str, Any]:
-        """Парсинг ответа API"""
-        try:
-            content = response['content'][0]['text']
-
-            # Попробуем сначала распарсить как JSON
-            try:
-                parsed = json.loads(content)
-                if isinstance(parsed, dict):
-                    return parsed
-            except json.JSONDecodeError:
-                pass
-
-            # Если не получилось распарсить как JSON, используем резервный парсинг
+            logger.error(f"Error getting buzz analysis: {str(e)}")
             return {
-                "credibility_score": self._extract_score(content, "credibility"),
-                "sentiment": self._extract_score(content, "sentiment"),
-                "bias": self._extract_score(content, "bias"),
-                "topics": self._extract_list(content, "topics"),
-                "arguments": self._extract_list(content, "arguments"),
-                "concerns": self._extract_list(content, "concerns"),
-                "suggestions": self._extract_list(content, "suggestions"),
-                "summary": self._extract_text(content, "summary"),
-                "perspectives": self._extract_perspectives(content),
-                "credibility_level": self._score_to_level(
-                    self._extract_score(content, "credibility")
-                ),
-                "analysis_date": datetime.now().isoformat()
+                "article": {
+                    "title": "Today's featured analysis: Global News Trends",
+                    "source": "Media Analysis",
+                    "short_summary": "Analysis of current global news trends and their credibility patterns.",
+                    "analysis": {
+                        "credibility_score": {"score": 0.85},
+                        "sentiment": {"score": 0.1},
+                        "bias": {"level": 0.2},
+                        "topics": [
+                            {"name": "Geopolitics", "relevance": 0.9},
+                            {"name": "Economy", "relevance": 0.8},
+                            {"name": "Technology", "relevance": 0.7}
+                        ],
+                        "perspectives": {
+                            "western": {
+                                "summary": "Western perspective on current events",
+                                "credibility": "High"
+                            },
+                            "eastern": {
+                                "summary": "Eastern perspective on current events",
+                                "credibility": "Medium"
+                            },
+                            "neutral": {
+                                "summary": "Neutral analysis of current events",
+                                "credibility": "High"
+                            }
+                        },
+                        "key_arguments": [
+                            "Global economic growth continues",
+                            "Technological advancements accelerating",
+                            "Geopolitical tensions remain"
+                        ]
+                    }
+                }
             }
 
+    def analyze_article(self, content: str, source: str) -> Dict[str, Any]:
+        """Анализирует статью с использованием Claude API"""
+        try:
+            # Проверяем кэш
+            cached = self.cache.get_cached_article_analysis(content)
+            if cached:
+                return cached
+
+            prompt = f"""Analyze the following article content with these requirements:
+1. Assess credibility (0-1 scale)
+2. Determine sentiment (-1 to 1 scale)
+3. Identify potential biases (0-1 scale)
+4. Extract key topics
+5. Provide multiple perspectives
+6. Identify key arguments
+
+Article source: {source}
+Article content: {content[:2000]}...
+
+Format the response as JSON with this structure:
+{{
+    "credibility_score": {{"score": number}},
+    "sentiment": {{"score": number}},
+    "bias": {{"level": number}},
+    "topics": [{{"name": "string"}}],
+    "perspectives": {{
+        "western": {{"summary": "string", "credibility": "string"}},
+        "eastern": {{"summary": "string", "credibility": "string"}},
+        "neutral": {{"summary": "string", "credibility": "string"}}
+    }},
+    "key_arguments": ["string"]
+}}"""
+
+            response = self.client.messages.create(
+                model="claude-3-opus-20240229",
+                max_tokens=2000,
+                temperature=0.5,
+                system="You are a professional media analyst. Provide a detailed, structured analysis of the article content.",
+                messages=[{"role": "user", "content": prompt}]
+            )
+
+            # Безопасное извлечение данных из ответа
+            try:
+                analysis_text = response.content[0].text
+                analysis = json.loads(analysis_text)
+
+                # Проверяем и исправляем структуру данных
+                if isinstance(analysis.get('credibility_score'), float):
+                    analysis['credibility_score'] = {'score': analysis['credibility_score']}
+                if isinstance(analysis.get('sentiment'), float):
+                    analysis['sentiment'] = {'score': analysis['sentiment']}
+                if isinstance(analysis.get('bias'), float):
+                    analysis['bias'] = {'level': analysis['bias']}
+
+                # Кэшируем результат
+                self.cache.cache_article_analysis(content, analysis)
+                return analysis
+            except json.JSONDecodeError:
+                logger.error("Failed to parse analysis response as JSON")
+                return {
+                    "credibility_score": {"score": 0.7},
+                    "sentiment": {"score": 0.1},
+                    "bias": {"level": 0.2},
+                    "topics": [{"name": "General"}],
+                    "perspectives": {
+                        "neutral": {
+                            "summary": "Basic analysis of the provided content",
+                            "credibility": "Medium"
+                        }
+                    },
+                    "key_arguments": ["Content requires more context for detailed analysis"]
+                }
         except Exception as e:
-            logger.error(f"Failed to parse API response: {str(e)}")
-            return self._get_fallback_analysis()
-
-    def _generate_perspectives_prompt(self) -> str:
-        """Генерация части промпта для анализа перспектив"""
-        perspectives_prompt = ""
-        for perspective in self.current_buzz_topic['perspectives']:
-            perspectives_prompt += f'"{perspective}": {{"summary": "summary", "key_points": ["list", "of", "points"]}},'
-        return perspectives_prompt[:-1]  # Убираем последнюю запятую
-
-    def _extract_score(self, text: str, score_type: str) -> float:
-        """Извлечение числовой оценки из текста"""
-        # В реальном приложении здесь была бы более сложная логика извлечения
-        scores = {
-            "credibility": 0.75,
-            "sentiment": 0.1,
-            "bias": 0.4
-        }
-        return scores.get(score_type, 0.5)
-
-    def _extract_list(self, text: str, field_name: str) -> List[str]:
-        """Извлечение списка из текста"""
-        # Упрощенная версия
-        lists = {
-            "topics": ["Conflict", "Geopolitics", "Media Analysis"],
-            "arguments": ["Argument 1", "Argument 2"],
-            "concerns": ["Concern 1", "Concern 2"],
-            "suggestions": ["Suggestion 1", "Suggestion 2"],
-            "key_developments": ["Development 1", "Development 2"],
-            "future_scenarios": ["Scenario 1", "Scenario 2"]
-        }
-        return lists.get(field_name, [])
-
-    def _extract_text(self, text: str, field_name: str) -> str:
-        """Извлечение текстового поля"""
-        # Упрощенная версия
-        texts = {
-            "summary": "Brief summary of the analysis",
-            "background": "Detailed background information",
-            "media_analysis": "Analysis of media coverage",
-            "credibility_assessment": "Assessment of different narratives"
-        }
-        return texts.get(field_name, "No information available")
-
-    def _extract_perspectives(self, text: str) -> Dict[str, Dict]:
-        """Извлечение перспектив из текста"""
-        return {
-            perspective: {
-                "summary": f"Summary of {perspective}",
-                "key_points": [f"Point 1 about {perspective}", f"Point 2 about {perspective}"]
-            }
-            for perspective in self.current_buzz_topic['perspectives']
-        }
-
-    def _score_to_level(self, score: float) -> str:
-        """Преобразование числовой оценки в текстовый уровень"""
-        if score >= 0.8:
-            return "High"
-        elif score >= 0.6:
-            return "Medium"
-        else:
-            return "Low"
-
-    def _get_fallback_analysis(self) -> Dict[str, Any]:
-        """Резервный ответ для анализа статьи"""
-        return {
-            "credibility_score": 0.7,
-            "sentiment": 0.0,
-            "bias": 0.5,
-            "topics": ["Topic 1", "Topic 2"],
-            "arguments": ["Main argument 1", "Main argument 2"],
-            "concerns": ["Potential concern"],
-            "suggestions": ["Suggestion for improvement"],
-            "summary": "Analysis summary not available",
-            "perspectives": {
-                "western": {
-                    "summary": "Western perspective summary",
-                    "key_points": ["Point 1", "Point 2"]
+            logger.error(f"Error analyzing article: {str(e)}")
+            return {
+                "credibility_score": {"score": 0.6},
+                "sentiment": {"score": 0.0},
+                "bias": {"level": 0.3},
+                "topics": [{"name": "General"}],
+                "perspectives": {
+                    "neutral": {
+                        "summary": "Error occurred during analysis",
+                        "credibility": "Low"
+                    }
                 },
-                "neutral": {
-                    "summary": "Neutral perspective summary",
-                    "key_points": ["Point A", "Point B"]
-                }
-            },
-            "credibility_level": "Medium",
-            "analysis_date": datetime.now().isoformat()
-        }
+                "key_arguments": ["Analysis failed due to technical issues"]
+            }
 
-    def _get_fallback_buzz_analysis(self) -> Dict[str, Any]:
-        """Резервный ответ для buzz-анализа"""
-        return {
-            "title": self.current_buzz_topic['title'],
-            "summary": "Summary not available",
-            "background": "Background information not available",
-            "perspectives": {
-                perspective: {
-                    "summary": f"Summary of {perspective} perspective",
-                    "key_points": [f"Key point about {perspective}"]
-                }
-                for perspective in self.current_buzz_topic['perspectives']
-            },
-            "key_developments": ["Key development 1"],
-            "future_scenarios": ["Possible future scenario"],
-            "media_analysis": "Media analysis not available",
-            "credibility_assessment": "Credibility assessment not available",
-            "credibility_level": "Medium",
-            "last_updated": datetime.now().isoformat()
-        }
+    def determine_credibility_level(self, score: Any) -> str:
+        """Определяет уровень достоверности на основе оценки"""
+        try:
+            # Обрабатываем разные типы входных данных
+            if isinstance(score, dict):
+                score_value = score.get('score', 0.6)
+            elif isinstance(score, (float, int)):
+                score_value = float(score)
+            else:
+                score_value = 0.6
 
-    def update_buzz_topic(self, title: str, description: str, perspectives: List[str]):
-        """
-        Обновить текущую buzz-тему
-        Args:
-            title: Название темы
-            description: Описание темы
-            perspectives: Список перспектив для анализа
-        """
-        self.current_buzz_topic = {
-            "title": title,
-            "description": description,
-            "perspectives": perspectives
-        }
-        logger.info(f"Buzz topic updated to: {title}")
-
-    def get_current_buzz_topic(self) -> Dict[str, Any]:
-        """Получить текущую buzz-тему"""
-        return self.current_buzz_topic
+            if score_value >= 0.8:
+                return "High"
+            elif score_value >= 0.6:
+                return "Medium"
+            else:
+                return "Low"
+        except Exception as e:
+            logger.error(f"Error determining credibility level: {str(e)}")
+            return "Medium"
