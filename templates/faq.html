@@ -1,621 +1,391 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Media Credibility Index</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <script src="https://cdn.plot.ly/plotly-2.20.0.min.js"></script>
-    <style>
-        :root {
-            --primary-color: #2563eb;
-            --secondary-color: #f8fafc;
-            --text-color: #1f2937;
-            --border-color: #e2e8f0;
-            --border-radius: 8px;
-            --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            --success-color: #10b981;
-            --warning-color: #f59e0b;
-            --danger-color: #ef4444;
-            --spacing-unit: 1rem;
-        }
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f5f5f5;
-            color: var(--text-color);
-            line-height: 1.6;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        /* Navigation */
-        .navbar {
-            background-color: white;
-            padding: 1rem;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-        }
-        .navbar-container {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .navbar-brand {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 1.2rem;
-            font-weight: 600;
-            color: var(--text-color);
-            text-decoration: none;
-        }
-        .navbar-links {
-            display: flex;
-            gap: 1.5rem;
-            list-style: none;
-        }
-        .navbar-link {
-            color: var(--text-color);
-            font-weight: 500;
-            text-decoration: none;
-            transition: color 0.3s ease;
-            position: relative;
-            padding: 0.5rem 0;
-        }
-        .navbar-link:hover {
-            color: var(--primary-color);
-        }
-        .navbar-link::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 0;
-            height: 2px;
-            background-color: var(--primary-color);
-            transition: width 0.3s ease;
-        }
-        .navbar-link:hover::after {
-            width: 100%;
-        }
-        /* Main content */
-        .main-content {
-            display: flex;
-            gap: 30px;
-            margin-top: 20px;
-        }
-        /* Analysis Section Styles */
-        .analysis-section {
-            flex: 2;
-            background: white;
-            border-radius: var(--border-radius);
-            padding: 20px;
-            box-shadow: var(--box-shadow);
-        }
-        .sidebar {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-        .chart-container, .similar-articles {
-            background: white;
-            border-radius: var(--border-radius);
-            padding: 20px;
-            box-shadow: var(--box-shadow);
-        }
-        .article-header {
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid var(--border-color);
-        }
-        .article-title {
-            font-size: 1.5rem;
-            margin-bottom: 10px;
-        }
-        .article-meta {
-            display: flex;
-            gap: 15px;
-            color: #6b7280;
-            font-size: 0.9rem;
-        }
-        .credibility-badge {
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: 0.8rem;
-            font-weight: 600;
-        }
-        .credibility-badge.high {
-            background-color: rgba(16, 185, 129, 0.2);
-            color: #10b981;
-        }
-        .credibility-badge.medium {
-            background-color: rgba(245, 158, 11, 0.2);
-            color: #f59e0b;
-        }
-        .credibility-badge.low {
-            background-color: rgba(239, 68, 68, 0.2);
-            color: #ef4444;
-        }
-        .analysis-content {
-            margin: 20px 0;
-        }
-        .scores-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin: 20px 0;
-        }
-        .score-card {
-            background: var(--secondary-color);
-            padding: 15px;
-            border-radius: var(--border-radius);
-            text-align: center;
-        }
-        .score-value {
-            font-size: 1.5rem;
-            font-weight: bold;
-            margin: 5px 0;
-        }
-        .score-description {
-            font-size: 0.8rem;
-            color: #6b7280;
-        }
-        .similar-article {
-            padding: 15px;
-            margin-bottom: 15px;
-            border-left: 3px solid var(--primary-color);
-            border-radius: var(--border-radius);
-            background: var(--secondary-color);
-            transition: transform 0.2s ease;
-        }
-        .similar-article:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .btn {
-            background: var(--primary-color);
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 4px;
-            cursor: pointer;
-            margin-top: 10px;
-            display: inline-block;
-        }
-        .btn:hover {
-            background: #1d4ed8;
-        }
-        .loading {
-            text-align: center;
-            padding: 20px;
-        }
-        .spinner {
-            border: 3px solid rgba(0,0,0,0.1);
-            border-radius: 50%;
-            border-top: 3px solid var(--primary-color);
-            width: 30px;
-            height: 30px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .analysis-form {
-            margin-top: 20px;
-        }
-        .form-group {
-            margin-bottom: 15px;
-        }
-        .form-control {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            min-height: 100px;
-            resize: vertical;
-        }
-        /* FAQ Section Styles */
-        .faq-container {
-            max-width: 800px;
-            margin: 3rem auto;
-            padding: 2rem;
-            background-color: white;
-            border-radius: var(--border-radius);
-            box-shadow: var(--box-shadow);
-        }
-        .faq-title {
-            font-size: 2rem;
-            margin-bottom: 2rem;
-            color: var(--primary-color);
-            text-align: center;
-            font-weight: 700;
-            position: relative;
-            padding-bottom: 0.5rem;
-        }
-        .faq-title::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 60px;
-            height: 3px;
-            background-color: var(--primary-color);
-        }
-        .faq-intro {
-            text-align: center;
-            margin-bottom: 3rem;
-            color: #6b7280;
-            font-size: 1.1rem;
-        }
-        .faq-section {
-            margin-bottom: 1.5rem;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 1.5rem;
-        }
-        .faq-section:last-child {
-            border-bottom: none;
-            padding-bottom: 0;
-            margin-bottom: 0;
-        }
-        .faq-question-container {
-            cursor: pointer;
-            width: 100%;
-        }
-        .faq-question {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1rem 0;
-            transition: all 0.2s ease;
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: var(--primary-color);
-        }
-        .faq-question:hover {
-            color: #000;
-        }
-        .faq-question-content {
-            width: 90%;
-        }
-        .faq-icon {
-            transition: transform 0.3s ease;
-            color: var(--primary-color);
-            font-size: 1.2rem;
-        }
-        .faq-question.active .faq-icon {
-            transform: rotate(180deg);
-        }
-        .faq-answer-container {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.5s ease, padding 0.3s ease;
-            padding: 0;
-        }
-        .faq-question.active + .faq-answer-container {
-            max-height: 1000px;
-            padding: 1rem 0;
-        }
-        .faq-answer {
-            line-height: 1.6;
-            color: #6b7280;
-        }
-        .faq-answer-content {
-            max-height: 300px;
-            overflow-y: auto;
-            padding-right: 1rem;
-        }
-        .back-link-container {
-            text-align: center;
-            margin-top: 3rem;
-        }
-        .back-link {
-            display: inline-block;
-            padding: 0.75rem 1.5rem;
-            background-color: var(--primary-color);
-            color: white;
-            border-radius: var(--border-radius);
-            text-decoration: none;
-            font-weight: 500;
-            transition: all 0.2s ease;
-            border: none;
-            cursor: pointer;
-        }
-        .back-link:hover {
-            background-color: #000;
-            color: white;
-        }
-        .back-link i {
-            margin-right: 0.5rem;
-        }
-        /* Footer styles */
-        .footer {
-            background-color: #343a40;
-            padding: 2rem 0;
-            margin-top: 4rem;
-            color: white;
-        }
-        .footer-content {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .footer-links {
-            display: flex;
-            gap: 2rem;
-            list-style: none;
-            margin-bottom: 1.5rem;
-        }
-        .footer-link {
-            color: white;
-            text-decoration: none;
-            transition: all 0.2s ease;
-        }
-        .footer-link:hover {
-            color: #adb5bd;
-            text-decoration: underline;
-        }
-        .footer-copyright {
-            color: #adb5bd;
-            font-size: 0.9rem;
-        }
-        /* Scrollbar styling */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 10px;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #c1c1c1;
-            border-radius: 10px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #a8a8a8;
-        }
-        /* Chart styles */
-        .chart-description {
-            margin-bottom: 15px;
-            font-size: 0.9rem;
-            color: #6b7280;
-            padding: 10px;
-            background: #f8fafc;
-            border-radius: 6px;
-        }
-        .chart-legend {
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-            margin-top: 20px;
-            flex-wrap: wrap;
-        }
-        .chart-legend-item {
-            display: flex;
-            align-items: center;
-            margin: 5px;
-        }
-        .chart-legend-color {
-            width: 15px;
-            height: 15px;
-            border-radius: 3px;
-            margin-right: 8px;
-        }
-        /* Responsive styles */
-        @media (max-width: 768px) {
-            .main-content {
-                flex-direction: column;
-            }
-            .navbar-links {
-                display: none;
-            }
-            .faq-container {
-                margin: 1rem;
-                padding: 1.5rem;
-            }
-            .faq-title {
-                font-size: 1.8rem;
-            }
-            .footer-links {
-                flex-direction: column;
-                gap: 1rem;
-                text-align: center;
-            }
-            .faq-answer-content {
-                max-height: 200px;
-            }
-        }
-    </style>
-</head>
-<body>
-    <!-- Navigation Bar -->
-    <nav class="navbar">
-        <div class="container navbar-container">
-            <a href="#" class="navbar-brand" onclick="navigateTo('home')">
-                <i class="bi bi-newspaper"></i>
-                <span>Index Credibility</span>
-            </a>
-            <ul class="navbar-links">
-                <li><a href="#" class="navbar-link" onclick="navigateTo('home')">Home</a></li>
-                <li><a href="#" class="navbar-link" onclick="navigateTo('faq')">FAQ</a></li>
-                <li><a href="#" class="navbar-link" onclick="navigateTo('contact')">Feedback & Contact</a></li>
-                <li><a href="#" class="navbar-link" onclick="navigateTo('privacy')">Privacy</a></li>
-                <li><a href="#" class="navbar-link" onclick="navigateTo('terms')">Terms</a></li>
-            </ul>
-        </div>
-    </nav>
+<div class="faq-container">
+    <h1>Frequently Asked Questions</h1>
+    <p class="faq-intro">Here you'll find answers to the most common questions about our Media Credibility Index tool. If you don't find what you're looking for, please contact our support team.</p>
 
-    <!-- Main Content Container -->
-    <div class="container" id="mainContent">
-        <!-- Home Page Content (default view) -->
-        <div id="homePage" class="page-content">
-            <div class="main-content">
-                <div class="analysis-section">
-                    <div class="article-header">
-                        <h1 class="article-title">Media Credibility Analysis</h1>
-                        <div class="article-meta">
-                            <span><i class="bi bi-newspaper"></i> Multiple Sources</span>
-                            <span class="credibility-badge high"><i class="bi bi-shield-check"></i> High</span>
-                        </div>
+    <div class="faq-item">
+        <div class="faq-question" onclick="toggleFAQ(this)">
+            <h3>What exactly is the Media Credibility Index and how can it help me?</h3>
+        </div>
+        <div class="faq-answer">
+            <p>The Media Credibility Index is your personal assistant in navigating today's complex media landscape. Our advanced tool uses cutting-edge algorithms to analyze news articles and evaluate their reliability, helping you:</p>
+            <ul>
+                <li>Quickly assess the credibility of news sources</li>
+                <li>Identify potential biases in reporting</li>
+                <li>Understand the overall sentiment of articles</li>
+                <li>Compare different sources on the same topic</li>
+                <li>Make more informed decisions about what to read and trust</li>
+            </ul>
+            <p>Whether you're a student researching for a paper, a professional needing reliable sources, or just a concerned citizen wanting to stay informed, our tool provides valuable insights to help you navigate the news landscape with confidence.</p>
+        </div>
+    </div>
+
+    <div class="faq-item">
+        <div class="faq-question" onclick="toggleFAQ(this)">
+            <h3>How does the analysis process actually work?</h3>
+        </div>
+        <div class="faq-answer">
+            <p>Our analysis system uses a sophisticated multi-factor approach to evaluate news content. Here's what happens when you submit an article for analysis:</p>
+            <ol>
+                <li><strong>Source Reputation Check:</strong> We examine the historical reliability of the news source, including its track record for accuracy and fact-checking.</li>
+                <li><strong>Content Analysis:</strong> Our algorithms evaluate the writing style, language patterns, and structural elements that often indicate credibility.</li>
+                <li><strong>Factual Consistency:</strong> We cross-reference key claims with verified databases and other reliable sources to check for consistency.</li>
+                <li><strong>Bias Detection:</strong> Specialized algorithms identify potential political, commercial, or ideological biases in the reporting.</li>
+                <li><strong>Cross-Source Verification:</strong> We compare the article with reporting from other sources on the same topic to identify consensus or outliers.</li>
+            </ol>
+            <p>This comprehensive approach gives you a credibility score between 0-1, where higher scores indicate more reliable content. The analysis typically completes in just a few seconds!</p>
+        </div>
+    </div>
+
+    <div class="faq-item">
+        <div class="faq-question" onclick="toggleFAQ(this)">
+            <h3>How should I interpret the credibility scores?</h3>
+        </div>
+        <div class="faq-answer">
+            <p>Our credibility scoring system helps you quickly assess the reliability of news content. Here's how to understand the scores:</p>
+
+            <div class="credibility-scale">
+                <div class="scale-item high">
+                    <div class="scale-header">
+                        <span class="scale-range">0.8 - 1.0</span>
+                        <span class="scale-label">High Credibility</span>
                     </div>
-                    <div class="analysis-content">
-                        <div class="analysis-form">
-                            <div class="form-group">
-                                <label for="articleInput">Article URL or Text</label>
-                                <textarea class="form-control" id="articleInput" placeholder="Paste article URL or text content here for analysis...">https://www.bbc.com/news/world-us-canada-67898765</textarea>
-                            </div>
-                            <button onclick="analyzeArticle()" class="btn">
-                                <i class="bi bi-search"></i> Analyze Article
-                            </button>
-                        </div>
-                        <div id="analysisResults">
-                            <!-- Результаты анализа будут отображаться здесь -->
-                        </div>
+                    <div class="scale-description">
+                        <p>These are our most trusted sources. Articles in this range typically come from:</p>
+                        <ul>
+                            <li>Established news organizations with strong fact-checking policies</li>
+                            <li>Sources with a long track record of accuracy</li>
+                            <li>Articles that are well-sourced with multiple verifications</li>
+                            <li>Content that shows minimal bias and balanced reporting</li>
+                        </ul>
+                        <p>While still worth reading critically, these sources have demonstrated reliability.</p>
                     </div>
                 </div>
-                <div class="sidebar">
-                    <div class="chart-container">
-                        <h2>Source Credibility Comparison</h2>
-                        <div class="chart-description">
-                            <p>Comparison of credibility scores across different news sources.</p>
-                            <p>Green: High credibility, Yellow: Medium, Red: Low</p>
-                            <p style="font-weight: 600;">Solid colors: Real data | Semi-transparent: Mock data</p>
-                        </div>
-                        <button onclick="updateChart()" class="btn">
-                            <i class="bi bi-arrow-clockwise"></i> Update Chart
-                        </button>
-                        <div id="chart"></div>
-                        <div class="chart-legend" id="chartLegend">
-                            <!-- Легенда будет добавлена программно -->
-                        </div>
+
+                <div class="scale-item medium">
+                    <div class="scale-header">
+                        <span class="scale-range">0.6 - 0.79</span>
+                        <span class="scale-label">Medium Credibility</span>
                     </div>
-                    <div class="similar-articles">
-                        <h2>Related Articles</h2>
-                        <div class="similar-article">
-                            <h3><a href="#">Global News Trends Analysis</a></h3>
-                            <div class="article-meta">
-                                <span><i class="bi bi-newspaper"></i> BBC</span>
-                                <span class="credibility-badge high"><i class="bi bi-shield-check"></i> High</span>
-                            </div>
-                            <p>Comprehensive analysis of current global news trends and their credibility patterns.</p>
-                        </div>
-                        <div class="similar-article">
-                            <h3><a href="#">Media Bias in Political Reporting</a></h3>
-                            <div class="article-meta">
-                                <span><i class="bi bi-newspaper"></i> The Guardian</span>
-                                <span class="credibility-badge medium"><i class="bi bi-shield-check"></i> Medium</span>
-                            </div>
-                            <p>Examination of potential biases in political news coverage across major outlets.</p>
-                        </div>
+                    <div class="scale-description">
+                        <p>These sources are generally reliable but may have some issues:</p>
+                        <ul>
+                            <li>Might contain minor factual inaccuracies</li>
+                            <li>Could show some bias in reporting</li>
+                            <li>May lack complete sourcing for all claims</li>
+                            <li>Sometimes present opinions as facts</li>
+                        </ul>
+                        <p>We recommend verifying key claims from these articles with higher-credibility sources.</p>
+                    </div>
+                </div>
+
+                <div class="scale-item low">
+                    <div class="scale-header">
+                        <span class="scale-range">Below 0.6</span>
+                        <span class="scale-label">Low Credibility</span>
+                    </div>
+                    <div class="scale-description">
+                        <p>Exercise caution with these sources:</p>
+                        <ul>
+                            <li>Often contain significant factual errors</li>
+                            <li>Frequently show strong bias</li>
+                            <li>May present unverified claims as facts</li>
+                            <li>Sometimes mix opinion with news reporting</li>
+                        </ul>
+                        <p>We strongly recommend verifying all information from these sources with more reliable outlets.</p>
                     </div>
                 </div>
             </div>
+
+            <p>Remember that even high-credibility sources should be read critically, and all news should be considered in context with other reporting on the same topic.</p>
         </div>
+    </div>
 
-        <!-- FAQ Page Content (hidden by default) -->
-        <div id="faqPage" class="page-content" style="display: none;">
-            <div class="faq-container">
-                <h1 class="faq-title">Frequently Asked Questions</h1>
-                <p class="faq-intro">Find answers to common questions about our news credibility analysis service</p>
+    <div class="faq-item">
+        <div class="faq-question" onclick="toggleFAQ(this)">
+            <h3>How can I get the most out of this tool?</h3>
+        </div>
+        <div class="faq-answer">
+            <p>Here are some pro tips to maximize the value you get from our Media Credibility Index:</p>
 
-                <div class="faq-section">
-                    <div class="faq-question-container">
-                        <div class="faq-question">
-                            <div class="faq-question-content">
-                                <span>What is Index Credibility and what are we trying to achieve?</span>
-                            </div>
-                            <i class="bi bi-chevron-down faq-icon"></i>
-                        </div>
-                        <div class="faq-answer-container">
-                            <div class="faq-answer">
-                                <div class="faq-answer-content">
-                                    <p>Index Credibility is an advanced news analysis platform designed to help users evaluate the reliability and trustworthiness of news articles. Our mission is to combat misinformation by providing objective analysis of news content, allowing users to make informed decisions about what they read.</p>
-                                    <p>We utilize sophisticated AI algorithms to analyze multiple factors including source reliability, factual accuracy, and potential bias. Our system doesn't tell users what to think, but rather provides them with the tools to critically evaluate news content.</p>
-                                    <p>Our platform employs several key features to provide comprehensive analysis: multi-source comparison showing how different reputable news outlets cover the same story, credibility scoring for each article based on multiple factors, contextual analysis providing background information, and bias detection to help users recognize when a particular viewpoint might be influencing the coverage.</p>
-                                    <p>This comprehensive approach ensures users get a well-rounded understanding of news topics rather than just one perspective. We believe technology should empower users to make informed decisions about what they read and share, rather than simply feeding them content based on engagement algorithms.</p>
-                                </div>
-                            </div>
-                        </div>
+            <div class="tips-container">
+                <div class="tip-card">
+                    <h4>Compare Multiple Sources</h4>
+                    <p>Analyze articles from different outlets on the same topic to see how credibility scores vary. This helps identify consensus and outliers in reporting.</p>
+                </div>
+
+                <div class="tip-card">
+                    <h4>Check Over Time</h4>
+                    <p>Track how a particular source's credibility changes over time by analyzing multiple articles from the same outlet.</p>
+                </div>
+
+                <div class="tip-card">
+                    <h4>Use the Chart View</h4>
+                    <p>Our visualization tools help you quickly compare credibility across different sources and topics at a glance.</p>
+                </div>
+
+                <div class="tip-card">
+                    <h4>Combine with Other Tools</h4>
+                    <p>Use our analysis alongside fact-checking sites and media literacy resources for comprehensive verification.</p>
+                </div>
+
+                <div class="tip-card">
+                    <h4>Read Critically</h4>
+                    <p>Even high-scoring articles should be read with a critical eye. Look for sourcing, potential biases, and multiple viewpoints.</p>
+                </div>
+            </div>
+
+            <p>For best results, we recommend analyzing at least 3-5 articles on any given topic to get a well-rounded perspective.</p>
+        </div>
+    </div>
+
+    <div class="faq-item">
+        <div class="faq-question" onclick="toggleFAQ(this)">
+            <h3>How does this tool protect my privacy?</h3>
+        </div>
+        <div class="faq-answer">
+            <p>We take your privacy extremely seriously. Here's how we protect your information:</p>
+
+            <div class="privacy-features">
+                <div class="privacy-item">
+                    <i class="bi bi-shield-check"></i>
+                    <div class="privacy-text">
+                        <h4>No Personal Data Collection</h4>
+                        <p>We don't collect or store any personal information about our users. All analysis is completely anonymous.</p>
                     </div>
                 </div>
 
-                <div class="faq-section">
-                    <div class="faq-question-container">
-                        <div class="faq-question">
-                            <div class="faq-question-content">
-                                <span>How does Index Credibility provide comprehensive analysis?</span>
-                            </div>
-                            <i class="bi bi-chevron-down faq-icon"></i>
-                        </div>
-                        <div class="faq-answer-container">
-                            <div class="faq-answer">
-                                <div class="faq-answer-content">
-                                    <p>Our platform provides several key features to provide comprehensive analysis:</p>
-                                    <ol>
-                                        <li><strong>Multi-source comparison:</strong> We show how different reputable news outlets cover the same story, allowing users to compare perspectives. This helps users see how different news organizations cover the same event, providing a more complete picture of the news landscape.</li>
-                                        <li><strong>Credibility scoring:</strong> Each article receives a credibility score based on multiple factors including source reliability, factual accuracy, and potential bias. Our Credibility Index is our proprietary scoring system that evaluates news articles based on source reliability (30% weight), factual accuracy (25% weight), bias detection (20% weight), context completeness (15% weight), and timeliness (10% weight).</li>
-                                        <li><strong>Contextual analysis:</strong> We provide background information and related articles to give users a complete picture of the news topic. Our "similar articles" feature operates through a sophisticated multi-step process including content analysis, semantic matching, source evaluation, diversity algorithm, and presentation.</li>
-                                        <li><strong>Bias detection:</strong> Our AI identifies potential biases in reporting to help users recognize when a particular viewpoint might be influencing the coverage. We maintain fairness through diverse training data, transparent methodology, regular audits, user feedback, multiple perspectives, and human oversight.</li>
-                                    </ol>
-                                    <p>This comprehensive approach ensures users get a well-rounded understanding of news topics rather than just one perspective.</p>
-                                </div>
-                            </div>
-                        </div>
+                <div class="privacy-item">
+                    <i class="bi bi-hdd"></i>
+                    <div class="privacy-text">
+                        <h4>Local Storage Only</h4>
+                        <p>Any analysis data is stored only in your browser's local storage and never sent to our servers unless you explicitly choose to share it.</p>
                     </div>
                 </div>
 
-                <div class="faq-section">
-                    <div class="faq-question-container">
-                        <div class="faq-question">
-                            <div class="faq-question-content">
-                                <span>What is the Credibility Index and how is it calculated?</span>
-                            </div>
-                            <i class="bi bi-chevron-down faq-icon"></i>
-                        </div>
-                        <div class="faq-answer-container">
-                            <div class="faq-answer">
-                                <div class="faq-answer-content">
-                                    <p>The Credibility Index is our proprietary scoring system that evaluates news articles based on several key factors:</p>
-                                    <ul>
-                                        <li><strong>Source reliability (30% weight):</strong> Historical accuracy and reputation of the news source. We train our AI on diverse news content from across the political spectrum and from various geographic regions. Our algorithms are regularly reviewed for potential biases by both our technical team and independent journalists.</li>
-                                        <li><strong>Factual accuracy (25% weight):</strong> Verification of claims and statements in the article. We incorporate user reports and feedback to continuously improve our system and always show content from various sources to provide balanced viewpoints.</li>
-                                        <li><strong>Bias detection (20% weight):</strong> Identification of potential political or ideological bias. Complex cases are reviewed by our team of professional journalists to ensure our analysis remains as objective and fair as possible.</li>
-                                        <li><strong>Context completeness (15% weight):</strong> Whether the article provides sufficient background information. These factors are combined using a weighted algorithm to produce a score from 0-100, with higher scores indicating more trustworthy news content.</li>
-                                        <li><strong>Timeliness (10% weight):</strong> How current and up-to-date the information is. The exact weighting and calculation methodology is regularly reviewed by our team of journalists and data scientists to ensure fairness and accuracy.</li>
-                                    </ul>
-                                    <p>These factors are combined using a weighted algorithm to produce a score from 0-100, with higher scores indicating more trustworthy news content. The exact weighting and calculation methodology is regularly reviewed by our team of journalists and data scientists to ensure fairness and accuracy.</p>
-                                </div>
-                            </div>
-                        </div>
+                <div class="privacy-item">
+                    <i class="bi bi-lock"></i>
+                    <div class="privacy-text">
+                        <h4>Secure Connections</h4>
+                        <p>All communications with our servers use encrypted HTTPS connections to protect your data in transit.</p>
                     </div>
                 </div>
 
-                <div class="faq-section">
-                    <div class="faq-question-container">
-                        <div class="faq-question">
-                            <div class="faq-question-content">
-                                <span>How does Index Credibility benefit users?</span>
-                            </div>
-                            <i class="bi bi-chevron-down faq-icon"></i>
-                        </div>
-                        <div class="faq-answer-container">
-                            <div class="faq-answer">
-                                <div class="faq-answer-content">
-                                    <p>Our platform provides several key benefits to users:</p>
-                                    <ul>
-                                        <li><strong>Critical thinking development:</strong> Helps users develop skills to evaluate news content more critically. We show how different reputable news outlets cover the same story, allowing users to compare perspectives and see how different news organizations cover the same event, providing a more complete picture of the news landscape.</li>
-                                        <li><strong>Bias recognition:</strong> Enables users to identify potential biases in news reporting. Each article receives a credibility score based on multiple factors including source reliability, factual accuracy, and potential bias.</li>
-                                        <li><strong>Source comparison:</strong> Allows comparison of how different news outlets cover the same story. We provide background information and related articles to give users a complete picture of the news topic.</li>
-                                        <li><strong>Misinformation prevention:</strong> Reduces the likelihood of users sharing false or misleading information
+                <div class="privacy-item">
+                    <i class="bi bi-trash"></i>
+                    <div class="privacy-text">
+                        <h4>Easy Data Removal</h4>
+                        <p>You can clear your local analysis history at any time with one click, removing all traces of your activity.</p>
+                    </div>
+                </div>
+            </div>
+
+            <p>We're committed to transparency about our data practices. You can read our full Privacy Policy for complete details about how we handle information.</p>
+        </div>
+    </div>
+
+    <a href="index.html" class="back-button">
+        <i class="bi bi-arrow-left"></i> Back to Analysis
+    </a>
+</div>
+
+<style>
+    .faq-container {
+        background: white;
+        border-radius: 8px;
+        padding: 30px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-top: 20px;
+    }
+
+    .faq-intro {
+        margin-bottom: 30px;
+        color: #4b5563;
+        font-size: 1.1rem;
+    }
+
+    .faq-item {
+        margin-bottom: 20px;
+        border-bottom: 1px solid #e2e8f0;
+        padding-bottom: 20px;
+    }
+
+    .faq-question {
+        font-size: 1.2rem;
+        font-weight: 600;
+        margin-bottom: 10px;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        color: #1f2937;
+        padding: 10px;
+        border-radius: 6px;
+        transition: background-color 0.2s;
+    }
+
+    .faq-question:hover {
+        background-color: #f8fafc;
+    }
+
+    .faq-question::after {
+        content: "+";
+        font-size: 1.3rem;
+        font-weight: bold;
+        color: #2563eb;
+        margin-left: 10px;
+    }
+
+    .faq-item.active .faq-question::after {
+        content: "−";
+    }
+
+    .faq-answer {
+        margin-top: 15px;
+        padding: 15px;
+        background-color: #f8fafc;
+        border-radius: 6px;
+        animation: fadeIn 0.3s ease-in-out;
+    }
+
+    .faq-answer p {
+        margin-bottom: 15px;
+        line-height: 1.6;
+    }
+
+    .faq-answer ul, .faq-answer ol {
+        margin: 15px 0 15px 20px;
+    }
+
+    .faq-answer li {
+        margin-bottom: 8px;
+    }
+
+    .credibility-scale {
+        margin: 25px 0;
+    }
+
+    .scale-item {
+        margin-bottom: 25px;
+        padding: 15px;
+        border-radius: 8px;
+        background-color: rgba(37, 99, 235, 0.05);
+    }
+
+    .scale-item.high {
+        border-left: 4px solid #10b981;
+    }
+
+    .scale-item.medium {
+        border-left: 4px solid #f59e0b;
+    }
+
+    .scale-item.low {
+        border-left: 4px solid #ef4444;
+    }
+
+    .scale-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .scale-range {
+        font-weight: bold;
+        font-size: 1.1rem;
+    }
+
+    .scale-label {
+        font-size: 1.2rem;
+        color: #1f2937;
+    }
+
+    .scale-description {
+        margin-top: 10px;
+    }
+
+    .tips-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 20px;
+        margin: 20px 0;
+    }
+
+    .tip-card {
+        background-color: #f8fafc;
+        padding: 15px;
+        border-radius: 8px;
+        border-left: 4px solid #2563eb;
+    }
+
+    .tip-card h4 {
+        color: #2563eb;
+        margin-bottom: 10px;
+    }
+
+    .privacy-features {
+        margin: 20px 0;
+    }
+
+    .privacy-item {
+        display: flex;
+        margin-bottom: 20px;
+        align-items: flex-start;
+    }
+
+    .privacy-item i {
+        font-size: 1.5rem;
+        margin-right: 15px;
+        color: #2563eb;
+    }
+
+    .privacy-text h4 {
+        margin-bottom: 5px;
+        color: #1f2937;
+    }
+
+    .back-button {
+        display: inline-block;
+        margin-top: 30px;
+        padding: 12px 24px;
+        background-color: #2563eb;
+        color: white;
+        text-decoration: none;
+        border-radius: 6px;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+
+    .back-button:hover {
+        background-color: #1d4ed8;
+        transform: translateY(-2px);
+    }
+
+    .back-button i {
+        margin-right: 8px;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 768px) {
+        .tips-container {
+            grid-template-columns: 1fr;
+        }
+
+        .privacy-item {
+            flex-direction: column;
+            text-align: center;
+        }
+
+        .privacy-item i {
+            margin-right: 0;
+            margin-bottom: 10px;
+            font-size: 2rem;
+        }
+    }
+</style>
