@@ -13,6 +13,9 @@
             --border-color: #e2e8f0;
             --border-radius: 8px;
             --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
         }
 
         * {
@@ -257,6 +260,10 @@
         }
 
         @media (max-width: 768px) {
+            .navbar-links {
+                display: none;
+            }
+
             .tips-container {
                 grid-template-columns: 1fr;
             }
@@ -351,7 +358,6 @@
                                     <p>While still worth reading critically, these sources have demonstrated reliability.</p>
                                 </div>
                             </div>
-
                             <div class="scale-item medium">
                                 <div class="scale-header">
                                     <span class="scale-range">0.6 - 0.79</span>
@@ -368,7 +374,6 @@
                                     <p>We recommend verifying key claims from these articles with higher-credibility sources.</p>
                                 </div>
                             </div>
-
                             <div class="scale-item low">
                                 <div class="scale-header">
                                     <span class="scale-range">Below 0.6</span>
@@ -462,7 +467,6 @@
                     </div>
                 </div>
 
-                <!-- Исправленная кнопка возврата на главную страницу -->
                 <a href="/" class="back-button">
                     <i class="bi bi-arrow-left"></i> Back to Analysis
                 </a>
@@ -477,168 +481,16 @@
             faqItem.classList.toggle('active');
         }
 
-        // Функция для навигации
-        function navigateTo(url) {
-            window.location.href = url;
-        }
-
-        // Добавляем обработчики событий для всех ссылок
+        // Обработчики для навигационных ссылок
         document.addEventListener('DOMContentLoaded', function() {
-            // Обработчики для навигационных ссылок
-            const navLinks = document.querySelectorAll('.navbar-link');
+            const navLinks = document.querySelectorAll('.navbar-link, .back-button');
             navLinks.forEach(link => {
                 link.addEventListener('click', function(e) {
                     e.preventDefault();
-                    const url = this.getAttribute('href');
-                    navigateTo(url);
+                    window.location.href = this.getAttribute('href');
                 });
             });
-
-            // Обработчик для кнопки "Back"
-            const backButton = document.querySelector('.back-button');
-            if (backButton) {
-                backButton.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    navigateTo(this.getAttribute('href'));
-                });
-            }
         });
     </script>
 </body>
 </html>
-
-    }
-
-    .faq-answer li {
-        margin-bottom: 8px;
-    }
-
-    .credibility-scale {
-        margin: 25px 0;
-    }
-
-    .scale-item {
-        margin-bottom: 25px;
-        padding: 15px;
-        border-radius: 8px;
-        background-color: rgba(37, 99, 235, 0.05);
-    }
-
-    .scale-item.high {
-        border-left: 4px solid #10b981;
-    }
-
-    .scale-item.medium {
-        border-left: 4px solid #f59e0b;
-    }
-
-    .scale-item.low {
-        border-left: 4px solid #ef4444;
-    }
-
-    .scale-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 10px;
-        padding-bottom: 10px;
-        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-    }
-
-    .scale-range {
-        font-weight: bold;
-        font-size: 1.1rem;
-    }
-
-    .scale-label {
-        font-size: 1.2rem;
-        color: #1f2937;
-    }
-
-    .scale-description {
-        margin-top: 10px;
-    }
-
-    .tips-container {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-        gap: 20px;
-        margin: 20px 0;
-    }
-
-    .tip-card {
-        background-color: #f8fafc;
-        padding: 15px;
-        border-radius: 8px;
-        border-left: 4px solid #2563eb;
-    }
-
-    .tip-card h4 {
-        color: #2563eb;
-        margin-bottom: 10px;
-    }
-
-    .privacy-features {
-        margin: 20px 0;
-    }
-
-    .privacy-item {
-        display: flex;
-        margin-bottom: 20px;
-        align-items: flex-start;
-    }
-
-    .privacy-item i {
-        font-size: 1.5rem;
-        margin-right: 15px;
-        color: #2563eb;
-    }
-
-    .privacy-text h4 {
-        margin-bottom: 5px;
-        color: #1f2937;
-    }
-
-    .back-button {
-        display: inline-block;
-        margin-top: 30px;
-        padding: 12px 24px;
-        background-color: #2563eb;
-        color: white;
-        text-decoration: none;
-        border-radius: 6px;
-        font-weight: 600;
-        transition: all 0.2s;
-    }
-
-    .back-button:hover {
-        background-color: #1d4ed8;
-        transform: translateY(-2px);
-    }
-
-    .back-button i {
-        margin-right: 8px;
-    }
-
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(-10px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-
-    @media (max-width: 768px) {
-        .tips-container {
-            grid-template-columns: 1fr;
-        }
-
-        .privacy-item {
-            flex-direction: column;
-            text-align: center;
-        }
-
-        .privacy-item i {
-            margin-right: 0;
-            margin-bottom: 10px;
-            font-size: 2rem;
-        }
-    }
-</style>
