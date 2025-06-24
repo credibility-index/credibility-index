@@ -189,19 +189,36 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
+        /* Стили для кнопок */
         .btn {
-            background: var(--primary-color);
-            color: white;
             border: none;
             padding: 10px 20px;
             border-radius: 4px;
             cursor: pointer;
             margin-top: 10px;
             display: inline-block;
+            font-weight: 500;
+            transition: all 0.2s;
         }
 
-        .btn:hover {
-            background: #1d4ed8;
+        /* Черная кнопка с белым текстом */
+        .btn-black {
+            background-color: #000000;
+            color: white;
+        }
+
+        .btn-black:hover {
+            background-color: #333333;
+        }
+
+        /* Синяя кнопка (для других кнопок) */
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #1d4ed8;
         }
 
         .loading {
@@ -297,7 +314,8 @@
                             <label for="articleInput">Article URL or Text</label>
                             <textarea class="form-control" id="articleInput" placeholder="Paste article URL or text content here for analysis..."></textarea>
                         </div>
-                        <button onclick="analyzeArticle()" class="btn">
+                        <!-- Кнопка "Analyze Article" с черным фоном и белым текстом -->
+                        <button onclick="analyzeArticle()" class="btn btn-black">
                             <i class="bi bi-search"></i> Analyze Article
                         </button>
                     </div>
@@ -310,7 +328,8 @@
             <div class="sidebar">
                 <div class="chart-container">
                     <h2>Source Credibility Comparison</h2>
-                    <button onclick="updateChart()" class="btn">
+                    <!-- Кнопка "Update Chart" остается синей -->
+                    <button onclick="updateChart()" class="btn btn-primary">
                         <i class="bi bi-arrow-clockwise"></i> Update Chart
                     </button>
                     <canvas id="chart"></canvas>
@@ -359,8 +378,6 @@
         // Функция для инициализации графика
         function initChart() {
             const ctx = document.getElementById('chart').getContext('2d');
-
-            // Создаем новый график
             chartInstance = new Chart(ctx, {
                 type: 'bar',
                 data: {
@@ -411,12 +428,10 @@
         // Функция для обновления данных графика
         function updateChartWithData(data) {
             if (!chartInstance) return;
-
             chartInstance.data.labels = data.sources;
             chartInstance.data.datasets[0].data = data.scores;
             chartInstance.data.datasets[0].backgroundColor = data.scores.map(getColorForScore);
             chartInstance.data.datasets[0].borderColor = data.scores.map(score => getColorForScore(score).replace('0.7', '1'));
-
             chartInstance.update();
         }
 
@@ -429,30 +444,20 @@
                     <p>Updating chart data...</p>
                 </div>
             `;
-
-            // Показываем индикатор загрузки
             container.insertAdjacentHTML('afterbegin', loadingHTML);
-
-            // Имитация задержки сети
             setTimeout(() => {
-                // Удаляем индикатор загрузки
                 const loadingElement = container.querySelector('.loading');
                 if (loadingElement) {
                     loadingElement.remove();
                 }
-
-                // Используем данные из истории анализа или моковые данные
                 if (analysisHistory.length > 0) {
-                    // Преобразуем историю анализа в данные для графика
                     const sources = analysisHistory.map((_, index) => `Analysis ${index + 1}`);
                     const scores = analysisHistory.map(item => item.credibility_score || 0.7);
-
                     updateChartWithData({
                         sources: sources,
                         scores: scores
                     });
                 } else {
-                    // Если нет истории анализа, используем моковые данные
                     updateChartWithData(defaultChartData);
                 }
             }, 800);
@@ -461,12 +466,10 @@
         // Функция для анализа статьи
         async function analyzeArticle() {
             const articleInput = document.getElementById('articleInput').value.trim();
-
             if (!articleInput) {
                 alert('Please enter article text or URL for analysis');
                 return;
             }
-
             const resultsContainer = document.getElementById('analysisResults');
             resultsContainer.innerHTML = `
                 <div class="loading">
@@ -474,31 +477,20 @@
                     <p>Analyzing article content...</p>
                 </div>
             `;
-
             try {
-                // Имитация запроса к API
                 const mockAnalysisResult = await simulateArticleAnalysis(articleInput);
-
-                // Сохраняем результаты анализа в истории
                 analysisHistory.push({
                     credibility_score: mockAnalysisResult.article.analysis.credibility_score.score,
                     timestamp: new Date().toISOString()
                 });
-
-                // Ограничиваем историю последними 10 записями
                 if (analysisHistory.length > 10) {
                     analysisHistory.shift();
                 }
-
-                // Отображаем результаты анализа
                 displayAnalysisResults(mockAnalysisResult);
-
-                // Обновляем график на основе результатов анализа
                 if (mockAnalysisResult.article?.similar_articles) {
                     updateChartWithAnalysisData(mockAnalysisResult.article.similar_articles);
                     displaySimilarArticles(mockAnalysisResult.article.similar_articles);
                 }
-
             } catch (error) {
                 console.error('Error analyzing article:', error);
                 resultsContainer.innerHTML = `
@@ -513,11 +505,9 @@
         // Имитация анализа статьи
         async function simulateArticleAnalysis(inputText) {
             await new Promise(resolve => setTimeout(resolve, 1000));
-
             const randomScore = 0.5 + Math.random() * 0.5;
             const randomSentiment = Math.random();
             const randomBias = Math.random();
-
             return {
                 status: 'success',
                 article: {
@@ -547,18 +537,15 @@
             };
         }
 
-        // Функция для обновления графика на основе анализа
         function updateChartWithAnalysisData(articles) {
             const sources = articles.map((article, index) => `Source ${index + 1}`);
             const scores = articles.map(article => article.analysis?.credibility_score?.score || 0.7);
-
             updateChartWithData({
                 sources: sources,
                 scores: scores
             });
         }
 
-        // Функция для отображения похожих статей
         function displaySimilarArticles(articles) {
             const container = document.getElementById('similarArticlesContainer');
             container.innerHTML = articles.map((article, index) => `
@@ -574,25 +561,21 @@
             `).join('');
         }
 
-        // Вспомогательная функция для определения класса достоверности
         function getCredibilityClass(score) {
             if (score > 0.8) return 'high';
             if (score > 0.6) return 'medium';
             return 'low';
         }
 
-        // Вспомогательная функция для определения уровня достоверности
         function getCredibilityLevel(score) {
             if (score > 0.8) return 'High';
             if (score > 0.6) return 'Medium';
             return 'Low';
         }
 
-        // Функция для отображения результатов анализа
         function displayAnalysisResults(data) {
             const article = data.article || {};
             const analysis = article.analysis || {};
-
             let html = `
                 <div class="analysis-result">
                     <div class="article-header">
@@ -616,7 +599,6 @@
                         </div>
                     </div>
             `;
-
             if (analysis.topics && analysis.topics.length > 0) {
                 html += `
                     <div class="topics-section">
@@ -627,16 +609,12 @@
                     </div>
                 `;
             }
-
             html += `</div>`;
             document.getElementById('analysisResults').innerHTML = html;
         }
 
-        // Инициализация при загрузке страницы
         document.addEventListener('DOMContentLoaded', () => {
             initChart();
-
-            // Обработчики для навигационных ссылок
             const navLinks = document.querySelectorAll('.navbar-link');
             navLinks.forEach(link => {
                 link.addEventListener('click', function(e) {
