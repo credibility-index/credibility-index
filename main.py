@@ -332,7 +332,7 @@ def extract_text_from_url(url: str) -> Tuple[Optional[str], Optional[str], Optio
                         )
 
             text = ' '.join([p.get_text().strip() for p in soup.find_all('p') if p.get_text().strip()])
-            if len(text) >= 100:
+            if len(text) >= 1000:
                 return (
                     text,
                     parsed.netloc.replace('www.', ''),
@@ -508,7 +508,7 @@ def analyze_article():
             'title': title,
             'source': source,
             'url': input_text if input_text.startswith(('http://', 'https://')) else None,
-            'short_summary': content[:200] + '...' if len(content) > 200 else content,
+            'short_summary': content[:200] + '...' if len(content) > 1000 else content,
             'analysis': analysis,
             'credibility_level': credibility_level,
             'similar_articles': similar_articles
@@ -524,7 +524,7 @@ def analyze_article():
                 "title": title,
                 "source": source,
                 "url": input_text if input_text.startswith(('http://', 'https://')) else None,
-                "summary": content[:200] + '...' if len(content) > 200 else content,
+                "summary": content[:200] + '...' if len(content) > 500 else content,
                 "credibility": credibility_level
             })
             analysis_history = analysis_history[:10]
