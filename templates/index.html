@@ -274,6 +274,35 @@
             font-size: 0.9rem;
         }
 
+        /* Стили для модального окна разрешения */
+        .permission-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .permission-modal .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            max-width: 500px;
+            width: 90%;
+        }
+
+        .permission-modal .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
         @media (max-width: 768px) {
             .main-content {
                 flex-direction: column;
@@ -314,7 +343,6 @@
                             <label for="articleInput">Article URL or Text</label>
                             <textarea class="form-control" id="articleInput" placeholder="Paste article URL or text content here for analysis..."></textarea>
                         </div>
-                        <!-- Кнопка "Analyze Article" с черным фоном и белым текстом -->
                         <button onclick="analyzeArticle()" class="btn btn-black">
                             <i class="bi bi-search"></i> Analyze Article
                         </button>
@@ -328,7 +356,6 @@
             <div class="sidebar">
                 <div class="chart-container">
                     <h2>Source Credibility Comparison</h2>
-                    <!-- Кнопка "Update Chart" остается синей -->
                     <button onclick="updateChart()" class="btn btn-primary">
                         <i class="bi bi-arrow-clockwise"></i> Update Chart
                     </button>
@@ -337,21 +364,23 @@
 
                 <div class="similar-articles">
                     <h2>Related Articles</h2>
-                    <div class="similar-article">
-                        <h3><a href="#">Global News Trends Analysis</a></h3>
-                        <div class="article-meta">
-                            <span><i class="bi bi-newspaper"></i> BBC</span>
-                            <span class="credibility-badge high"><i class="bi bi-shield-check"></i> High</span>
+                    <div id="similarArticlesContainer">
+                        <div class="similar-article">
+                            <h3><a href="#">Global News Trends Analysis</a></h3>
+                            <div class="article-meta">
+                                <span><i class="bi bi-newspaper"></i> BBC</span>
+                                <span class="credibility-badge high"><i class="bi bi-shield-check"></i> High</span>
+                            </div>
+                            <p>Comprehensive analysis of current global news trends and their credibility patterns.</p>
                         </div>
-                        <p>Comprehensive analysis of current global news trends and their credibility patterns.</p>
-                    </div>
-                    <div class="similar-article">
-                        <h3><a href="#">Media Bias in Political Reporting</a></h3>
-                        <div class="article-meta">
-                            <span><i class="bi bi-newspaper"></i> The Guardian</span>
-                            <span class="credibility-badge medium"><i class="bi bi-shield-check"></i> Medium</span>
+                        <div class="similar-article">
+                            <h3><a href="#">Media Bias in Political Reporting</a></h3>
+                            <div class="article-meta">
+                                <span><i class="bi bi-newspaper"></i> The Guardian</span>
+                                <span class="credibility-badge medium"><i class="bi bi-shield-check"></i> Medium</span>
+                            </div>
+                            <p>Examination of potential biases in political news coverage across major outlets.</p>
                         </div>
-                        <p>Examination of potential biases in political news coverage across major outlets.</p>
                     </div>
                 </div>
             </div>
@@ -374,6 +403,77 @@
             sources: ['BBC', 'CNN', 'Fox News', 'The Guardian', 'Reuters'],
             scores: [0.9, 0.75, 0.65, 0.85, 0.95]
         };
+
+        // В начале приложения
+        document.addEventListener('DOMContentLoaded', () => {
+            // Проверяем, было ли уже запрошено разрешение
+            const permissionStatus = localStorage.getItem('analysisPermissionStatus');
+
+            if (!permissionStatus) {
+                // Если статуса нет, показываем модальное окно
+                showInitialPermissionModal();
+            } else {
+                // Инициализируем приложение
+                initApp();
+            }
+        });
+
+        // Функция для показа начального модального окна
+        function showInitialPermissionModal() {
+            const modal = document.createElement('div');
+            modal.innerHTML = `
+                <div class="permission-modal">
+                    <div class="modal-content">
+                        <h3>Data Storage Permission</h3>
+                        <p>We can store your analysis results locally to improve your experience. This data will never leave your device.</p>
+                        <p>Would you like to enable local storage for analysis history?</p>
+                        <div class="modal-actions">
+                            <button id="allowStorage" class="btn btn-primary">Allow</button>
+                            <button id="denyStorage" class="btn">Deny</button>
+                            <button id="askLater" class="btn">Ask me later</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+
+            // Обработчики кнопок
+            document.getElementById('allowStorage').addEventListener('click', () => {
+                localStorage.setItem('analysisPermission', 'granted');
+                localStorage.setItem('analysisPermissionStatus', 'asked');
+                modal.remove();
+                initApp();
+            });
+
+            document.getElementById('denyStorage').addEventListener('click', () => {
+                localStorage.setItem('analysisPermission', 'denied');
+                localStorage.setItem('analysisPermissionStatus', 'asked');
+                modal.remove();
+                initApp();
+            });
+
+            document.getElementById('askLater').addEventListener('click', () => {
+                localStorage.setItem('analysisPermissionStatus', 'asked');
+                modal.remove();
+                initApp();
+            });
+        }
+
+        // Функция инициализации приложения
+        function initApp() {
+            // Инициализация графика
+            initChart();
+
+            // Остальная инициализация приложения
+            const navLinks = document.querySelectorAll('.navbar-link');
+            navLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    window.location.href = this.getAttribute('href');
+                });
+            });
+        }
 
         // Функция для инициализации графика
         function initChart() {
@@ -444,12 +544,15 @@
                     <p>Updating chart data...</p>
                 </div>
             `;
+
             container.insertAdjacentHTML('afterbegin', loadingHTML);
+
             setTimeout(() => {
                 const loadingElement = container.querySelector('.loading');
                 if (loadingElement) {
                     loadingElement.remove();
                 }
+
                 if (analysisHistory.length > 0) {
                     const sources = analysisHistory.map((_, index) => `Analysis ${index + 1}`);
                     const scores = analysisHistory.map(item => item.credibility_score || 0.7);
@@ -466,10 +569,12 @@
         // Функция для анализа статьи
         async function analyzeArticle() {
             const articleInput = document.getElementById('articleInput').value.trim();
+
             if (!articleInput) {
                 alert('Please enter article text or URL for analysis');
                 return;
             }
+
             const resultsContainer = document.getElementById('analysisResults');
             resultsContainer.innerHTML = `
                 <div class="loading">
@@ -477,16 +582,26 @@
                     <p>Analyzing article content...</p>
                 </div>
             `;
+
             try {
                 const mockAnalysisResult = await simulateArticleAnalysis(articleInput);
-                analysisHistory.push({
-                    credibility_score: mockAnalysisResult.article.analysis.credibility_score.score,
-                    timestamp: new Date().toISOString()
-                });
-                if (analysisHistory.length > 10) {
-                    analysisHistory.shift();
+
+                // Проверяем разрешение на сохранение
+                const permission = localStorage.getItem('analysisPermission');
+
+                if (permission === 'granted') {
+                    analysisHistory.push({
+                        credibility_score: mockAnalysisResult.article.analysis.credibility_score.score,
+                        timestamp: new Date().toISOString()
+                    });
+
+                    if (analysisHistory.length > 10) {
+                        analysisHistory.shift();
+                    }
                 }
+
                 displayAnalysisResults(mockAnalysisResult);
+
                 if (mockAnalysisResult.article?.similar_articles) {
                     updateChartWithAnalysisData(mockAnalysisResult.article.similar_articles);
                     displaySimilarArticles(mockAnalysisResult.article.similar_articles);
@@ -505,9 +620,11 @@
         // Имитация анализа статьи
         async function simulateArticleAnalysis(inputText) {
             await new Promise(resolve => setTimeout(resolve, 1000));
+
             const randomScore = 0.5 + Math.random() * 0.5;
             const randomSentiment = Math.random();
             const randomBias = Math.random();
+
             return {
                 status: 'success',
                 article: {
@@ -537,15 +654,18 @@
             };
         }
 
+        // Функция для обновления графика на основе анализа
         function updateChartWithAnalysisData(articles) {
             const sources = articles.map((article, index) => `Source ${index + 1}`);
             const scores = articles.map(article => article.analysis?.credibility_score?.score || 0.7);
+
             updateChartWithData({
                 sources: sources,
                 scores: scores
             });
         }
 
+        // Функция для отображения похожих статей
         function displaySimilarArticles(articles) {
             const container = document.getElementById('similarArticlesContainer');
             container.innerHTML = articles.map((article, index) => `
@@ -561,21 +681,25 @@
             `).join('');
         }
 
+        // Вспомогательная функция для определения класса достоверности
         function getCredibilityClass(score) {
             if (score > 0.8) return 'high';
             if (score > 0.6) return 'medium';
             return 'low';
         }
 
+        // Вспомогательная функция для определения уровня достоверности
         function getCredibilityLevel(score) {
             if (score > 0.8) return 'High';
             if (score > 0.6) return 'Medium';
             return 'Low';
         }
 
+        // Функция для отображения результатов анализа
         function displayAnalysisResults(data) {
             const article = data.article || {};
             const analysis = article.analysis || {};
+
             let html = `
                 <div class="analysis-result">
                     <div class="article-header">
@@ -599,6 +723,7 @@
                         </div>
                     </div>
             `;
+
             if (analysis.topics && analysis.topics.length > 0) {
                 html += `
                     <div class="topics-section">
@@ -609,20 +734,10 @@
                     </div>
                 `;
             }
+
             html += `</div>`;
             document.getElementById('analysisResults').innerHTML = html;
         }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            initChart();
-            const navLinks = document.querySelectorAll('.navbar-link');
-            navLinks.forEach(link => {
-                link.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    window.location.href = this.getAttribute('href');
-                });
-            });
-        });
     </script>
 </body>
 </html>
