@@ -1,30 +1,42 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <!-- Базовые мета-теги для корректного отображения -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Заголовок страницы -->
     <title>Media Credibility Index</title>
+
+    <!-- Подключаем иконки Bootstrap для красивого интерфейса -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <script src="https://cdn.plot.ly/plotly-2.20.0.min.js"></script>
+
+    <!-- Подключаем библиотеку Chart.js для построения графиков -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Стили для всего приложения -->
     <style>
+        /* Определяем цветовую палитру приложения */
         :root {
-            --primary-color: #2563eb;
-            --secondary-color: #f8fafc;
-            --text-color: #1f2937;
-            --border-color: #e2e8f0;
-            --border-radius: 8px;
-            --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            --success-color: #10b981;
-            --warning-color: #f59e0b;
-            --danger-color: #ef4444;
+            --primary-color: #2563eb;       /* Основной цвет приложения */
+            --secondary-color: #f8fafc;     /* Вторичный цвет */
+            --text-color: #1f2937;          /* Основной цвет текста */
+            --border-color: #e2e8f0;        /* Цвет границ */
+            --border-radius: 8px;           /* Радиус скругления углов */
+            --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Тень для элементов */
+            --success-color: #10b981;        /* Цвет для успешных состояний */
+            --warning-color: #f59e0b;        /* Цвет для предупреждений */
+            --danger-color: #ef4444;         /* Цвет для ошибок */
         }
 
+        /* Сброс стилей по умолчанию */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
 
+        /* Основные стили для тела документа */
         body {
             font-family: 'Inter', sans-serif;
             background-color: #f5f5f5;
@@ -32,12 +44,14 @@
             line-height: 1.6;
         }
 
+        /* Контейнер для основного содержимого */
         .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
         }
 
+        /* Шапка сайта с логотипом и навигацией */
         .header {
             display: flex;
             justify-content: space-between;
@@ -45,6 +59,7 @@
             margin-bottom: 30px;
         }
 
+        /* Стили для логотипа */
         .logo {
             font-size: 1.5rem;
             font-weight: bold;
@@ -55,6 +70,7 @@
             gap: 8px;
         }
 
+        /* Стили для навигационных ссылок */
         .navbar-links {
             display: flex;
             gap: 15px;
@@ -71,12 +87,14 @@
             color: var(--primary-color);
         }
 
+        /* Основное содержимое страницы с анализом и графиком */
         .main-content {
             display: flex;
             gap: 30px;
             margin-top: 20px;
         }
 
+        /* Основная секция с анализом */
         .analysis-section {
             flex: 2;
             background: white;
@@ -85,6 +103,7 @@
             box-shadow: var(--box-shadow);
         }
 
+        /* Боковая панель с графиком и похожими статьями */
         .sidebar {
             flex: 1;
             display: flex;
@@ -92,6 +111,7 @@
             gap: 20px;
         }
 
+        /* Контейнеры для графика и похожих статей */
         .chart-container, .similar-articles {
             background: white;
             border-radius: var(--border-radius);
@@ -99,6 +119,7 @@
             box-shadow: var(--box-shadow);
         }
 
+        /* Заголовок статьи */
         .article-header {
             margin-bottom: 20px;
             padding-bottom: 15px;
@@ -110,6 +131,7 @@
             margin-bottom: 10px;
         }
 
+        /* Мета-информация статьи */
         .article-meta {
             display: flex;
             gap: 15px;
@@ -117,6 +139,7 @@
             font-size: 0.9rem;
         }
 
+        /* Стили для бейджей достоверности */
         .credibility-badge {
             padding: 3px 8px;
             border-radius: 4px;
@@ -139,10 +162,12 @@
             color: #ef4444;
         }
 
+        /* Секция с результатами анализа */
         .analysis-content {
             margin: 20px 0;
         }
 
+        /* Сетка для отображения оценок */
         .scores-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -150,6 +175,7 @@
             margin: 20px 0;
         }
 
+        /* Карточка с оценкой */
         .score-card {
             background: var(--secondary-color);
             padding: 15px;
@@ -168,6 +194,7 @@
             color: #6b7280;
         }
 
+        /* Стили для похожих статей */
         .similar-article {
             padding: 15px;
             margin-bottom: 15px;
@@ -182,6 +209,7 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
+        /* Стили для кнопок */
         .btn {
             background: var(--primary-color);
             color: white;
@@ -197,11 +225,13 @@
             background: #1d4ed8;
         }
 
+        /* Стили для индикатора загрузки */
         .loading {
             text-align: center;
             padding: 20px;
         }
 
+        /* Стили для спиннера */
         .spinner {
             border: 3px solid rgba(0,0,0,0.1);
             border-radius: 50%;
@@ -212,11 +242,13 @@
             margin: 0 auto;
         }
 
+        /* Анимация для спиннера */
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
 
+        /* Форма для ввода статьи */
         .analysis-form {
             margin-top: 20px;
         }
@@ -225,6 +257,7 @@
             margin-bottom: 15px;
         }
 
+        /* Поле ввода текста */
         .form-control {
             width: 100%;
             padding: 10px;
@@ -234,6 +267,15 @@
             resize: vertical;
         }
 
+        /* Контейнер для графика */
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        /* Адаптивные стили для мобильных устройств */
         @media (max-width: 768px) {
             .main-content {
                 flex-direction: column;
@@ -242,12 +284,38 @@
                 display: none;
             }
         }
+
+        /* Стили для тегов тем */
+        .topic-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            margin-right: 5px;
+            margin-bottom: 5px;
+            background-color: rgba(37, 99, 235, 0.1);
+            color: var(--primary-color);
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+
+        /* Стили для секций с перспективами */
+        .perspective-section {
+            margin-top: 20px;
+        }
+
+        .perspective-card {
+            background: var(--secondary-color);
+            padding: 15px;
+            border-radius: var(--border-radius);
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
+    <!-- Основной контейнер приложения -->
     <div class="container">
+        <!-- Шапка сайта с навигацией -->
         <div class="header">
-            <a href="main.html" class="logo">
+            <a href="index.html" class="logo">
                 <i class="bi bi-newspaper"></i>
                 <span>Media Credibility Index</span>
             </a>
@@ -259,128 +327,144 @@
             </ul>
         </div>
 
+        <!-- Основное содержимое страницы -->
         <div class="main-content">
+            <!-- Основная секция с анализом -->
             <div class="analysis-section">
+                <!-- Заголовок секции анализа -->
                 <div class="article-header">
-                    <h1 class="article-title">Analysis of Current News Trends</h1>
-                    <div class="article-meta">
-                        <span><i class="bi bi-newspaper"></i> Multiple Sources</span>
-                        <span class="credibility-badge high"><i class="bi bi-shield-check"></i> High</span>
-                    </div>
+                    <h1 class="article-title">Media Credibility Analysis</h1>
                 </div>
 
-                <div class="analysis-content">
-                    <div class="analysis-form">
-                        <div class="form-group">
-                            <label for="articleInput">Article URL or Text</label>
-                            <textarea class="form-control" id="articleInput" placeholder="Paste article URL or text content here for analysis..."></textarea>
-                        </div>
-                        <button onclick="analyzeArticle()" class="btn">
-                            <i class="bi bi-search"></i> Analyze Article
-                        </button>
+                <!-- Форма для ввода статьи -->
+                <div class="analysis-form">
+                    <div class="form-group">
+                        <label for="articleInput">Enter Article URL or Text</label>
+                        <textarea class="form-control" id="articleInput" placeholder="Paste article URL or text content here for analysis..."></textarea>
                     </div>
+                    <button onclick="analyzeArticle()" class="btn">
+                        <i class="bi bi-search"></i> Analyze Article
+                    </button>
+                </div>
 
-                    <div id="analysisResults">
-                        <!-- Результаты анализа будут отображаться здесь -->
-                    </div>
+                <!-- Контейнер для результатов анализа -->
+                <div id="analysisResults">
+                    <!-- Результаты анализа будут отображаться здесь -->
                 </div>
             </div>
 
+            <!-- Боковая панель с графиком и похожими статьями -->
             <div class="sidebar">
+                <!-- Контейнер для графика достоверности -->
                 <div class="chart-container">
                     <h2>Source Credibility Comparison</h2>
                     <button onclick="updateChart()" class="btn">
                         <i class="bi bi-arrow-clockwise"></i> Update Chart
                     </button>
-                    <div id="chart"></div>
+                    <canvas id="chart"></canvas>
                 </div>
 
+                <!-- Контейнер для похожих статей -->
                 <div class="similar-articles">
                     <h2>Related Articles</h2>
-                    <div class="similar-article">
-                        <h3><a href="article1.html">Global News Trends Analysis</a></h3>
-                        <div class="article-meta">
-                            <span><i class="bi bi-newspaper"></i> BBC</span>
-                            <span class="credibility-badge high"><i class="bi bi-shield-check"></i> High</span>
-                        </div>
-                        <p>Comprehensive analysis of current global news trends and their credibility patterns.</p>
-                    </div>
-                    <div class="similar-article">
-                        <h3><a href="article2.html">Media Bias in Political Reporting</a></h3>
-                        <div class="article-meta">
-                            <span><i class="bi bi-newspaper"></i> The Guardian</span>
-                            <span class="credibility-badge medium"><i class="bi bi-shield-check"></i> Medium</span>
-                        </div>
-                        <p>Examination of potential biases in political news coverage across major outlets.</p>
+                    <div id="similarArticlesContainer">
+                        <!-- Похожие статьи будут отображаться здесь -->
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- JavaScript код для работы страницы -->
     <script>
-        // Моковые данные для графика
-        function getMockChartData() {
-            return {
-                sources: ['BBC', 'CNN', 'Fox News', 'The Guardian', 'Reuters'],
-                scores: [0.9, 0.75, 0.65, 0.85, 0.95]
-            };
-        }
+        // Глобальные переменные для хранения состояния приложения
+        let chartInstance = null;  // Экземпляр графика
+        let currentAnalysisData = null;  // Текущие данные анализа
 
-        // Функция для отображения графика
-        function renderChart(data) {
-            const chartData = [{
-                x: data.sources,
-                y: data.scores,
+        // Моковые данные для графика по умолчанию
+        const defaultChartData = {
+            sources: ['BBC', 'CNN', 'Fox News', 'The Guardian', 'Reuters'],
+            scores: [0.9, 0.75, 0.65, 0.85, 0.95]
+        };
+
+        // Функция для инициализации графика
+        function initChart() {
+            const ctx = document.getElementById('chart').getContext('2d');
+
+            // Создаем новый график с использованием Chart.js
+            chartInstance = new Chart(ctx, {
                 type: 'bar',
-                marker: {
-                    color: data.scores.map(score => {
-                        if (score > 0.8) return 'rgba(40, 167, 69, 0.7)';
-                        if (score > 0.6) return 'rgba(255, 193, 7, 0.7)';
-                        return 'rgba(220, 53, 69, 0.7)';
-                    })
+                data: {
+                    labels: defaultChartData.sources,
+                    datasets: [{
+                        label: 'Credibility Score',
+                        data: defaultChartData.scores,
+                        backgroundColor: defaultChartData.scores.map(getColorForScore),
+                        borderColor: defaultChartData.scores.map(score => getColorForScore(score).replace('0.7', '1')),
+                        borderWidth: 1
+                    }]
                 },
-                text: data.scores.map(score => (score * 100).toFixed(0) + '%'),
-                textposition: 'auto'
-            }];
-
-            const layout = {
-                title: 'Source Credibility Comparison',
-                xaxis: { title: 'News Sources' },
-                yaxis: { title: 'Credibility Score', range: [0, 1] }
-            };
-
-            Plotly.newPlot('chart', chartData, layout);
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 1,
+                            title: {
+                                display: true,
+                                text: 'Credibility Score'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'News Sources'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
         }
 
-        // Функция для обновления графика
-        function updateChart() {
-            const container = document.getElementById('chart');
-            container.innerHTML = `
-                <div class="loading">
-                    <div class="spinner"></div>
-                    <p>Updating chart data...</p>
-                </div>
-            `;
+        // Вспомогательная функция для определения цвета на основе оценки
+        function getColorForScore(score) {
+            if (score > 0.8) return 'rgba(40, 167, 69, 0.7)';  // Зеленый для высокой достоверности
+            if (score > 0.6) return 'rgba(255, 193, 7, 0.7)'; // Желтый для средней
+            return 'rgba(220, 53, 69, 0.7)';               // Красный для низкой
+        }
 
-            // Имитация задержки сети
-            setTimeout(() => {
-                const mockData = getMockChartData();
-                renderChart(mockData);
-            }, 800);
+        // Функция для обновления данных графика
+        function updateChartWithData(data) {
+            if (!chartInstance) return;
+
+            // Обновляем данные графика
+            chartInstance.data.labels = data.sources;
+            chartInstance.data.datasets[0].data = data.scores;
+            chartInstance.data.datasets[0].backgroundColor = data.scores.map(getColorForScore);
+            chartInstance.data.datasets[0].borderColor = data.scores.map(score => getColorForScore(score).replace('0.7', '1'));
+
+            // Обновляем график
+            chartInstance.update();
         }
 
         // Функция для анализа статьи
         async function analyzeArticle() {
             const articleInput = document.getElementById('articleInput').value.trim();
 
+            // Проверяем, что поле не пустое
             if (!articleInput) {
                 alert('Please enter article text or URL for analysis');
                 return;
             }
 
-            const resultsContainer = document.getElementById('analysisResults');
-            resultsContainer.innerHTML = `
+            // Показываем индикатор загрузки
+            document.getElementById('analysisResults').innerHTML = `
                 <div class="loading">
                     <div class="spinner"></div>
                     <p>Analyzing article content...</p>
@@ -388,7 +472,7 @@
             `;
 
             try {
-                // Отправка запроса к API
+                // Отправляем запрос на сервер для анализа
                 const response = await fetch('/analyze', {
                     method: 'POST',
                     headers: {
@@ -399,73 +483,163 @@
                     })
                 });
 
+                // Проверяем успешность ответа
                 if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    throw new Error(`Server error: ${response.status}`);
                 }
 
-                const data = await response.json();
+                // Получаем и сохраняем результаты анализа
+                const analysisResult = await response.json();
+                currentAnalysisData = analysisResult;
 
-                // Отображение результатов анализа
-                displayAnalysisResults(data);
+                // Отображаем результаты анализа
+                displayAnalysisResults(analysisResult);
+
+                // Обновляем график, если есть данные о похожих статьях
+                if (analysisResult.article?.similar_articles) {
+                    updateChartWithAnalysisData(analysisResult.article.similar_articles);
+                    displaySimilarArticles(analysisResult.article.similar_articles);
+                }
 
             } catch (error) {
-                console.error('Error analyzing article:', error);
-                resultsContainer.innerHTML = `
+                console.error('Analysis error:', error);
+                // Отображаем сообщение об ошибке
+                document.getElementById('analysisResults').innerHTML = `
                     <div class="error-message">
                         <i class="bi bi-exclamation-triangle-fill"></i>
-                        <span>Failed to analyze article. Please try again later.</span>
+                        <p>Failed to analyze article: ${error.message}</p>
                     </div>
                 `;
             }
+        }
+
+        // Функция для обновления графика на основе данных анализа
+        function updateChartWithAnalysisData(articles) {
+            // Преобразуем данные статей в формат для графика
+            const sources = articles.map(article => article.source?.name || 'Unknown');
+            const scores = articles.map(article => {
+                // Используем credibility_score если он есть
+                if (article.analysis?.credibility_score?.score) {
+                    return article.analysis.credibility_score.score;
+                }
+                // Или используем credibility_level для оценки
+                if (article.credibility_level === 'High') return 0.85;
+                if (article.credibility_level === 'Medium') return 0.65;
+                return 0.45;
+            });
+
+            // Обновляем данные графика
+            updateChartWithData({
+                sources: sources,
+                scores: scores
+            });
+        }
+
+        // Функция для отображения похожих статей
+        function displaySimilarArticles(articles) {
+            const container = document.getElementById('similarArticlesContainer');
+            // Очищаем контейнер перед добавлением новых статей
+            container.innerHTML = '';
+
+            // Добавляем каждую статью в контейнер
+            articles.forEach(article => {
+                container.innerHTML += `
+                    <div class="similar-article">
+                        <h3><a href="#">${article.title || 'Untitled Article'}</a></h3>
+                        <div class="article-meta">
+                            <span><i class="bi bi-newspaper"></i> ${article.source?.name || 'Unknown'}</span>
+                            <span class="credibility-badge ${(article.credibility_level || 'Medium').toLowerCase()}">
+                                <i class="bi bi-shield-check"></i> ${article.credibility_level || 'Medium'}
+                            </span>
+                        </div>
+                        <p>${article.description || 'No description available'}</p>
+                    </div>
+                `;
+            });
         }
 
         // Функция для отображения результатов анализа
         function displayAnalysisResults(data) {
             const article = data.article || {};
             const analysis = article.analysis || {};
-            const detailedAnalysis = analysis.detailed_analysis || {};
 
-            let analysisHtml = `
-                <div class="article-header">
-                    <h3 class="article-title">${article.title || 'No title available'}</h3>
-                    <div class="article-meta">
-                        <span><i class="bi bi-newspaper"></i> ${article.source || 'Unknown source'}</span>
-                        <span class="credibility-badge ${(article.credibility_level || 'Medium').toLowerCase()}">
-                            <i class="bi bi-shield-check"></i> ${article.credibility_level || 'Medium'}
-                        </span>
+            // Создаем HTML для результатов анализа
+            let html = `
+                <div class="analysis-result">
+                    <div class="article-header">
+                        <h2>${article.title || 'Analysis Results'}</h2>
+                        <div class="article-meta">
+                            <span><i class="bi bi-newspaper"></i> ${article.source || 'Unknown source'}</span>
+                            <span class="credibility-badge ${(article.credibility_level || 'Medium').toLowerCase()}">
+                                <i class="bi bi-shield-check"></i> ${article.credibility_level || 'Medium'}
+                            </span>
+                        </div>
                     </div>
-                </div>
-                <div class="analysis-summary">
-                    <p>${article.short_summary || 'No summary available'}</p>
-                </div>
-            `;
 
-            if (Object.keys(detailedAnalysis).length > 0) {
-                analysisHtml += `
+                    <div class="analysis-summary">
+                        <p>${article.short_summary || 'No summary available'}</p>
+                    </div>
+
                     <div class="scores-grid">
                         <div class="score-card">
-                            <div class="score-value">${detailedAnalysis.credibility_score?.score?.toFixed(2) || 'N/A'}</div>
+                            <div class="score-value">${analysis.credibility_score?.score?.toFixed(2) || 'N/A'}</div>
                             <div class="score-description">Credibility Score</div>
                         </div>
                         <div class="score-card">
-                            <div class="score-value">${detailedAnalysis.sentiment?.score?.toFixed(2) || 'N/A'}</div>
+                            <div class="score-value">${analysis.sentiment?.score?.toFixed(2) || 'N/A'}</div>
                             <div class="score-description">Sentiment</div>
                         </div>
                         <div class="score-card">
-                            <div class="score-value">${detailedAnalysis.bias?.level?.toFixed(2) || 'N/A'}</div>
+                            <div class="score-value">${analysis.bias?.level?.toFixed(2) || 'N/A'}</div>
                             <div class="score-description">Bias Level</div>
+                        </div>
+                    </div>
+            `;
+
+            // Добавляем темы, если они есть
+            if (analysis.topics && analysis.topics.length > 0) {
+                html += `
+                    <div class="topics-section">
+                        <h4>Key Topics:</h4>
+                        <div class="topics-list">
+                            ${analysis.topics.map(topic => `<span class="topic-badge">${topic}</span>`).join('')}
                         </div>
                     </div>
                 `;
             }
 
-            document.getElementById('analysisResults').innerHTML = analysisHtml;
+            // Добавляем перспективы, если они есть
+            if (analysis.perspectives) {
+                html += `
+                    <div class="perspective-section">
+                        <h4>Perspectives:</h4>
+                `;
+
+                // Добавляем каждую перспективу
+                for (const [key, perspective] of Object.entries(analysis.perspectives)) {
+                    html += `
+                        <div class="perspective-card">
+                            <h5>${key.charAt(0).toUpperCase() + key.slice(1)} Perspective</h5>
+                            <p>${perspective.summary || 'No summary available'}</p>
+                            <div class="credibility-badge ${perspective.credibility?.toLowerCase() || 'medium'}">
+                                Credibility: ${perspective.credibility || 'Medium'}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                html += `</div>`;
+            }
+
+            html += `</div>`;
+
+            // Вставляем HTML в контейнер результатов
+            document.getElementById('analysisResults').innerHTML = html;
         }
 
-        // Инициализация
+        // Инициализация при загрузке страницы
         document.addEventListener('DOMContentLoaded', () => {
-            const mockData = getMockChartData();
-            renderChart(mockData);
+            initChart();
         });
     </script>
 </body>
