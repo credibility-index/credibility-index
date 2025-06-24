@@ -1,8 +1,10 @@
 import os
 import requests
 import logging
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Union
 from urllib.parse import urlparse
+from datetime import datetime
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -11,195 +13,367 @@ class NewsAPI:
         """
         Инициализация клиента NewsAPI.org.
 
-        :param api_key: Ключ API для NewsAPI.org. Если не указан, берется из переменной окружения NEWS_API_KEY.
+        Args:
+            api_key: Ключ API для NewsAPI.org. Если не указан, берется из переменной окружения NEWS_API_KEY.
         """
         self.api_key = api_key or os.getenv('NEWS_API_KEY')
         if not self.api_key:
             raise ValueError("NewsAPI key is required. Set NEWS_API_KEY environment variable or pass it to constructor.")
-
         self.base_url = "https://newsapi.org/v2"
         self.user_agent = "MediaCredibilityAnalyzer/1.0"
+        self.max_retries = 3
+        self.retry_delay = 1
+
+    def _make_request(self, endpoint: str, params: Dict) -> Dict:
+        """
+        Вспомогательный метод для выполнения запросов к API с повторными попытками.
+
+        Args:
+            endpoint: Конечная точка API (например, '/everything')
+            params: Параметры запроса
+
+        Returns:
+            Словарь с данными ответа или None в случае ошибки
+        """
+        params['apiKey'] = self.api_key
+        retry_count = 0
+
+        while retry_count < self.max_retries:
+            try:
+                response = requests.get(
+                    f"{self.base_url}{endpoint}",
+                    params=params,
+                    headers={'User-Agent': self.user_agent},
+                    timeout=15
+                )
+
+                # Проверяем статус код
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get('status') == 'ok':
+                        return data
+                    elif data.get('status') == 'error':
+                        logger.error(f"NewsAPI error: {data.get('message', 'Unknown error')}")
+                        return None
+                    else:
+                        logger.error(f"Unexpected response status: {data.get('status')}")
+                        return None
+                elif response.status_code == 401:
+                    logger.error("Unauthorized - check your API key")
+                    return None
+                elif response.status_code == 429:
+                    # Too many requests - ждем и повторяем
+                    retry_after = int(response.headers.get('Retry-After', 5))
+                    logger.warning(f"Rate limited. Retrying after {retry_after} seconds")
+                    time.sleep(retry_after)
+                    retry_count += 1
+                    continue
+                else:
+                    logger.error(f"HTTP error: {response.status_code}")
+                    return None
+
+            except requests.exceptions.RequestException as e:
+                retry_count += 1
+                if retry_count < self.max_retries:
+                    logger.warning(f"Request failed, retrying... ({retry_count}/{self.max_retries})")
+                    time.sleep(self.retry_delay)
+                    continue
+                logger.error(f"Request failed after {self.max_retries} retries: {str(e)}")
+                return None
+            except Exception as e:
+                logger.error(f"Unexpected error: {str(e)}")
+                return None
+
+        return None
 
     def get_article_by_url(self, url: str) -> Optional[Dict]:
         """
-        Получение статьи по URL. Обратите внимание, что NewsAPI.org не предоставляет
-        прямой доступ к статьям по URL в своем API, поэтому этот метод пытается
-        найти статью в результатах поиска по домену и части URL.
+        Получение статьи по URL.
 
-        :param url: URL статьи для поиска
-        :return: Словарь с данными статьи или None, если не найдено
+        Args:
+            url: URL статьи для поиска
+
+        Returns:
+            Словарь с данными статьи или None, если не найдено
         """
+        if not url:
+            logger.error("Empty URL provided")
+            return None
+
         try:
-            domain = urlparse(url).netloc
-            # Извлекаем путь из URL для поиска
-            path = urlparse(url).path.strip('/')
-            if path:
-                # Берем последние 2-3 части пути как ключевые слова для поиска
-                parts = [p for p in path.split('/') if p]
-                keywords = ' '.join(parts[-3:]) if len(parts) > 3 else path.replace('/', ' ')
+            parsed_url = urlparse(url)
+            domain = parsed_url.netloc.replace('www.', '')
+            path = parsed_url.path.strip('/')
 
-                # Ищем новости с этим доменом и ключевыми словами
-                params = {
-                    'q': keywords,
-                    'domains': domain.replace('www.', ''),
-                    'pageSize': 5,  # Ограничиваем количество результатов
-                    'sortBy': 'publishedAt',
-                    'apiKey': self.api_key
-                }
-
-                response = requests.get(f"{self.base_url}/everything", params=params)
-                response.raise_for_status()
-                data = response.json()
-
-                if data.get('articles'):
-                    # Ищем статью с наиболее похожим URL
-                    for article in data['articles']:
-                        if article['url'] == url:
-                            return self._process_article_data(article)
-
-                    # Если точного совпадения нет, берем первую статью
-                    return self._process_article_data(data['articles'][0])
-
+            if not domain:
+                logger.error("Invalid URL format - no domain found")
                 return None
 
+            # Извлекаем ключевые слова из пути URL
+            keywords = []
+            if path:
+                parts = [p for p in path.split('/') if p]
+                if len(parts) > 3:
+                    keywords = parts[-3:]
+                else:
+                    keywords = parts
+
+            # Формируем запрос
+            params = {
+                'domains': domain,
+                'pageSize': 5,
+                'sortBy': 'publishedAt'
+            }
+
+            if keywords:
+                params['q'] = ' '.join(keywords)
+
+            data = self._make_request('/everything', params)
+            if not data or 'articles' not in data:
+                return None
+
+            # Ищем статью с точным совпадением URL
+            for article in data['articles']:
+                if article.get('url') == url:
+                    return self._process_article_data(article)
+
+            # Если точного совпадения нет, берем первую статью
+            if data['articles']:
+                return self._process_article_data(data['articles'][0])
+
+            return None
+
         except Exception as e:
-            logger.error(f"Error fetching article by URL: {str(e)}")
+            logger.error(f"Error in get_article_by_url: {str(e)}")
             return None
 
     def _process_article_data(self, article_data: Dict) -> Dict:
         """
         Обработка данных статьи из NewsAPI для приведения к единому формату.
+
+        Args:
+            article_data: Исходные данные статьи из API
+
+        Returns:
+            Словарь с обработанными данными статьи
         """
-        return {
+        if not article_data:
+            return {}
+
+        processed = {
             'title': article_data.get('title', 'No title available'),
             'authors': article_data.get('author', 'Unknown author'),
             'published_date': article_data.get('publishedAt'),
-            'text': article_data.get('description', '') + '\n\n' + article_data.get('content', ''),
+            'text': '',
             'source': article_data.get('source', {}).get('name', 'Unknown source'),
             'url': article_data.get('url', ''),
-            'top_image': article_data.get('urlToImage')
+            'top_image': article_data.get('urlToImage'),
+            'raw_data': article_data  # сохраняем исходные данные
         }
+
+        # Объединяем description и content
+        description = article_data.get('description', '')
+        content = article_data.get('content', '')
+
+        if description and content:
+            processed['text'] = f"{description}\n\n{content}"
+        elif description:
+            processed['text'] = description
+        else:
+            processed['text'] = content
+
+        # Добавляем метаданные
+        processed['metadata'] = {
+            'language': article_data.get('language', 'en'),
+            'country': article_data.get('country'),
+            'category': article_data.get('category'),
+            'published_at': article_data.get('publishedAt'),
+            'retrieved_at': datetime.utcnow().isoformat()
+        }
+
+        return processed
 
     def get_top_headlines(self, country: str = 'us', category: str = None,
                          sources: str = None, page_size: int = 20) -> Dict:
         """
         Получение топовых новостей.
 
-        :param country: Код страны (например, 'us', 'gb', 'ru')
-        :param category: Категория новостей (бизнес, развлечения и т.д.)
-        :param sources: Идентификаторы источников, разделенные запятыми
-        :param page_size: Количество новостей для возврата (макс. 100)
-        :return: Словарь с результатами
+        Args:
+            country: Код страны (например, 'us', 'gb', 'ru')
+            category: Категория новостей (бизнес, развлечения и т.д.)
+            sources: Идентификаторы источников, разделенные запятыми
+            page_size: Количество новостей для возврата (макс. 100)
+
+        Returns:
+            Словарь с результатами
         """
-        try:
-            params = {
-                'country': country,
-                'pageSize': min(page_size, 100),  # Максимум 100 по API
-                'apiKey': self.api_key
-            }
+        params = {
+            'country': country,
+            'pageSize': min(page_size, 100),  # Максимум 100 по API
+        }
 
-            if category:
-                params['category'] = category
-            if sources:
-                params['sources'] = sources
+        if category:
+            params['category'] = category
+        if sources:
+            params['sources'] = sources
 
-            response = requests.get(f"{self.base_url}/top-headlines", params=params)
-            response.raise_for_status()
-            data = response.json()
-
-            return {
-                'status': 'success',
-                'articles': [self._process_article_data(article) for article in data.get('articles', [])],
-                'total_results': data.get('totalResults', 0)
-            }
-
-        except Exception as e:
-            logger.error(f"Error fetching top headlines: {str(e)}")
+        data = self._make_request('/top-headlines', params)
+        if not data:
             return {
                 'status': 'error',
-                'message': str(e)
+                'message': 'Failed to fetch top headlines'
             }
+
+        return {
+            'status': 'success',
+            'articles': [self._process_article_data(article) for article in data.get('articles', [])],
+            'total_results': data.get('totalResults', 0)
+        }
 
     def search_news(self, query: str, from_date: str = None, to_date: str = None,
                    language: str = 'en', sort_by: str = 'publishedAt',
-                   page_size: int = 20) -> Dict:
+                   page_size: int = 20, domains: List[str] = None) -> Dict:
         """
         Поиск новостей по ключевым словам.
 
-        :param query: Поисковый запрос
-        :param from_date: Дата начала в формате YYYY-MM-DD
-        :param to_date: Дата окончания в формате YYYY-MM-DD
-        :param language: Код языка (например, 'en', 'ru')
-        :param sort_by: Поле для сортировки (publishedAt, relevancy, popularity)
-        :param page_size: Количество результатов
-        :return: Словарь с результатами поиска
+        Args:
+            query: Поисковый запрос
+            from_date: Дата начала в формате YYYY-MM-DD
+            to_date: Дата окончания в формате YYYY-MM-DD
+            language: Код языка (например, 'en', 'ru')
+            sort_by: Поле для сортировки (publishedAt, relevancy, popularity)
+            page_size: Количество результатов
+            domains: Список доменов для поиска
+
+        Returns:
+            Словарь с результатами поиска
         """
-        try:
-            params = {
-                'q': query,
-                'language': language,
-                'sortBy': sort_by,
-                'pageSize': min(page_size, 100),  # Максимум 100 по API
-                'apiKey': self.api_key
-            }
-
-            if from_date:
-                params['from'] = from_date
-            if to_date:
-                params['to'] = to_date
-
-            response = requests.get(f"{self.base_url}/everything", params=params)
-            response.raise_for_status()
-            data = response.json()
-
-            return {
-                'status': 'success',
-                'articles': [self._process_article_data(article) for article in data.get('articles', [])],
-                'total_results': data.get('totalResults', 0)
-            }
-
-        except Exception as e:
-            logger.error(f"Error searching news: {str(e)}")
+        if not query:
             return {
                 'status': 'error',
-                'message': str(e)
+                'message': 'Query parameter is required'
             }
+
+        params = {
+            'q': query,
+            'language': language,
+            'sortBy': sort_by,
+            'pageSize': min(page_size, 100),  # Максимум 100 по API
+        }
+
+        if from_date:
+            params['from'] = from_date
+        if to_date:
+            params['to'] = to_date
+        if domains:
+            params['domains'] = ','.join(domains)
+
+        data = self._make_request('/everything', params)
+        if not data:
+            return {
+                'status': 'error',
+                'message': 'Failed to search news'
+            }
+
+        return {
+            'status': 'success',
+            'articles': [self._process_article_data(article) for article in data.get('articles', [])],
+            'total_results': data.get('totalResults', 0)
+        }
 
     def get_sources(self, category: str = None, language: str = 'en',
                    country: str = None) -> Dict:
         """
         Получение списка доступных источников.
 
-        :param category: Категория источника
-        :param language: Код языка
-        :param country: Код страны
-        :return: Словарь с источниками
+        Args:
+            category: Категория источника
+            language: Код языка
+            country: Код страны
+
+        Returns:
+            Словарь с источниками
         """
-        try:
-            params = {
-                'apiKey': self.api_key
-            }
+        params = {}
 
-            if category:
-                params['category'] = category
-            if language:
-                params['language'] = language
-            if country:
-                params['country'] = country
+        if category:
+            params['category'] = category
+        if language:
+            params['language'] = language
+        if country:
+            params['country'] = country
 
-            response = requests.get(f"{self.base_url}/top-headlines/sources", params=params)
-            response.raise_for_status()
-            data = response.json()
-
-            return {
-                'status': 'success',
-                'sources': data.get('sources', []),
-                'total': len(data.get('sources', []))
-            }
-
-        except Exception as e:
-            logger.error(f"Error getting sources: {str(e)}")
+        data = self._make_request('/top-headlines/sources', params)
+        if not data:
             return {
                 'status': 'error',
-                'message': str(e)
+                'message': 'Failed to fetch sources'
             }
+
+        return {
+            'status': 'success',
+            'sources': data.get('sources', []),
+            'total': len(data.get('sources', []))
+        }
+
+    def get_article_details(self, url: str) -> Dict:
+        """
+        Получение полных деталей статьи. Пытается получить как можно больше информации.
+        Использует get_article_by_url и дополняет информацию из других источников.
+
+        Args:
+            url: URL статьи
+
+        Returns:
+            Словарь с полными данными статьи
+        """
+        article = self.get_article_by_url(url)
+        if not article:
+            return {
+                'status': 'error',
+                'message': 'Article not found'
+            }
+
+        # Здесь можно добавить дополнительную логику для получения
+        # более полной информации о статье из других источников
+
+        return {
+            'status': 'success',
+            'article': article
+        }
+
+    def analyze_article(self, url: str) -> Dict:
+        """
+        Анализ статьи на основе ее URL.
+
+        Args:
+            url: URL статьи для анализа
+
+        Returns:
+            Словарь с результатами анализа
+        """
+        article_data = self.get_article_details(url)
+        if article_data['status'] != 'success':
+            return {
+                'status': 'error',
+                'message': article_data.get('message', 'Failed to get article data')
+            }
+
+        article = article_data['article']
+
+        # Здесь можно добавить логику анализа статьи
+        # Например, оценку достоверности, тональности и т.д.
+
+        analysis = {
+            'credibility_score': 0.7,  # Пример значения
+            'sentiment': 'neutral',
+            'bias': 'neutral',
+            'topics': [],
+            'summary': article.get('text', '')[:200] + '...' if len(article.get('text', '')) > 200 else article.get('text', '')
+        }
+
+        return {
+            'status': 'success',
+            'article': article,
+            'analysis': analysis
+        }
