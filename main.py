@@ -149,15 +149,17 @@ analysis_history = []
 # Celery задача для анализа статьи
 @celery.task(bind=True)
 def analyze_article_async(self, url_or_text: str):
-    """Асинхронная задача для анализа статьи"""
+    """Асинхронная задача для анализа статьи с улучшенной логикой"""
     try:
         # Проверяем кэш
         cached_result = cache.get_cached_article_analysis(url_or_text)
         if cached_result:
             return {"status": "success", "result": cached_result, "cached": True}
+
         # Обновляем прогресс
         self.update_state(state='PROGRESS', meta={'progress': 10, 'message': 'Starting analysis'})
-        # Логика анализа
+
+        # Извлекаем контент
         if url_or_text.startswith(('http://', 'https://')):
             content, source, title, error = extract_text_from_url(url_or_text)
             if error:
@@ -167,17 +169,65 @@ def analyze_article_async(self, url_or_text: str):
             content = url_or_text
             source = 'Direct Input'
             title = 'User-provided Text'
+
         # Анализ через Claude API
+        self.update_state(state='PROGRESS', meta={'progress': 40, 'message': 'Analyzing with Claude API'})
         analysis = claude_api.analyze_article(content, source)
-        self.update_state(state='PROGRESS', meta={'progress': 70, 'message': 'Analysis completed'})
-        # Получаем похожие статьи
+
+        # Извлекаем ключевые параметры для поиска похожих статей
         topics = [t['name'] if isinstance(t, dict) else t for t in analysis.get('topics', [])]
-        similar_articles = []
+        dates = analysis.get('dates', [])
+        entities = analysis.get('entities', [])
+
+        # Формируем запрос для поиска похожих статей
+        query_parts = []
+
+        # Добавляем темы
         if topics:
-            query = ' OR '.join(topics[:3])
-            similar_articles = news_api.get_everything(query=query, page_size=5) or []
+            query_parts.extend(topics[:3])  # Берем первые 3 темы
+
+        # Добавляем важные сущности
+        if entities:
+            important_entities = [e for e in entities if e.get('importance', 0) > 0.7]
+            query_parts.extend([e['name'] for e in important_entities[:3]])
+
+        # Добавляем даты, если они есть
+        if dates:
+            # Преобразуем даты в формат, понятный NewsAPI
+            date_ranges = []
+            for date_info in dates[:2]:  # Берем первые 2 даты
+                if isinstance(date_info, dict):
+                    date = date_info.get('date')
+                    if date:
+                        try:
+                            parsed_date = datetime.strptime(date, '%Y-%m-%d')
+                            date_ranges.append(parsed_date.strftime('%Y-%m-%d'))
+                        except ValueError:
+                            continue
+
+            if date_ranges:
+                # Добавляем даты в запрос в формате from/to
+                if len(date_ranges) == 1:
+                    query_parts.append(f"publishedAt:{date_ranges[0]}")
+                else:
+                    query_parts.append(f"publishedAt:{date_ranges[0]} TO {date_ranges[1]}")
+
+        # Формируем окончательный запрос
+        query = ' OR '.join(query_parts) if query_parts else None
+
+        # Получаем похожие статьи
+        similar_articles = []
+        if query:
+            self.update_state(state='PROGRESS', meta={'progress': 60, 'message': 'Finding similar articles'})
+            similar_articles = news_api.get_everything(
+                query=query,
+                page_size=5,
+                sort_by='publishedAt'
+            ) or []
+
         # Определяем уровень достоверности
         credibility_level = determine_credibility_level(analysis.get('credibility_score', {}).get('score', 0.6))
+
         # Формируем результат
         result = {
             'title': title,
@@ -186,16 +236,64 @@ def analyze_article_async(self, url_or_text: str):
             'short_summary': content[:200] + '...' if len(content) > 200 else content,
             'analysis': analysis,
             'credibility_level': credibility_level,
-            'similar_articles': similar_articles
+            'similar_articles': similar_articles,
+            'search_query': query  # Добавляем использованный запрос для отладки
         }
+
         # Кэшируем результат
         cache.cache_article_analysis(url_or_text, result)
+
         self.update_state(state='PROGRESS', meta={'progress': 100, 'message': 'Completed'})
         return {"status": "success", "result": result}
+
     except Exception as e:
         logger.error(f"Error in async article analysis: {str(e)}", exc_info=True)
         return {"status": "error", "message": str(e)}
 
+def build_newsapi_query(analysis: dict) -> Optional[str]:
+    """
+    Строит запрос для NewsAPI на основе анализа статьи.
+
+    Args:
+        analysis: Результат анализа статьи от Claude API
+
+    Returns:
+        Строка запроса для NewsAPI или None, если не удалось построить запрос
+    """
+    query_parts = []
+
+    # Добавляем темы
+    topics = [t['name'] if isinstance(t, dict) else t for t in analysis.get('topics', [])]
+    if topics:
+        query_parts.extend(topics[:3])  # Берем первые 3 темы
+
+    # Добавляем важные сущности
+    entities = analysis.get('entities', [])
+    if entities:
+        important_entities = [e for e in entities if e.get('importance', 0) > 0.7]
+        query_parts.extend([e['name'] for e in important_entities[:3]])
+
+    # Добавляем даты, если они есть
+    dates = analysis.get('dates', [])
+    if dates:
+        date_ranges = []
+        for date_info in dates[:2]:  # Берем первые 2 даты
+            if isinstance(date_info, dict):
+                date = date_info.get('date')
+                if date:
+                    try:
+                        parsed_date = datetime.strptime(date, '%Y-%m-%d')
+                        date_ranges.append(parsed_date.strftime('%Y-%m-%d'))
+                    except ValueError:
+                        continue
+
+        if date_ranges:
+            if len(date_ranges) == 1:
+                query_parts.append(f"publishedAt:{date_ranges[0]}")
+            else:
+                query_parts.append(f"publishedAt:{date_ranges[0]} TO {date_ranges[1]}")
+
+    return ' OR '.join(query_parts) if query_parts else None
 @app.route('/')
 def index():
     """Главная страница приложения"""
