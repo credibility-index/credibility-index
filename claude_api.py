@@ -1,13 +1,16 @@
 import os
 import logging
 import json
+import time
+import re
+import requests
 from typing import Dict, Any, Optional, List, Union
+from datetime import datetime, timedelta
+from urllib.parse import urlparse
+
 import anthropic
 from pydantic import BaseModel
-from datetime import datetime
-import re
 from cache import CacheManager
-from urllib.parse import urlparse
 
 # Настройка логирования
 logging.basicConfig(
@@ -24,559 +27,475 @@ class ArticleAnalysis(BaseModel):
     perspectives: Dict[str, Dict[str, Any]]
     key_arguments: List[str]
 
-class NewsAPI:
-    """Моковый класс NewsAPI для тестирования"""
+class EnhancedNewsAPI:
+    """Улучшенная версия NewsAPI с надежной обработкой ошибок"""
+
     def __init__(self):
         self.api_key = os.getenv('NEWS_API_KEY', 'mock-api-key')
+        self.base_url = "https://newsapi.org/v2"
+        self.fallback_articles = [
+            {
+                "title": "Технологические новости (резерв)",
+                "source": {"name": "Tech Demo News", "url": None},
+                "url": None,
+                "description": "Резервные данные о технологических трендах",
+                "publishedAt": datetime.now().isoformat(),
+                "content": "Это резервная статья, показываемая при временных проблемах с API."
+            },
+            {
+                "title": "Экономический обзор (резерв)",
+                "source": {"name": "Econ Demo", "url": None},
+                "url": None,
+                "description": "Резервные данные об экономических показателях",
+                "publishedAt": datetime.now().isoformat(),
+                "content": "Это резервная статья, показываемая при временных проблемах с API."
+            }
+        ]
+        self.max_retries = 3
+        self.retry_delay = 1
 
-    def get_everything(self, query: str, page_size: int = 5) -> List[Dict[str, Any]]:
-        """Моковый метод для получения статей с улучшенными данными"""
-        try:
-            mock_articles = [
-                {
-                    "title": f"Article about {query}",
-                    "source": {"name": "BBC", "url": "https://www.bbc.com"},
-                    "url": "https://example.com/article1",
-                    "description": f"Recent news about {query} from BBC",
-                    "publishedAt": datetime.now().isoformat(),
-                    "content": f"Full content about {query} would be here in a real application..."
-                },
-                {
-                    "title": f"Analysis of {query}",
-                    "source": {"name": "Reuters", "url": "https://www.reuters.com"},
-                    "url": "https://example.com/article2",
-                    "description": f"In-depth analysis of {query} from Reuters",
-                    "publishedAt": datetime.now().isoformat(),
-                    "content": f"Comprehensive analysis of {query} with expert opinions..."
-                },
-                {
-                    "title": f"Latest developments in {query}",
-                    "source": {"name": "The Guardian", "url": "https://www.theguardian.com"},
-                    "url": "https://example.com/article3",
-                    "description": f"Recent updates on {query} situation",
-                    "publishedAt": datetime.now().isoformat(),
-                    "content": f"Breaking news about {query} with eyewitness accounts..."
-                },
-                {
-                    "title": f"Expert opinion on {query}",
-                    "source": {"name": "The New York Times", "url": "https://www.nytimes.com"},
-                    "url": "https://example.com/article4",
-                    "description": f"Expert analysis of {query} developments",
-                    "publishedAt": datetime.now().isoformat(),
-                    "content": f"In-depth report on {query} with interviews and data analysis..."
-                },
-                {
-                    "title": f"Global perspective on {query}",
-                    "source": {"name": "Al Jazeera", "url": "https://www.aljazeera.com"},
-                    "url": "https://example.com/article5",
-                    "description": f"International view on {query} situation",
-                    "publishedAt": datetime.now().isoformat(),
-                    "content": f"Global reactions and implications of {query} events..."
+    def get_everything(self, query: str, page_size: int = 5, **kwargs) -> List[Dict[str, Any]]:
+        """Получает статьи с обработкой ошибок и повторными попытками"""
+        retry_count = 0
+        last_error = None
+
+        while retry_count < self.max_retries:
+            try:
+                # Подготавливаем параметры запроса
+                params = {
+                    'q': query,
+                    'pageSize': page_size,
+                    'apiKey': self.api_key,
+                    **kwargs
                 }
-            ]
-            return mock_articles[:page_size]
-        except Exception as e:
-            logger.error(f"Error in mock NewsAPI: {str(e)}")
-            return []
+
+                # Используем правильный endpoint
+                url = f"{self.base_url}/everything"
+
+                # Делаем запрос с таймаутом
+                response = requests.get(
+                    url,
+                    params=params,
+                    timeout=15
+                )
+
+                # Обрабатываем ответ
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get('status') == 'ok':
+                        articles = data.get('articles', [])
+                        processed_articles = []
+                        for article in articles:
+                            try:
+                                processed = {
+                                    'title': article.get('title', 'Untitled Article'),
+                                    'description': article.get('description', 'No description available'),
+                                    'url': article.get('url', '#'),
+                                    'source': {
+                                        'name': article.get('source', {}).get('name', 'Unknown Source'),
+                                        'url': article.get('source', {}).get('url', None)
+                                    },
+                                    'publishedAt': article.get('publishedAt', datetime.now().isoformat()),
+                                    'content': article.get('content', 'Full content not available')
+                                }
+                                processed_articles.append(processed)
+                            except Exception as e:
+                                logger.error(f"Ошибка обработки статьи: {str(e)}")
+                                continue
+
+                        if processed_articles:
+                            return processed_articles[:page_size]
+                        return self._get_fallback_articles(query, page_size)
+
+                    logger.warning(f"NewsAPI вернул не-ok статус: {data.get('message', 'No message')}")
+                    return self._get_fallback_articles(query, page_size)
+
+                elif response.status_code == 404:
+                    logger.error("NewsAPI вернул ошибку 404 - неверный URL или ресурс не найден")
+                    return self._get_fallback_articles(query, page_size)
+
+                elif response.status_code in (500, 502, 503, 504):
+                    retry_count += 1
+                    wait_time = self.retry_delay * (2 ** (retry_count - 1))
+                    logger.warning(f"Серверная ошибка. Повторная попытка через {wait_time} секунд")
+                    time.sleep(wait_time)
+                    continue
+
+                else:
+                    logger.error(f"NewsAPI вернул ошибку {response.status_code}")
+                    return self._get_fallback_articles(query, page_size)
+
+            except requests.exceptions.RequestException as e:
+                retry_count += 1
+                wait_time = self.retry_delay * (2 ** (retry_count - 1))
+                logger.warning(f"Ошибка соединения. Повторная попытка через {wait_time} секунд")
+                time.sleep(wait_time)
+                continue
+
+            except Exception as e:
+                logger.error(f"Неожиданная ошибка: {str(e)}")
+                return self._get_fallback_articles(query, page_size)
+
+        logger.error(f"Исчерпаны все попытки. Последняя ошибка: {str(last_error)}")
+        return self._get_fallback_articles(query, page_size)
+
+    def _get_fallback_articles(self, query: str, count: int) -> List[Dict[str, Any]]:
+        """Возвращает резервные статьи при ошибках API"""
+        mock_articles = [
+            {
+                "title": f"Статья о {query} (резерв)",
+                "source": {"name": f"{query.capitalize()} News"},
+                "url": f"https://example.com/{query.replace(' ', '-')}-1",
+                "description": f"Резервная статья о {query}",
+                "publishedAt": datetime.now().isoformat(),
+                "content": f"Это резервная статья о {query}. В реальной системе здесь были бы настоящие новости."
+            },
+            {
+                "title": f"Анализ {query} (резерв)",
+                "source": {"name": f"{query.capitalize()} Analysis"},
+                "url": f"https://example.com/{query.replace(' ', '-')}-2",
+                "description": f"Резервный анализ {query}",
+                "publishedAt": datetime.now().isoformat(),
+                "content": f"Это резервная аналитическая статья о {query}. В реальной системе здесь был бы профессиональный анализ."
+            }
+        ]
+        return mock_articles[:count]
 
 class ClaudeAPI:
     def __init__(self):
         self.cache = CacheManager()
-        self.news_api = NewsAPI()
+        self.news_api = EnhancedNewsAPI()
         self.client = self._initialize_anthropic_client()
+        self.max_retries = 3
+        self.retry_delay = 1
+        self.fallback_topics = [
+            {"name": "General News", "relevance": 0.8, "description": "Общие новости"},
+            {"name": "Politics", "relevance": 0.7, "description": "Политические новости"},
+            {"name": "Economy", "relevance": 0.6, "description": "Экономические новости"}
+        ]
 
-    def _initialize_anthropic_client(self):
+    def _initialize_anthropic_client(self) -> Optional[anthropic.Anthropic]:
         """Инициализирует клиент Anthropic с обработкой ошибок"""
         try:
             api_key = os.getenv('ANTHROPIC_API_KEY')
             if not api_key:
-                logger.warning("ANTHROPIC_API_KEY not set, using mock responses")
+                logger.warning("ANTHROPIC_API_KEY не установлен, будет использоваться mock-режим")
                 return None
+
             return anthropic.Anthropic(api_key=api_key)
         except Exception as e:
-            logger.error(f"Failed to initialize Anthropic client: {str(e)}")
+            logger.error(f"Ошибка инициализации клиента: {str(e)}")
             return None
+
+    def _make_api_request_with_retry(self, method: str, **kwargs) -> Any:
+        """Выполняет API запрос с повторными попытками"""
+        retry_count = 0
+        last_error = None
+
+        while retry_count < self.max_retries:
+            try:
+                if not self.client:
+                    raise Exception("Anthropic client не инициализирован")
+
+                if method == "messages.create":
+                    response = self.client.messages.create(**kwargs)
+                    return response
+                else:
+                    raise ValueError(f"Неизвестный метод API: {method}")
+
+            except anthropic.APIStatusError as e:
+                status_code = e.status_code
+                if status_code in (529, 429, 500, 502, 503, 504):
+                    retry_after = int(e.response.headers.get('Retry-After', 5))
+                    wait_time = min(retry_after, self.retry_delay * (2 ** retry_count))
+                    logger.warning(f"API вернул код {status_code}. Повтор через {wait_time} секунд")
+                    time.sleep(wait_time)
+                    retry_count += 1
+                    continue
+                raise
+
+            except Exception as e:
+                retry_count += 1
+                wait_time = self.retry_delay * (2 ** (retry_count - 1))
+                logger.warning(f"Ошибка API. Повтор через {wait_time} секунд")
+                time.sleep(wait_time)
+                continue
+
+        logger.error(f"Исчерпаны все попытки. Последняя ошибка: {str(last_error)}")
+        raise Exception(f"Исчерпаны все попытки. Последняя ошибка: {str(last_error)}")
 
     def _safe_get(self, data: Dict[str, Any], key: str, default: Any = None) -> Any:
         """Безопасное извлечение значения из словаря"""
         try:
             if isinstance(data, dict) and key in data:
-                return data[key]
+                value = data[key]
+                if value is None or (isinstance(value, (list, dict)) and not value):
+                    return default
+                return value
             return default
         except Exception:
             return default
 
     def _normalize_score(self, score: Union[float, Dict[str, float]]) -> Dict[str, float]:
         """Нормализует оценку в формат словаря"""
-        if isinstance(score, dict):
-            return {
-                'score': float(self._safe_get(score, 'score', 0.6)),
-                'confidence': float(self._safe_get(score, 'confidence', 0.8))
-            }
-        if isinstance(score, (float, int)):
-            return {'score': float(score), 'confidence': 0.8}
-        return {'score': 0.6, 'confidence': 0.7}
+        try:
+            if isinstance(score, dict):
+                score_value = self._safe_get(score, 'score', 0.6)
+                confidence = self._safe_get(score, 'confidence', 0.8)
+                return {
+                    'score': float(score_value),
+                    'confidence': float(confidence)
+                }
+            elif isinstance(score, (float, int)):
+                return {
+                    'score': float(score),
+                    'confidence': 0.8
+                }
+            return {'score': 0.6, 'confidence': 0.7}
+        except Exception:
+            return {'score': 0.6, 'confidence': 0.7}
 
     def _parse_response(self, response_text: str) -> Dict[str, Any]:
         """Парсит ответ от API с улучшенной обработкой ошибок"""
         try:
+            if not response_text:
+                return self._create_fallback_analysis("Пустой ответ от API")
+
             json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
             if json_match:
-                parsed = json.loads(json_match.group(0))
-                parsed.setdefault('credibility_score', {'score': 0.7})
-                parsed.setdefault('sentiment', {'score': 0.1})
-                parsed.setdefault('bias', {'level': 0.2})
-                parsed.setdefault('topics', [])
-                parsed.setdefault('perspectives', {})
-                parsed.setdefault('key_arguments', [])
-                return parsed
+                try:
+                    parsed = json.loads(json_match.group(0))
+                    return self._normalize_analysis(parsed)
+                except json.JSONDecodeError:
+                    pass
 
+            return self._create_fallback_analysis_from_text(response_text)
+        except Exception as e:
+            logger.error(f"Ошибка парсинга ответа: {str(e)}")
+            return self._create_fallback_analysis("Ошибка парсинга ответа")
+
+    def _create_fallback_analysis_from_text(self, text: str) -> Dict[str, Any]:
+        """Создает структурированный анализ на основе текста"""
+        try:
+            topics = self._extract_topics_from_content(text)
             return {
-                "credibility_score": {"score": 0.7, "confidence": 0.8},
-                "sentiment": {"score": 0.1, "confidence": 0.7},
-                "bias": {"level": 0.2, "confidence": 0.75},
-                "topics": [{"name": "General", "relevance": 0.9}],
+                "credibility_score": {"score": 0.6, "confidence": 0.7},
+                "sentiment": {"score": 0.0, "confidence": 0.7},
+                "bias": {"level": 0.3, "confidence": 0.6},
+                "topics": topics,
                 "perspectives": {
                     "neutral": {
-                        "summary": "Basic analysis of the content",
+                        "summary": "Анализ на основе текста",
                         "credibility": "Medium",
-                        "confidence": 0.8
+                        "supporting_evidence": ["Анализ основан на содержимом статьи"]
                     }
                 },
-                "key_arguments": ["Content requires more context for detailed analysis"]
+                "key_arguments": [],
+                "fallback": True
             }
-        except json.JSONDecodeError as e:
-            logger.error(f"JSON decode error: {str(e)}")
-            return self._create_fallback_analysis("JSON parsing error")
-        except Exception as e:
-            logger.error(f"Error parsing response: {str(e)}")
-            return self._create_fallback_analysis(str(e))
+        except Exception:
+            return self._create_fallback_analysis("Ошибка анализа текста")
+
+    def _extract_topics_from_content(self, content: str) -> List[Dict[str, Any]]:
+        """Извлекает темы из текста"""
+        try:
+            if not content:
+                return self.fallback_topics[:2]
+
+            content_lower = content.lower()
+            topic_keywords = {
+                'politics': ['politic', 'government', 'election', 'law', 'policy'],
+                'economy': ['economy', 'market', 'finance', 'trade', 'tax'],
+                'technology': ['tech', 'software', 'ai', 'computer', 'internet'],
+                'science': ['science', 'research', 'study', 'experiment'],
+                'health': ['health', 'medical', 'disease', 'vaccine']
+            }
+
+            detected_topics = []
+            for topic, keywords in topic_keywords.items():
+                if any(kw in content_lower for kw in keywords):
+                    detected_topics.append({
+                        "name": topic,
+                        "relevance": 0.8,
+                        "description": f"Контент, связанный с {topic}"
+                    })
+
+            if not detected_topics:
+                return self.fallback_topics[:2]
+
+            return detected_topics[:3]
+        except Exception:
+            return self.fallback_topics[:2]
 
     def _create_fallback_analysis(self, error: str) -> Dict[str, Any]:
         """Создает резервный анализ при ошибках"""
         return {
-            "credibility_score": {"score": 0.6, "confidence": 0.6},
-            "sentiment": {"score": 0.0, "confidence": 0.5},
+            "credibility_score": {"score": 0.6, "confidence": 0.7},
+            "sentiment": {"score": 0.0, "confidence": 0.7},
             "bias": {"level": 0.3, "confidence": 0.6},
-            "topics": [{"name": "General", "relevance": 0.7}],
+            "topics": self.fallback_topics[:2],
             "perspectives": {
                 "neutral": {
-                    "summary": f"Analysis failed due to: {error}",
-                    "credibility": "Low",
-                    "confidence": 0.5
+                    "summary": f"Резервный анализ: {error}",
+                    "credibility": "Medium"
                 }
             },
-            "key_arguments": [
-                "Could not complete full analysis",
-                f"Error encountered: {error}"
-            ],
-            "error": error
+            "key_arguments": [],
+            "error": error,
+            "fallback": True
         }
 
     def _generate_credibility_explanation(self, score: float, source: str) -> Dict[str, Any]:
         """Генерирует объяснение для оценки достоверности"""
-        source_level = self.determine_credibility_level_from_source(source)
-        rounded_score = round(score * 100)
-
-        if score >= 0.8:
-            explanation = (
-                f"Эта статья получила высокий рейтинг достоверности ({rounded_score}/100), "
-                f"поскольку она соответствует нескольким ключевым критериям:\n"
-                f"1. Источник ({source}) имеет репутацию {source_level.lower()} достоверности\n"
-                f"2. Содержание хорошо структурировано и подтверждено фактами\n"
-                f"3. Минимальное количество необоснованных утверждений\n"
-                f"4. Сбалансированное представление различных точек зрения"
-            )
-        elif score >= 0.6:
-            explanation = (
-                f"Эта статья получила средний рейтинг достоверности ({rounded_score}/100). "
-                f"Вот основные факторы:\n"
-                f"1. Источник ({source}) обычно надежен, но имеет некоторые предвзятости\n"
-                f"2. Содержание содержит как подтвержденные факты, так и несколько необоснованных утверждений\n"
-                f"3. Может не хватать альтернативных точек зрения\n"
-                f"4. Требуется дополнительная проверка некоторых заявлений"
-            )
-        else:
-            explanation = (
-                f"Эта статья получила низкий рейтинг достоверности ({rounded_score}/100). "
-                f"Основные проблемы:\n"
-                f"1. Источник ({source}) имеет репутацию низкой достоверности\n"
-                f"2. Содержание содержит много необоснованных утверждений\n"
-                f"3. Отсутствуют сбалансированные точки зрения\n"
-                f"4. Рекомендуется проверить информацию из других источников"
-            )
-
-        return {
-            "level": self.determine_credibility_level(score),
-            "explanation": explanation,
-            "score": round(score, 2),
-            "source_level": source_level
-        }
-
-    def get_buzz_analysis(self) -> Dict[str, Any]:
-        """Получает анализ популярных новостей с улучшенной обработкой ошибок"""
         try:
-            cached = self.cache.get_cached_buzz_analysis()
-            if cached:
-                return cached
+            if isinstance(score, dict):
+                score = score.get('score', 0.6)
+            score = float(score)
+            source_level = self.determine_credibility_level_from_source(source)
 
-            if not self.client:
-                return self._create_mock_buzz_analysis()
+            if score >= 0.8:
+                explanation = f"Высокий рейтинг достоверности ({score:.2f})"
+            elif score >= 0.6:
+                explanation = f"Средний рейтинг достоверности ({score:.2f})"
+            else:
+                explanation = f"Низкий рейтинг достоверности ({score:.2f})"
 
-            prompt = """Analyze current global news trends focusing on:
-1. Key geopolitical developments
-2. Economic indicators
-3. Technological advancements
-4. Social trends
-Provide a comprehensive analysis with:
-- Detailed credibility assessment (0-1 scale with explanation)
-- Multiple perspectives with credibility ratings
-- Key arguments with supporting evidence
-- Potential biases and their impact
-- Future implications
-Format the response as JSON with this detailed structure:
-{
-    "title": "string",
-    "source": "string",
-    "short_summary": "string",
-    "full_analysis": "string (up to 4000 characters)",
-    "analysis": {
-        "credibility_score": {"score": number, "explanation": "string"},
-        "sentiment": {"score": number, "explanation": "string"},
-        "bias": {"level": number, "explanation": "string"},
-        "topics": [{"name": "string", "relevance": number, "description": "string"}],
-        "perspectives": {
-            "western": {
-                "summary": "string",
-                "credibility": "string",
-                "supporting_evidence": ["list"],
-                "potential_biases": ["list"]
-            },
-            "eastern": {
-                "summary": "string",
-                "credibility": "string",
-                "supporting_evidence": ["list"],
-                "potential_biases": ["list"]
-            },
-            "neutral": {
-                "summary": "string",
-                "credibility": "string",
-                "supporting_evidence": ["list"],
-                "potential_biases": ["list"]
+            return {
+                "level": self.determine_credibility_level(score),
+                "explanation": explanation,
+                "score": score,
+                "source_level": source_level
             }
-        },
-        "key_arguments": [
-            {
-                "statement": "string",
-                "supporting_evidence": ["list"],
-                "counter_arguments": ["list"],
-                "verification_status": "verified/unverified/contested"
+        except Exception:
+            return {
+                "level": "Medium",
+                "explanation": "Не удалось сгенерировать объяснение",
+                "score": 0.6,
+                "source_level": "Medium"
             }
-        ],
-        "future_implications": ["string"]
-    }
-}"""
-
-            try:
-                response = self.client.messages.create(
-                    model="claude-3-opus-20240229",
-                    max_tokens=4000,
-                    temperature=0.7,
-                    system="You are a professional news analyst with expertise in media credibility assessment. Provide detailed explanations for all your assessments.",
-                    messages=[{"role": "user", "content": prompt}]
-                )
-                analysis = self._parse_response(response.content[0].text)
-                normalized = self._normalize_analysis(analysis)
-                self.cache.cache_buzz_analysis(normalized)
-                return normalized
-            except Exception as e:
-                logger.error(f"Error getting buzz analysis: {str(e)}")
-                return self._create_mock_buzz_analysis()
-        except Exception as e:
-            logger.error(f"Unexpected error in get_buzz_analysis: {str(e)}")
-            return self._create_mock_buzz_analysis()
-
-    def _create_mock_buzz_analysis(self) -> Dict[str, Any]:
-        """Создает mock-анализ для случаев ошибок"""
-        return {
-            "article": {
-                "title": "Today's featured analysis: Global News Trends",
-                "source": "Media Analysis",
-                "short_summary": "Comprehensive analysis of current global news trends and their credibility patterns. This mock analysis demonstrates how our system evaluates news content.",
-                "full_analysis": "Our system analyzes news content using multiple criteria including source reliability, factual consistency, and balanced reporting. For this demo, we're showing how a typical analysis would look with explanations for each credibility assessment.",
-                "analysis": {
-                    "credibility_score": {
-                        "score": 0.85,
-                        "explanation": "This mock analysis demonstrates our high-confidence assessment. In a real scenario, we would provide specific details about why this particular score was assigned based on the article content and source reliability.",
-                        "source_rating": "High",
-                        "fact_check": {
-                            "inconsistencies": [],
-                            "unsupported_claims": []
-                        }
-                    },
-                    "sentiment": {
-                        "score": 0.1,
-                        "explanation": "Neutral sentiment indicates balanced reporting without strong emotional bias in either direction.",
-                        "tone": "neutral"
-                    },
-                    "bias": {
-                        "level": 0.2,
-                        "explanation": "Low bias score suggests the content presents multiple viewpoints fairly.",
-                        "examples": []
-                    },
-                    "topics": [
-                        {
-                            "name": "Geopolitics",
-                            "relevance": 0.9,
-                            "description": "International relations and global political developments"
-                        },
-                        {
-                            "name": "Economy",
-                            "relevance": 0.8,
-                            "description": "Global and regional economic indicators and trends"
-                        }
-                    ],
-                    "perspectives": {
-                        "western": {
-                            "summary": "Western media's perspective on current global events",
-                            "credibility": "High",
-                            "supporting_evidence": [
-                                "Multiple independent sources confirm key facts",
-                                "Historical context provided"
-                            ],
-                            "potential_biases": [
-                                "Possible pro-western slant in interpretation"
-                            ]
-                        },
-                        "neutral": {
-                            "summary": "Balanced analysis of current global events",
-                            "credibility": "High",
-                            "supporting_evidence": [
-                                "Data from international organizations",
-                                "Expert opinions from various regions"
-                            ],
-                            "potential_biases": []
-                        }
-                    },
-                    "key_arguments": [
-                        {
-                            "statement": "Global economic growth continues despite regional challenges",
-                            "supporting_evidence": [
-                                "IMF reports show steady growth",
-                                "Corporate earnings reports positive"
-                            ],
-                            "counter_arguments": [
-                                "Some regions face economic slowdown",
-                                "Geopolitical tensions could impact growth"
-                            ],
-                            "verification_status": "verified"
-                        }
-                    ],
-                    "future_implications": [
-                        "Possible shifts in global trade patterns",
-                        "Emerging technologies may disrupt traditional industries"
-                    ]
-                }
-            }
-        }
 
     def _normalize_analysis(self, analysis: Dict[str, Any]) -> Dict[str, Any]:
-        """Нормализует и улучшает структуру анализа"""
-        normalized = {
-            "credibility_score": self._normalize_score(analysis.get('credibility_score', 0.6)),
-            "sentiment": self._normalize_score(analysis.get('sentiment', 0.1)),
-            "bias": self._normalize_score(analysis.get('bias', 0.2)),
-            "topics": analysis.get('topics', []),
-            "perspectives": analysis.get('perspectives', {}),
-            "key_arguments": analysis.get('key_arguments', []),
-            "similar_articles": analysis.get('similar_articles', [])
-        }
+        """Нормализует структуру анализа"""
+        try:
+            normalized = {
+                "credibility_score": self._normalize_score(analysis.get('credibility_score', {'score': 0.6})),
+                "sentiment": self._normalize_score(analysis.get('sentiment', {'score': 0.0})),
+                "bias": self._normalize_score(analysis.get('bias', {'level': 0.3})),
+                "topics": analysis.get('topics', []),
+                "perspectives": analysis.get('perspectives', {}),
+                "key_arguments": analysis.get('key_arguments', [])
+            }
 
-        # Добавляем объяснения, если их нет
-        if isinstance(normalized['credibility_score'], dict) and 'explanation' not in normalized['credibility_score']:
-            score = normalized['credibility_score']['score']
-            normalized['credibility_score']['explanation'] = (
-                "High credibility" if score >= 0.8 else
-                "Medium credibility" if score >= 0.6 else
-                "Low credibility"
+            # Добавляем объяснения
+            if isinstance(normalized['credibility_score'], dict):
+                score = normalized['credibility_score']['score']
+                if score >= 0.8:
+                    explanation = "Высокий уровень достоверности"
+                elif score >= 0.6:
+                    explanation = "Средний уровень достоверности"
+                else:
+                    explanation = "Низкий уровень достоверности"
+                normalized['credibility_score']['explanation'] = explanation
+
+            return normalized
+        except Exception:
+            return self._create_fallback_analysis("Ошибка нормализации анализа")
+
+    def _prepare_content_for_analysis(self, content: str) -> str:
+        """Подготавливает контент для анализа"""
+        try:
+            max_length = 10000
+            if not content:
+                return "No content available"
+
+            if len(content) <= max_length:
+                return content
+
+            preview_length = 200
+            middle_part = content[preview_length:-preview_length] if len(content) > 2*preview_length else ""
+            truncated = (
+                content[:preview_length] +
+                "\n\n[CONTENT TRIMMED FOR ANALYSIS]\n\n" +
+                middle_part[:max_length - 2*preview_length - 50] +
+                "\n\n..." +
+                content[-preview_length:]
             )
+            return truncated[:max_length]
+        except Exception:
+            return content[:1000] if content else "No content available"
 
-        # Преобразуем key_arguments если они в старом формате
-        if normalized['key_arguments'] and isinstance(normalized['key_arguments'][0], str):
-            normalized['key_arguments'] = [
-                {"statement": arg, "supporting_evidence": [], "counter_arguments": [], "verification_status": "unverified"}
-                for arg in normalized['key_arguments']
-            ]
+    def _build_analysis_prompt(self, content: str, source: str) -> str:
+        """Строит промпт для анализа статьи"""
+        try:
+            if not content:
+                content = "No content provided"
+            if not source:
+                source = "Unknown source"
 
-        return normalized
+            return f"""Проанализируйте следующее содержимое статьи:
+
+Источник: {source}
+Содержимое: {content}
+
+Предоставьте анализ в формате JSON со следующей структурой:
+{{
+    "credibility_score": {{"score": number}},
+    "sentiment": {{"score": number}},
+    "bias": {{"level": number}},
+    "topics": [{{"name": "string"}}],
+    "perspectives": {{}},
+    "key_arguments": ["string"]
+}}"""
+        except Exception:
+            return f"Анализ статьи из источника: {source}"
 
     def analyze_article(self, content: str, source: str) -> Dict[str, Any]:
-        """Анализирует статью с улучшенным анализом достоверности и ссылками"""
+        """Анализирует статью с повторными попытками"""
         try:
             # Проверяем кэш
-            cache_key = f"{source}:{content[:100]}"  # Используем часть контента для ключа
+            cache_key = f"{source[:50]}:{hash(content) % 10000}"
             cached = self.cache.get_cached_article_analysis(cache_key)
             if cached:
                 return cached
 
-            # Подготавливаем промпт с увеличенным лимитом символов
-            prompt_content = content[:4000]  # Увеличили с 2000 до 4000 символов
-            if len(content) > 4000:
-                prompt_content += "\n\n[Content trimmed for analysis. Original length: %d characters]" % len(content)
+            # Подготавливаем контент
+            prompt_content = self._prepare_content_for_analysis(content)
+            prompt = self._build_analysis_prompt(prompt_content, source)
 
-            prompt = f"""Perform a comprehensive analysis of the following article content with these detailed requirements:
-1. Credibility Assessment:
-   - Evaluate overall credibility (0-1 scale)
-   - Provide detailed explanation for the score
-   - Assess source credibility separately
-   - Identify any factual inconsistencies
-   - Check for proper sourcing of claims
-
-2. Content Analysis:
-   - Determine sentiment (-1 to 1 scale) with explanation
-   - Identify potential biases (0-1 scale) with examples
-   - Extract key topics with relevance scores
-   - Identify main arguments and supporting evidence
-
-3. Perspective Analysis:
-   - Provide western perspective with credibility rating
-   - Provide eastern perspective with credibility rating
-   - Provide neutral perspective with credibility rating
-
-4. Supporting Context:
-   - Suggest additional sources that would improve balance
-   - Identify any missing perspectives
-   - Highlight controversial statements needing verification
-
-Article source: {source}
-Article content: {prompt_content}
-Format the response as JSON with this comprehensive structure:
-{{
-    "credibility_score": {{
-        "score": number,
-        "explanation": "detailed explanation",
-        "source_rating": "High/Medium/Low",
-        "fact_check": {{
-            "inconsistencies": ["list of issues"],
-            "unsupported_claims": ["list of claims"]
-        }}
-    }},
-    "sentiment": {{
-        "score": number,
-        "explanation": "string",
-        "tone": "positive/neutral/negative/mixed"
-    }},
-    "bias": {{
-        "level": number,
-        "explanation": "string",
-        "examples": ["list of biased statements"]
-    }},
-    "topics": [
-        {{
-            "name": "string",
-            "relevance": number,
-            "description": "string"
-        }}
-    ],
-    "perspectives": {{
-        "western": {{
-            "summary": "string",
-            "credibility": "string",
-            "supporting_evidence": ["list"],
-            "potential_biases": ["list"]
-        }},
-        "eastern": {{
-            "summary": "string",
-            "credibility": "string",
-            "supporting_evidence": ["list"],
-            "potential_biases": ["list"]
-        }},
-        "neutral": {{
-            "summary": "string",
-            "credibility": "string",
-            "supporting_evidence": ["list"],
-            "potential_biases": ["list"]
-        }}
-    }},
-    "key_arguments": [
-        {{
-            "statement": "string",
-            "supporting_evidence": ["list"],
-            "counter_arguments": ["list"],
-            "verification_status": "verified/unverified/contested"
-        }}
-    ],
-    "recommendations": [
-        "string suggestions for improving balance/accuracy"
-    ],
-    "similar_articles": []
-}}
-Note: Provide detailed explanations for all scores and ratings."""
-
+            # Выполняем запрос с повторными попытками
             try:
                 if self.client:
-                    response = self.client.messages.create(
+                    response = self._make_api_request_with_retry(
+                        method="messages.create",
                         model="claude-3-opus-20240229",
                         max_tokens=4000,
                         temperature=0.5,
-                        system="You are a professional media analyst. Provide a detailed, structured analysis of the article content with thorough explanations for all assessments.",
                         messages=[{"role": "user", "content": prompt}]
                     )
                     analysis = self._parse_response(response.content[0].text)
                 else:
-                    analysis = self._create_mock_article_analysis(source, content)
+                    analysis = self._create_fallback_analysis("API не инициализирован")
             except Exception as e:
-                logger.error(f"Error analyzing article with Claude API: {str(e)}")
-                analysis = self._create_mock_article_analysis(source, content)
+                logger.error(f"Ошибка анализа статьи: {str(e)}")
+                analysis = self._create_fallback_analysis(str(e))
 
-            # Добавляем улучшенный анализ достоверности
+            # Добавляем объяснение достоверности
             credibility_score = analysis.get('credibility_score', {'score': 0.7})
-            if isinstance(credibility_score, dict):
-                score = credibility_score.get('score', 0.7)
-            else:
-                score = float(credibility_score)
-
-            analysis['credibility_score'] = {
-                **self._normalize_score(credibility_score),
-                **self._generate_credibility_explanation(score, source)
-            }
+            score = credibility_score.get('score', 0.7)
+            analysis['credibility'] = self._generate_credibility_explanation(score, source)
 
             # Получаем похожие статьи
-            topics = [t['name'] if isinstance(t, dict) else t for t in analysis.get('topics', [])]
-            similar_articles = []
-
-            if topics:
-                try:
-                    query = ' OR '.join([str(t) for t in topics[:3]])
-                    similar_articles = self.news_api.get_everything(query=query, page_size=5) or []
-
-                    for article in similar_articles:
-                        if 'url' not in article:
-                            article['url'] = None
-                        if 'source' not in article or not isinstance(article['source'], dict):
-                            article['source'] = {'name': 'Unknown', 'url': None}
-                        if 'publishedAt' not in article:
-                            article['publishedAt'] = None
-                        if 'content' not in article:
-                            article['content'] = None
-                except Exception as e:
-                    logger.error(f"Error getting similar articles: {str(e)}")
-                    similar_articles = []
+            similar_articles = self._get_similar_articles(analysis, content)
 
             # Формируем результат
             result = {
-                "title": analysis.get('title', 'Article Analysis'),
+                "title": "Article Analysis",
                 "source": source,
-                "url": None,  # Будет установлен вызывающей функцией
-                "short_summary": content[:1000] + '...' if len(content) > 1000 else content,
-                "full_analysis": analysis.get('full_analysis', ''),
-                "analysis": self._normalize_analysis(analysis),
-                "credibility": analysis.get('credibility_score', {'score': 0.7}),
+                "short_summary": content[:200] + '...' if len(content) > 200 else content,
+                "analysis": analysis,
                 "similar_articles": similar_articles,
-                "links": [],  # Будет добавлено вызывающей функцией
                 "metadata": {
-                    "analysis_timestamp": datetime.now().isoformat(),
-                    "content_length": len(content),
+                    "timestamp": datetime.now().isoformat(),
                     "source_credibility": self.determine_credibility_level_from_source(source)
                 }
             }
@@ -586,160 +505,105 @@ Note: Provide detailed explanations for all scores and ratings."""
             return result
 
         except Exception as e:
-            logger.error(f"Unexpected error in analyze_article: {str(e)}")
-            return self._create_mock_article_analysis(source, content[:200])
+            logger.error(f"Ошибка в analyze_article: {str(e)}")
+            return self._create_fallback_analysis(str(e))
 
-    def _create_mock_article_analysis(self, source: str, content_preview: str) -> Dict[str, Any]:
-        """Создает mock-анализ для случаев ошибок"""
-        return {
-            "title": "Analysis of Provided Content",
-            "source": source,
-            "short_summary": content_preview,
-            "full_analysis": "This is a mock analysis generated when our system is unable to process the article through our main analysis pipeline. Below are typical analysis components with placeholder values.",
-            "analysis": {
-                "credibility_score": {
-                    "score": 0.7,
-                    "explanation": f"This mock score represents what our system typically assigns to content from {source}. In a real analysis, this would be based on detailed evaluation of the article content and source reliability.",
-                    "source_rating": self.determine_credibility_level_from_source(source),
-                    "fact_check": {
-                        "inconsistencies": [],
-                        "unsupported_claims": []
-                    }
-                },
-                "sentiment": {
-                    "score": 0.0,
-                    "explanation": "Neutral sentiment is typical for news reporting without strong emotional language.",
-                    "tone": "neutral"
-                },
-                "bias": {
-                    "level": 0.3,
-                    "explanation": "Moderate bias level suggests some potential for slanted reporting but generally balanced content.",
-                    "examples": []
-                },
-                "topics": [
-                    {"name": "General News", "relevance": 0.8, "description": "News content without specific topic focus"}
-                ],
-                "perspectives": {
-                    "neutral": {
-                        "summary": "Mock analysis perspective representing balanced view",
-                        "credibility": "Medium",
-                        "supporting_evidence": [
-                            "Content appears to be factual reporting",
-                            "No obvious slant detected"
-                        ],
-                        "potential_biases": ["None identified in this mock analysis"]
-                    }
-                },
-                "key_arguments": [
-                    {
-                        "statement": "The content appears to be newsworthy",
-                        "supporting_evidence": ["Presence of factual information"],
-                        "counter_arguments": [],
-                        "verification_status": "unverified"
-                    }
-                ],
-                "recommendations": [
-                    "For a complete analysis, please ensure our API service is properly configured",
-                    "Verify all claims with additional sources"
-                ]
-            },
-            "credibility": {
-                "score": 0.7,
-                "level": "Medium",
-                "explanation": "Mock credibility assessment",
-                "source_level": self.determine_credibility_level_from_source(source)
-            },
-            "similar_articles": [],
-            "links": [],
-            "metadata": {
-                "analysis_timestamp": datetime.now().isoformat(),
-                "content_length": len(content_preview),
-                "source_credibility": self.determine_credibility_level_from_source(source)
-            }
-        }
+    def _get_similar_articles(self, analysis: Dict[str, Any], content: str) -> List[Dict[str, Any]]:
+        """Получает похожие статьи"""
+        try:
+            topics = analysis.get('topics', [])
+            topic_names = [t.get('name', '') if isinstance(t, dict) else str(t) for t in topics[:3]]
+            query = ' OR '.join(topic_names) if topic_names else "technology"
+
+            return self.news_api.get_everything(query=query, page_size=3)
+        except Exception:
+            return []
+
+    def get_buzz_analysis(self) -> Dict[str, Any]:
+        """Получает анализ трендов с повторными попытками"""
+        try:
+            cached = self.cache.get_cached_buzz_analysis()
+            if cached:
+                return cached
+
+            if not self.client:
+                return self._create_mock_buzz_analysis()
+
+            prompt = """Проанализируйте текущие глобальные новостные тренды"""
+
+            try:
+                response = self._make_api_request_with_retry(
+                    method="messages.create",
+                    model="claude-3-opus-20240229",
+                    max_tokens=4000,
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                analysis = self._parse_response(response.content[0].text)
+                self.cache.cache_buzz_analysis(analysis)
+                return analysis
+            except Exception as e:
+                logger.error(f"Ошибка получения анализа трендов: {str(e)}")
+                return self._create_mock_buzz_analysis()
+
+        except Exception as e:
+            logger.error(f"Ошибка в get_buzz_analysis: {str(e)}")
+            return self._create_mock_buzz_analysis()
 
     def determine_credibility_level(self, score: Any) -> str:
-        """Определяет уровень достоверности на основе оценки с улучшенной обработкой"""
+        """Определяет уровень достоверности"""
         try:
             if isinstance(score, dict):
-                score_value = self._safe_get(score, 'score', 0.6)
-            elif isinstance(score, (float, int)):
-                score_value = float(score)
-            else:
-                score_value = 0.6
+                score = score.get('score', 0.6)
+            score = float(score)
 
-            if score_value >= 0.8:
+            if score >= 0.8:
                 return "High"
-            elif score_value >= 0.6:
+            elif score >= 0.6:
                 return "Medium"
-            else:
-                return "Low"
-        except Exception as e:
-            logger.error(f"Error determining credibility level: {str(e)}")
+            return "Low"
+        except Exception:
             return "Medium"
 
     def determine_credibility_level_from_source(self, source_name: str) -> str:
-        """Определяет уровень достоверности на основе источника с улучшенной обработкой"""
+        """Определяет уровень достоверности источника"""
         try:
+            if not source_name:
+                return "Medium"
+
             source_name = source_name.lower()
-            high_credibility_sources = [
-                'bbc', 'reuters', 'associated press', 'the new york times',
-                'the guardian', 'the wall street journal', 'bloomberg',
-                'the economist', 'financial times', 'washington post',
-                'nature', 'science', 'lse', 'harvard'
-            ]
-            medium_credibility_sources = [
-                'cnn', 'fox news', 'usa today', 'the washington post',
-                'npr', 'al jazeera', 'the independent', 'the hill',
-                'politico', 'business insider', 'vox', 'buzzfeed',
-                'the verge', 'techcrunch'
-            ]
-            low_credibility_sources = [
-                'daily mail', 'breitbart', 'infowars', 'natural news',
-                'the sun', 'sputnik', 'rt', 'global research'
-            ]
+            high_sources = ['bbc', 'reuters', 'nytimes', 'theguardian']
+            medium_sources = ['cnn', 'fox', 'washingtonpost']
+            low_sources = ['dailymail', 'breitbart']
 
-            if any(source in source_name for source in high_credibility_sources):
+            if any(s in source_name for s in high_sources):
                 return "High"
-            elif any(source in source_name for source in medium_credibility_sources):
+            elif any(s in source_name for s in medium_sources):
                 return "Medium"
-            elif any(source in source_name for source in low_credibility_sources):
+            elif any(s in source_name for s in low_sources):
                 return "Low"
-            else:
-                # Для неизвестных источников используем доменное имя для оценки
-                domain_keywords = {
-                    'gov': 'High',
-                    'edu': 'High',
-                    'org': 'Medium',
-                    'com': 'Medium',
-                    'net': 'Medium'
-                }
 
-                # Пытаемся извлечь домен из URL если это URL
-                if source_name.startswith(('http://', 'https://')):
-                    try:
-                        domain = urlparse(source_name).netloc
-                        if '.' in domain:
-                            tld = domain.split('.')[-1]
-                            if tld in domain_keywords:
-                                return domain_keywords[tld]
-                    except:
-                        pass
+            if source_name.startswith(('http://', 'https://')):
+                domain = urlparse(source_name).netloc
+                if domain.endswith('.gov') or domain.endswith('.edu'):
+                    return "High"
 
-                return "Medium"
-        except Exception as e:
-            logger.error(f"Error determining source credibility: {str(e)}")
+            return "Medium"
+        except Exception:
             return "Medium"
 
 if __name__ == "__main__":
-    # Тестовый код для проверки функциональности
-    logging.info("Running claude_api.py in standalone mode")
+    # Тестовый код
     api = ClaudeAPI()
 
-    # Пример использования
-    test_content = """Recent studies have shown that climate change is accelerating at an unprecedented rate.
-Scientists warn that immediate action is needed to prevent catastrophic consequences.
-However, some politicians continue to dispute these findings, citing economic concerns."""
+    # Пример анализа статьи
+    test_content = """Изменение климата ускоряется беспрецедентными темпами.
+Ученые предупреждают о необходимости немедленных действий."""
+    result = api.analyze_article(test_content, "BBC News")
+    print("Анализ статьи:")
+    print(json.dumps(result, indent=2, ensure_ascii=False))
 
-    analysis = api.analyze_article(test_content, "Test Source")
-    print(json.dumps(analysis, indent=2, ensure_ascii=False))
+    # Пример анализа трендов
+    buzz = api.get_buzz_analysis()
+    print("\nАнализ трендов:")
+    print(json.dumps(buzz, indent=2, ensure_ascii=False))
+
