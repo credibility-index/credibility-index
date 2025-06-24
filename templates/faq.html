@@ -1,259 +1,512 @@
-<div class="faq-container">
-    <h1>Frequently Asked Questions</h1>
-    <p class="faq-intro">Here you'll find answers to the most common questions about our Media Credibility Index tool. If you don't find what you're looking for, please contact our support team.</p>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FAQ - Media Credibility Index</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #f8fafc;
+            --text-color: #1f2937;
+            --border-color: #e2e8f0;
+            --border-radius: 8px;
+            --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
 
-    <div class="faq-item">
-        <div class="faq-question" onclick="toggleFAQ(this)">
-            <h3>What exactly is the Media Credibility Index and how can it help me?</h3>
-        </div>
-        <div class="faq-answer">
-            <p>The Media Credibility Index is your personal assistant in navigating today's complex media landscape. Our advanced tool uses cutting-edge algorithms to analyze news articles and evaluate their reliability, helping you:</p>
-            <ul>
-                <li>Quickly assess the credibility of news sources</li>
-                <li>Identify potential biases in reporting</li>
-                <li>Understand the overall sentiment of articles</li>
-                <li>Compare different sources on the same topic</li>
-                <li>Make more informed decisions about what to read and trust</li>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f5f5f5;
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .navbar-links {
+            display: flex;
+            gap: 15px;
+            list-style: none;
+        }
+
+        .navbar-link {
+            color: var(--text-color);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .navbar-link:hover {
+            color: var(--primary-color);
+        }
+
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            margin-top: 20px;
+        }
+
+        .faq-container {
+            background: white;
+            border-radius: var(--border-radius);
+            padding: 30px;
+            box-shadow: var(--box-shadow);
+        }
+
+        .faq-intro {
+            margin-bottom: 30px;
+            color: #4b5563;
+            font-size: 1.1rem;
+        }
+
+        .faq-item {
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 20px;
+        }
+
+        .faq-question {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: var(--text-color);
+            padding: 10px;
+            border-radius: 6px;
+            transition: background-color 0.2s;
+        }
+
+        .faq-question:hover {
+            background-color: var(--secondary-color);
+        }
+
+        .faq-question::after {
+            content: "+";
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            margin-left: 10px;
+        }
+
+        .faq-item.active .faq-question::after {
+            content: "−";
+        }
+
+        .faq-answer {
+            margin-top: 15px;
+            padding: 15px;
+            background-color: var(--secondary-color);
+            border-radius: 6px;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        .faq-answer p {
+            margin-bottom: 15px;
+            line-height: 1.6;
+        }
+
+        .faq-answer ul, .faq-answer ol {
+            margin: 15px 0 15px 20px;
+        }
+
+        .faq-answer li {
+            margin-bottom: 8px;
+        }
+
+        .credibility-scale {
+            margin: 25px 0;
+        }
+
+        .scale-item {
+            margin-bottom: 25px;
+            padding: 15px;
+            border-radius: 8px;
+            background-color: rgba(37, 99, 235, 0.05);
+        }
+
+        .scale-item.high {
+            border-left: 4px solid #10b981;
+        }
+
+        .scale-item.medium {
+            border-left: 4px solid #f59e0b;
+        }
+
+        .scale-item.low {
+            border-left: 4px solid #ef4444;
+        }
+
+        .scale-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .scale-range {
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        .scale-label {
+            font-size: 1.2rem;
+            color: var(--text-color);
+        }
+
+        .scale-description {
+            margin-top: 10px;
+        }
+
+        .tips-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .tip-card {
+            background-color: var(--secondary-color);
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid var(--primary-color);
+        }
+
+        .tip-card h4 {
+            color: var(--primary-color);
+            margin-bottom: 10px;
+        }
+
+        .privacy-features {
+            margin: 20px 0;
+        }
+
+        .privacy-item {
+            display: flex;
+            margin-bottom: 20px;
+            align-items: flex-start;
+        }
+
+        .privacy-item i {
+            font-size: 1.5rem;
+            margin-right: 15px;
+            color: var(--primary-color);
+        }
+
+        .privacy-text h4 {
+            margin-bottom: 5px;
+            color: var(--text-color);
+        }
+
+        .back-button {
+            display: inline-block;
+            margin-top: 30px;
+            padding: 12px 24px;
+            background-color: var(--primary-color);
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .back-button:hover {
+            background-color: #1d4ed8;
+            transform: translateY(-2px);
+        }
+
+        .back-button i {
+            margin-right: 8px;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 768px) {
+            .tips-container {
+                grid-template-columns: 1fr;
+            }
+
+            .privacy-item {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .privacy-item i {
+                margin-right: 0;
+                margin-bottom: 10px;
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <a href="/" class="logo">
+                <i class="bi bi-newspaper"></i>
+                <span>Media Credibility Index</span>
+            </a>
+            <ul class="navbar-links">
+                <li><a href="/" class="navbar-link">Home</a></li>
+                <li><a href="/feedback" class="navbar-link">Feedback</a></li>
+                <li><a href="/privacy" class="navbar-link">Privacy</a></li>
+                <li><a href="/terms" class="navbar-link">Terms</a></li>
             </ul>
-            <p>Whether you're a student researching for a paper, a professional needing reliable sources, or just a concerned citizen wanting to stay informed, our tool provides valuable insights to help you navigate the news landscape with confidence.</p>
         </div>
-    </div>
 
-    <div class="faq-item">
-        <div class="faq-question" onclick="toggleFAQ(this)">
-            <h3>How does the analysis process actually work?</h3>
-        </div>
-        <div class="faq-answer">
-            <p>Our analysis system uses a sophisticated multi-factor approach to evaluate news content. Here's what happens when you submit an article for analysis:</p>
-            <ol>
-                <li><strong>Source Reputation Check:</strong> We examine the historical reliability of the news source, including its track record for accuracy and fact-checking.</li>
-                <li><strong>Content Analysis:</strong> Our algorithms evaluate the writing style, language patterns, and structural elements that often indicate credibility.</li>
-                <li><strong>Factual Consistency:</strong> We cross-reference key claims with verified databases and other reliable sources to check for consistency.</li>
-                <li><strong>Bias Detection:</strong> Specialized algorithms identify potential political, commercial, or ideological biases in the reporting.</li>
-                <li><strong>Cross-Source Verification:</strong> We compare the article with reporting from other sources on the same topic to identify consensus or outliers.</li>
-            </ol>
-            <p>This comprehensive approach gives you a credibility score between 0-1, where higher scores indicate more reliable content. The analysis typically completes in just a few seconds!</p>
-        </div>
-    </div>
+        <div class="main-content">
+            <div class="faq-container">
+                <h1>Frequently Asked Questions</h1>
+                <p class="faq-intro">Here you'll find answers to the most common questions about our Media Credibility Index tool. If you don't find what you're looking for, please contact our support team.</p>
 
-    <div class="faq-item">
-        <div class="faq-question" onclick="toggleFAQ(this)">
-            <h3>How should I interpret the credibility scores?</h3>
-        </div>
-        <div class="faq-answer">
-            <p>Our credibility scoring system helps you quickly assess the reliability of news content. Here's how to understand the scores:</p>
-
-            <div class="credibility-scale">
-                <div class="scale-item high">
-                    <div class="scale-header">
-                        <span class="scale-range">0.8 - 1.0</span>
-                        <span class="scale-label">High Credibility</span>
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFAQ(this)">
+                        <h3>What exactly is the Media Credibility Index and how can it help me?</h3>
                     </div>
-                    <div class="scale-description">
-                        <p>These are our most trusted sources. Articles in this range typically come from:</p>
+                    <div class="faq-answer">
+                        <p>The Media Credibility Index is your personal assistant in navigating today's complex media landscape. Our advanced tool uses cutting-edge algorithms to analyze news articles and evaluate their reliability, helping you:</p>
                         <ul>
-                            <li>Established news organizations with strong fact-checking policies</li>
-                            <li>Sources with a long track record of accuracy</li>
-                            <li>Articles that are well-sourced with multiple verifications</li>
-                            <li>Content that shows minimal bias and balanced reporting</li>
+                            <li>Quickly assess the credibility of news sources</li>
+                            <li>Identify potential biases in reporting</li>
+                            <li>Understand the overall sentiment of articles</li>
+                            <li>Compare different sources on the same topic</li>
+                            <li>Make more informed decisions about what to read and trust</li>
                         </ul>
-                        <p>While still worth reading critically, these sources have demonstrated reliability.</p>
+                        <p>Whether you're a student researching for a paper, a professional needing reliable sources, or just a concerned citizen wanting to stay informed, our tool provides valuable insights to help you navigate the news landscape with confidence.</p>
                     </div>
                 </div>
 
-                <div class="scale-item medium">
-                    <div class="scale-header">
-                        <span class="scale-range">0.6 - 0.79</span>
-                        <span class="scale-label">Medium Credibility</span>
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFAQ(this)">
+                        <h3>How does the analysis process actually work?</h3>
                     </div>
-                    <div class="scale-description">
-                        <p>These sources are generally reliable but may have some issues:</p>
-                        <ul>
-                            <li>Might contain minor factual inaccuracies</li>
-                            <li>Could show some bias in reporting</li>
-                            <li>May lack complete sourcing for all claims</li>
-                            <li>Sometimes present opinions as facts</li>
-                        </ul>
-                        <p>We recommend verifying key claims from these articles with higher-credibility sources.</p>
+                    <div class="faq-answer">
+                        <p>Our analysis system uses a sophisticated multi-factor approach to evaluate news content. Here's what happens when you submit an article for analysis:</p>
+                        <ol>
+                            <li><strong>Source Reputation Check:</strong> We examine the historical reliability of the news source, including its track record for accuracy and fact-checking.</li>
+                            <li><strong>Content Analysis:</strong> Our algorithms evaluate the writing style, language patterns, and structural elements that often indicate credibility.</li>
+                            <li><strong>Factual Consistency:</strong> We cross-reference key claims with verified databases and other reliable sources to check for consistency.</li>
+                            <li><strong>Bias Detection:</strong> Specialized algorithms identify potential political, commercial, or ideological biases in the reporting.</li>
+                            <li><strong>Cross-Source Verification:</strong> We compare the article with reporting from other sources on the same topic to identify consensus or outliers.</li>
+                        </ol>
+                        <p>This comprehensive approach gives you a credibility score between 0-1, where higher scores indicate more reliable content. The analysis typically completes in just a few seconds!</p>
                     </div>
                 </div>
 
-                <div class="scale-item low">
-                    <div class="scale-header">
-                        <span class="scale-range">Below 0.6</span>
-                        <span class="scale-label">Low Credibility</span>
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFAQ(this)">
+                        <h3>How should I interpret the credibility scores?</h3>
                     </div>
-                    <div class="scale-description">
-                        <p>Exercise caution with these sources:</p>
-                        <ul>
-                            <li>Often contain significant factual errors</li>
-                            <li>Frequently show strong bias</li>
-                            <li>May present unverified claims as facts</li>
-                            <li>Sometimes mix opinion with news reporting</li>
-                        </ul>
-                        <p>We strongly recommend verifying all information from these sources with more reliable outlets.</p>
+                    <div class="faq-answer">
+                        <p>Our credibility scoring system helps you quickly assess the reliability of news content. Here's how to understand the scores:</p>
+                        <div class="credibility-scale">
+                            <div class="scale-item high">
+                                <div class="scale-header">
+                                    <span class="scale-range">0.8 - 1.0</span>
+                                    <span class="scale-label">High Credibility</span>
+                                </div>
+                                <div class="scale-description">
+                                    <p>These are our most trusted sources. Articles in this range typically come from:</p>
+                                    <ul>
+                                        <li>Established news organizations with strong fact-checking policies</li>
+                                        <li>Sources with a long track record of accuracy</li>
+                                        <li>Articles that are well-sourced with multiple verifications</li>
+                                        <li>Content that shows minimal bias and balanced reporting</li>
+                                    </ul>
+                                    <p>While still worth reading critically, these sources have demonstrated reliability.</p>
+                                </div>
+                            </div>
+
+                            <div class="scale-item medium">
+                                <div class="scale-header">
+                                    <span class="scale-range">0.6 - 0.79</span>
+                                    <span class="scale-label">Medium Credibility</span>
+                                </div>
+                                <div class="scale-description">
+                                    <p>These sources are generally reliable but may have some issues:</p>
+                                    <ul>
+                                        <li>Might contain minor factual inaccuracies</li>
+                                        <li>Could show some bias in reporting</li>
+                                        <li>May lack complete sourcing for all claims</li>
+                                        <li>Sometimes present opinions as facts</li>
+                                    </ul>
+                                    <p>We recommend verifying key claims from these articles with higher-credibility sources.</p>
+                                </div>
+                            </div>
+
+                            <div class="scale-item low">
+                                <div class="scale-header">
+                                    <span class="scale-range">Below 0.6</span>
+                                    <span class="scale-label">Low Credibility</span>
+                                </div>
+                                <div class="scale-description">
+                                    <p>Exercise caution with these sources:</p>
+                                    <ul>
+                                        <li>Often contain significant factual errors</li>
+                                        <li>Frequently show strong bias</li>
+                                        <li>May present unverified claims as facts</li>
+                                        <li>Sometimes mix opinion with news reporting</li>
+                                    </ul>
+                                    <p>We strongly recommend verifying all information from these sources with more reliable outlets.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <p>Remember that even high-credibility sources should be read critically, and all news should be considered in context with other reporting on the same topic.</p>
                     </div>
                 </div>
+
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFAQ(this)">
+                        <h3>How can I get the most out of this tool?</h3>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Here are some pro tips to maximize the value you get from our Media Credibility Index:</p>
+                        <div class="tips-container">
+                            <div class="tip-card">
+                                <h4>Compare Multiple Sources</h4>
+                                <p>Analyze articles from different outlets on the same topic to see how credibility scores vary. This helps identify consensus and outliers in reporting.</p>
+                            </div>
+                            <div class="tip-card">
+                                <h4>Check Over Time</h4>
+                                <p>Track how a particular source's credibility changes over time by analyzing multiple articles from the same outlet.</p>
+                            </div>
+                            <div class="tip-card">
+                                <h4>Use the Chart View</h4>
+                                <p>Our visualization tools help you quickly compare credibility across different sources and topics at a glance.</p>
+                            </div>
+                            <div class="tip-card">
+                                <h4>Combine with Other Tools</h4>
+                                <p>Use our analysis alongside fact-checking sites and media literacy resources for comprehensive verification.</p>
+                            </div>
+                            <div class="tip-card">
+                                <h4>Read Critically</h4>
+                                <p>Even high-scoring articles should be read with a critical eye. Look for sourcing, potential biases, and multiple viewpoints.</p>
+                            </div>
+                        </div>
+                        <p>For best results, we recommend analyzing at least 3-5 articles on any given topic to get a well-rounded perspective.</p>
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFAQ(this)">
+                        <h3>How does this tool protect my privacy?</h3>
+                    </div>
+                    <div class="faq-answer">
+                        <p>We take your privacy extremely seriously. Here's how we protect your information:</p>
+                        <div class="privacy-features">
+                            <div class="privacy-item">
+                                <i class="bi bi-shield-check"></i>
+                                <div class="privacy-text">
+                                    <h4>No Personal Data Collection</h4>
+                                    <p>We don't collect or store any personal information about our users. All analysis is completely anonymous.</p>
+                                </div>
+                            </div>
+                            <div class="privacy-item">
+                                <i class="bi bi-hdd"></i>
+                                <div class="privacy-text">
+                                    <h4>Local Storage Only</h4>
+                                    <p>Any analysis data is stored only in your browser's local storage and never sent to our servers unless you explicitly choose to share it.</p>
+                                </div>
+                            </div>
+                            <div class="privacy-item">
+                                <i class="bi bi-lock"></i>
+                                <div class="privacy-text">
+                                    <h4>Secure Connections</h4>
+                                    <p>All communications with our servers use encrypted HTTPS connections to protect your data in transit.</p>
+                                </div>
+                            </div>
+                            <div class="privacy-item">
+                                <i class="bi bi-trash"></i>
+                                <div class="privacy-text">
+                                    <h4>Easy Data Removal</h4>
+                                    <p>You can clear your local analysis history at any time with one click, removing all traces of your activity.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <p>We're committed to transparency about our data practices. You can read our full Privacy Policy for complete details about how we handle information.</p>
+                    </div>
+                </div>
+
+                <!-- Исправленная кнопка возврата на главную страницу -->
+                <a href="/" class="back-button">
+                    <i class="bi bi-arrow-left"></i> Back to Analysis
+                </a>
             </div>
-
-            <p>Remember that even high-credibility sources should be read critically, and all news should be considered in context with other reporting on the same topic.</p>
         </div>
     </div>
 
-    <div class="faq-item">
-        <div class="faq-question" onclick="toggleFAQ(this)">
-            <h3>How can I get the most out of this tool?</h3>
-        </div>
-        <div class="faq-answer">
-            <p>Here are some pro tips to maximize the value you get from our Media Credibility Index:</p>
+    <script>
+        // Функция для переключения FAQ элементов
+        function toggleFAQ(element) {
+            const faqItem = element.closest('.faq-item');
+            faqItem.classList.toggle('active');
+        }
 
-            <div class="tips-container">
-                <div class="tip-card">
-                    <h4>Compare Multiple Sources</h4>
-                    <p>Analyze articles from different outlets on the same topic to see how credibility scores vary. This helps identify consensus and outliers in reporting.</p>
-                </div>
+        // Функция для навигации
+        function navigateTo(url) {
+            window.location.href = url;
+        }
 
-                <div class="tip-card">
-                    <h4>Check Over Time</h4>
-                    <p>Track how a particular source's credibility changes over time by analyzing multiple articles from the same outlet.</p>
-                </div>
+        // Добавляем обработчики событий для всех ссылок
+        document.addEventListener('DOMContentLoaded', function() {
+            // Обработчики для навигационных ссылок
+            const navLinks = document.querySelectorAll('.navbar-link');
+            navLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const url = this.getAttribute('href');
+                    navigateTo(url);
+                });
+            });
 
-                <div class="tip-card">
-                    <h4>Use the Chart View</h4>
-                    <p>Our visualization tools help you quickly compare credibility across different sources and topics at a glance.</p>
-                </div>
+            // Обработчик для кнопки "Back"
+            const backButton = document.querySelector('.back-button');
+            if (backButton) {
+                backButton.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    navigateTo(this.getAttribute('href'));
+                });
+            }
+        });
+    </script>
+</body>
+</html>
 
-                <div class="tip-card">
-                    <h4>Combine with Other Tools</h4>
-                    <p>Use our analysis alongside fact-checking sites and media literacy resources for comprehensive verification.</p>
-                </div>
-
-                <div class="tip-card">
-                    <h4>Read Critically</h4>
-                    <p>Even high-scoring articles should be read with a critical eye. Look for sourcing, potential biases, and multiple viewpoints.</p>
-                </div>
-            </div>
-
-            <p>For best results, we recommend analyzing at least 3-5 articles on any given topic to get a well-rounded perspective.</p>
-        </div>
-    </div>
-
-    <div class="faq-item">
-        <div class="faq-question" onclick="toggleFAQ(this)">
-            <h3>How does this tool protect my privacy?</h3>
-        </div>
-        <div class="faq-answer">
-            <p>We take your privacy extremely seriously. Here's how we protect your information:</p>
-
-            <div class="privacy-features">
-                <div class="privacy-item">
-                    <i class="bi bi-shield-check"></i>
-                    <div class="privacy-text">
-                        <h4>No Personal Data Collection</h4>
-                        <p>We don't collect or store any personal information about our users. All analysis is completely anonymous.</p>
-                    </div>
-                </div>
-
-                <div class="privacy-item">
-                    <i class="bi bi-hdd"></i>
-                    <div class="privacy-text">
-                        <h4>Local Storage Only</h4>
-                        <p>Any analysis data is stored only in your browser's local storage and never sent to our servers unless you explicitly choose to share it.</p>
-                    </div>
-                </div>
-
-                <div class="privacy-item">
-                    <i class="bi bi-lock"></i>
-                    <div class="privacy-text">
-                        <h4>Secure Connections</h4>
-                        <p>All communications with our servers use encrypted HTTPS connections to protect your data in transit.</p>
-                    </div>
-                </div>
-
-                <div class="privacy-item">
-                    <i class="bi bi-trash"></i>
-                    <div class="privacy-text">
-                        <h4>Easy Data Removal</h4>
-                        <p>You can clear your local analysis history at any time with one click, removing all traces of your activity.</p>
-                    </div>
-                </div>
-            </div>
-
-            <p>We're committed to transparency about our data practices. You can read our full Privacy Policy for complete details about how we handle information.</p>
-        </div>
-    </div>
-
-    <a href="index.html" class="back-button">
-        <i class="bi bi-arrow-left"></i> Back to Analysis
-    </a>
-</div>
-
-<style>
-    .faq-container {
-        background: white;
-        border-radius: 8px;
-        padding: 30px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        margin-top: 20px;
-    }
-
-    .faq-intro {
-        margin-bottom: 30px;
-        color: #4b5563;
-        font-size: 1.1rem;
-    }
-
-    .faq-item {
-        margin-bottom: 20px;
-        border-bottom: 1px solid #e2e8f0;
-        padding-bottom: 20px;
-    }
-
-    .faq-question {
-        font-size: 1.2rem;
-        font-weight: 600;
-        margin-bottom: 10px;
-        cursor: pointer;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        color: #1f2937;
-        padding: 10px;
-        border-radius: 6px;
-        transition: background-color 0.2s;
-    }
-
-    .faq-question:hover {
-        background-color: #f8fafc;
-    }
-
-    .faq-question::after {
-        content: "+";
-        font-size: 1.3rem;
-        font-weight: bold;
-        color: #2563eb;
-        margin-left: 10px;
-    }
-
-    .faq-item.active .faq-question::after {
-        content: "−";
-    }
-
-    .faq-answer {
-        margin-top: 15px;
-        padding: 15px;
-        background-color: #f8fafc;
-        border-radius: 6px;
-        animation: fadeIn 0.3s ease-in-out;
-    }
-
-    .faq-answer p {
-        margin-bottom: 15px;
-        line-height: 1.6;
-    }
-
-    .faq-answer ul, .faq-answer ol {
-        margin: 15px 0 15px 20px;
     }
 
     .faq-answer li {
