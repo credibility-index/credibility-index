@@ -614,8 +614,8 @@ def analyze_article():
                 return jsonify({
                     'status': 'error',
                     'message': 'Invalid URL format',
-                    'details
-                }}, 400
+                    'details': 'URL must start with http:// or https:// and contain a valid domain'
+                }), 400
         elif len(input_text) < 50:
             return jsonify({
                 'status': 'error',
@@ -642,7 +642,11 @@ def analyze_article():
                     'message': f"Failed to extract content from URL: {error}",
                     'source': source,
                     'title': title,
-                    'input_text': input_text
+                    'input_text': input_text,
+                    'fallback_data': {
+                        'similar_articles': news_api._get_fallback_articles("technology", 3),
+                        'credibility_level': 'Medium'
+                    }
                 }), 400
         else:
             content = input_text
