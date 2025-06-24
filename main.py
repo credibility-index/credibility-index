@@ -12,6 +12,20 @@ import anthropic
 from newspaper import Article, Config
 from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Rimport os
+import sys
+import logging
+from pathlib import Path
+import re
+import json
+from datetime import datetime
+from urllib.parse import urlparse
+from flask import Flask, request, jsonify, render_template
+from flask_cors import CORS
+import anthropic
+from newspaper import Article, Config
+from bs4 import BeautifulSoup
+from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
@@ -22,6 +36,17 @@ from typing import Optional, List, Dict, Any, Tuple
 
 # Инициализация приложения Flask
 app = Flask(__name__, static_folder='static', template_folder='templates')
+
+# Настройка приложения
+app.config.update(
+    SECRET_KEY=os.getenv('FLASK_SECRET_KEY', 'your-secret-key-here'),
+    CELERY_BROKER_URL=os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0'),
+    CELERY_RESULT_BACKEND=os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
+)
+
+# Инициализация Celery
+celery = Celery(app.name, broker=app.config['CELERY_BROKER_URL'])
+celery.conf.update(app.config)
 
 # Глобальные переменные
 analysis_history = []
@@ -71,7 +96,7 @@ class NewsAPI:
         """
         Получает статьи по запросу из NewsAPI.
         """
-        url = f"{self.endpoint}/everything"  # Исправлено: убран /top-headlines
+        url = f"{self.endpoint}/everything"
         params = {
             'q': query,
             'pageSize': page_size,
