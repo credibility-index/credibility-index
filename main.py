@@ -21,15 +21,13 @@ from pydantic import BaseModel, ValidationError, HttpUrl
 from typing import Optional, Dict, Any, List
 from functools import wraps
 import time
-from news_api import NewsAPI
-
-# Добавляем текущую директорию в путь Python
-sys.path.append(str(Path(__file__).parent))
-
-# Импортируем наши модули
 from claude_api import ClaudeAPI
 from news_api import NewsAPI
 from cache import CacheManager
+# Добавляем текущую директорию в путь Python
+sys.path.append(str(Path(__file__).parent))
+
+
 
 # Инициализация Sentry
 if os.getenv('SENTRY_DSN'):
