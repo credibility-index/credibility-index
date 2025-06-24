@@ -12,7 +12,8 @@ import anthropic
 from newspaper import Article, Config
 from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Rimport os
+from urllib3.util.retry import R
+import os
 import sys
 import logging
 from pathlib import Path
