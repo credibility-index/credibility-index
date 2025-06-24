@@ -12,7 +12,7 @@ import anthropic
 from newspaper import Article, Config
 from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
-from urllib3.util.retry import R
+from urllib3.util.retry import Retry
 import os
 import sys
 import logging
