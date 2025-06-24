@@ -21,6 +21,7 @@ from pydantic import BaseModel, ValidationError, HttpUrl
 from typing import Optional, Dict, Any, List
 from functools import wraps
 import time
+from news_api import NewsAPI
 
 # Добавляем текущую директорию в путь Python
 sys.path.append(str(Path(__file__).parent))
