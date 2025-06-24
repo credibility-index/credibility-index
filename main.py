@@ -8,6 +8,10 @@ from datetime import datetime
 from urllib.parse import urlparse
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
+from flask_talisman import Talisman
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from flask_caching import Cache
 import anthropic
 from newspaper import Article, Config
 from bs4 import BeautifulSoup
@@ -24,13 +28,60 @@ from claude_api import ClaudeAPI  # Предполагается, что это�
 
 # Инициализация приложения Flask
 app = Flask(__name__, static_folder='static', template_folder='templates')
+# Конфигурация кэша
+app.config['CACHE_TYPE'] = os.getenv('CACHE_TYPE', 'SimpleCache')
+cache = Cache(app)
 
+# Настройка Talisman
+Talisman(app,
+         content_security_policy={
+             'default-src': "'self'",
+             'script-src': ["'self'", "'unsafe-inline'"],
+             'style-src': ["'self'", "'unsafe-inline'"],
+             'img-src': ["'self'", "data:"]
+         })
+
+# Настройка ограничения запросов
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri=os.getenv('RATELIMIT_STORAGE_URL', 'memory://')
+)
+
+# Добавьте декоратор кэширования для статических страниц
+from flask_caching import Cache
+
+cache = Cache(app, config={'CACHE_TYPE': 'SimpleCache'})
+@app.route('/faq')
+@cache.cached(timeout=3600)  # Кэшировать на 1 час
+def faq():
+    return render_template('faq.html')
 # Настройка приложения
 app.config.update(
     SECRET_KEY=os.getenv('FLASK_SECRET_KEY', 'your-secret-key-here'),
     CELERY_BROKER_URL=os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0'),
     CELERY_RESULT_BACKEND=os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
 )
+@app.route('/feedback')
+def feedback():
+    return render_template('feedback.html')
+
+
+@app.route('/privacy')
+def privacy():
+    return render_template('privacy.html')
+
+@app.route('/terms')
+def terms():
+    return render_template('terms.html')
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template('404.html'), 404
+
+@app.errorhandler(500)
+def internal_server_error(e):
+    return render_template('500.html'), 500
 
 # Инициализация Celery
 celery = Celery(app.name, broker=app.config['CELERY_BROKER_URL'])
