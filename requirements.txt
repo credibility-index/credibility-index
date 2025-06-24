@@ -20,7 +20,8 @@ pydantic==1.10.13
 urllib3==2.0.4
 redis==4.6.0
 flask-talisman==1.0.0
-
+flask-limiter==3.3.0
+flask-caching==2.1.2
 
 
 
