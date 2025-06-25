@@ -135,9 +135,17 @@
         .chart-container {
             position: relative;
             width: 100%;
-            height: 450px;
+            height: 500px;
             margin-bottom: 20px;
+            overflow: visible;
+        }
+
+        .chart-wrapper {
+            width: 100%;
+            height: 100%;
             overflow-x: auto;
+            overflow-y: hidden;
+            padding-bottom: 20px;
         }
 
         .chart-title {
@@ -147,18 +155,6 @@
             font-weight: 600;
             text-align: center;
             position: relative;
-        }
-
-        .chart-title::after {
-            content: '';
-            position: absolute;
-            bottom: -10px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 60px;
-            height: 3px;
-            background: linear-gradient(90deg, #4361ee, #3a0ca3);
-            border-radius: 3px;
         }
 
         .chart-update-btn {
@@ -179,10 +175,6 @@
         .chart-update-btn:hover {
             transform: translateY(-3px);
             box-shadow: 0 6px 20px rgba(67, 97, 238, 0.4);
-        }
-
-        .chart-update-btn i {
-            margin-right: 8px;
         }
 
         .chart-legend {
@@ -473,12 +465,10 @@
                 grid-template-columns: 1fr;
             }
 
-            .navbar-links {
-                display: none;
-            }
-
             .chart-container {
-                height: 350px;
+                height: 400px;
+                width: 100%;
+                overflow-x: auto;
             }
 
             .analysis-section, .sidebar {
@@ -495,10 +485,10 @@
                 <span class="logo-text">Media Credibility Index</span>
             </a>
             <ul class="navbar-links">
-                <li><a href="/faq" class="navbar-link">FAQ</a></li>
-                <li><a href="/feedback" class="navbar-link">Feedback</a></li>
-                <li><a href="/privacy" class="navbar-link">Privacy</a></li>
-                <li><a href="/terms" class="navbar-link">Terms</a></li>
+                <li><a href="/faq.html" class="navbar-link">FAQ</a></li>
+                <li><a href="/feedback.html" class="navbar-link">Feedback</a></li>
+                <li><a href="/privacy.html" class="navbar-link">Privacy</a></li>
+                <li><a href="/terms.html" class="navbar-link">Terms</a></li>
             </ul>
         </div>
 
@@ -528,8 +518,10 @@
             <div class="sidebar">
                 <div class="glass-panel">
                     <h2 class="chart-title"><i class="bi bi-newspaper"></i> Source Credibility Comparison</h2>
-                    <div class="chart-container">
-                        <canvas id="chart"></canvas>
+                    <div class="chart-wrapper">
+                        <div class="chart-container">
+                            <canvas id="chart"></canvas>
+                        </div>
                     </div>
                     <button onclick="updateChart()" class="chart-update-btn">
                         <i class="bi bi-arrow-clockwise"></i>
@@ -554,7 +546,7 @@
                 <div class="similar-articles">
                     <h2><i class="bi bi-link-45deg"></i> Similar Articles</h2>
                     <div class="similar-article">
-                        <h3>Global News Trends Analysis</h3>
+                        <h3><a href="https://www.bbc.com/news" target="_blank" style="color: var(--primary-color); text-decoration: none;">Global News Trends Analysis</a></h3>
                         <div class="article-meta">
                             <span><i class="bi bi-newspaper"></i> BBC News</span>
                             <span class="credibility-badge high"><i class="bi bi-shield-check"></i> High</span>
@@ -562,7 +554,7 @@
                         <p>Comprehensive analysis of current global news trends and their credibility patterns.</p>
                     </div>
                     <div class="similar-article">
-                        <h3>Media Bias in Political Reporting</h3>
+                        <h3><a href="https://www.theguardian.com/us" target="_blank" style="color: var(--primary-color); text-decoration: none;">Media Bias in Political Reporting</a></h3>
                         <div class="article-meta">
                             <span><i class="bi bi-newspaper"></i> The Guardian</span>
                             <span class="credibility-badge medium"><i class="bi bi-shield-check"></i> Medium</span>
@@ -570,7 +562,7 @@
                         <p>Examination of potential biases in political news coverage across major outlets.</p>
                     </div>
                     <div class="similar-article">
-                        <h3>Digital Media Landscape</h3>
+                        <h3><a href="https://www.reuters.com/" target="_blank" style="color: var(--primary-color); text-decoration: none;">Digital Media Landscape</a></h3>
                         <div class="article-meta">
                             <span><i class="bi bi-newspaper"></i> Reuters</span>
                             <span class="credibility-badge high"><i class="bi bi-shield-check"></i> High</span>
@@ -615,8 +607,9 @@
 
             resize() {
                 const container = this.canvas.parentElement;
-                this.canvas.width = container.clientWidth;
-                this.canvas.height = container.clientHeight;
+                const wrapper = container.parentElement;
+                this.canvas.width = Math.max(800, wrapper.clientWidth);
+                this.canvas.height = 500;
             }
 
             render() {
@@ -668,6 +661,17 @@
                     ctx.textAlign = 'right';
                     ctx.fillText(i.toFixed(1), padding - 10, y + 5);
                 }
+
+                // Подписи оси X
+                const dataset = this.data.datasets[0];
+                dataset.data.forEach((value, index) => {
+                    const x = padding + index * (barWidth + 15) + barWidth / 2;
+                    const y = height - padding + 20;
+                    ctx.fillStyle = '#6b7280';
+                    ctx.font = '10px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(this.data.labels[index], x, y);
+                });
             }
 
             drawBars(ctx, width, height, padding, barWidth) {
@@ -696,13 +700,15 @@
 
             drawBarLabels(ctx, width, height, padding, barWidth) {
                 const dataset = this.data.datasets[0];
-                const labels = this.data.labels;
+                const labels = this.data.labels || [];
 
                 ctx.fillStyle = '#000';
                 ctx.font = '10px Arial';
                 ctx.textAlign = 'center';
 
                 dataset.data.forEach((value, index) => {
+                    if (!labels[index]) return;
+
                     const x = padding + index * (barWidth + 15) + barWidth / 2;
                     const y = height - padding + 20;
 
@@ -727,6 +733,39 @@
                 this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
             }
         }
+
+        // Локальные стили для иконок
+        document.addEventListener('DOMContentLoaded', function() {
+            // Иконки для навигации
+            const navLinks = document.querySelectorAll('.navbar-link');
+            navLinks.forEach(link => {
+                const icon = document.createElement('i');
+                icon.className = 'bi';
+
+                if (link.textContent.includes('FAQ')) {
+                    icon.className += ' bi-question-circle';
+                    icon.textContent = '❓';
+                } else if (link.textContent.includes('Feedback')) {
+                    icon.className += ' bi-chat-left-text';
+                    icon.textContent = '💬';
+                } else if (link.textContent.includes('Privacy')) {
+                    icon.className += ' bi-shield-lock';
+                    icon.textContent = '🔒';
+                } else if (link.textContent.includes('Terms')) {
+                    icon.className += ' bi-file-earmark-text';
+                    icon.textContent = '📄';
+                }
+
+                icon.style.marginRight = '5px';
+                link.prepend(icon);
+            });
+
+            // Иконки для статей
+            const articleIcons = document.querySelectorAll('.similar-article i.bi-newspaper');
+            articleIcons.forEach(icon => {
+                icon.textContent = '📰';
+            });
+        });
 
         // Глобальные переменные
         let chartInstance = null;
@@ -1009,17 +1048,11 @@
             navLinks.forEach(link => {
                 link.addEventListener('click', function(e) {
                     e.preventDefault();
-                    const page = this.getAttribute('href').substring(1);
-                    loadPage(page);
+                    const page = this.getAttribute('href');
+                    window.location.href = page;
                 });
             });
         });
-
-        // Функция для загрузки страниц
-        function loadPage(page) {
-            // В реальном приложении здесь будет загрузка соответствующей страницы
-            alert(`Loading ${page} page...`);
-        }
 
         // Функция для показа начального модального окна
         function showInitialPermissionModal() {
