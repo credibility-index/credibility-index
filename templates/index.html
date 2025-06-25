@@ -22,8 +22,6 @@
 --warning-color: #f8961e;
 --danger-color: #f72585;
 }
-
-/* Локальные стили для иконок */
 .bi {
 display: inline-block;
 font-style: normal;
@@ -44,13 +42,11 @@ line-height: 1;
 .bi-chat-left-text:before { content: "💬"; }
 .bi-shield-lock:before { content: "🔒"; }
 .bi-file-earmark-text:before { content: "📄"; }
-
 * {
 margin: 0;
 padding: 0;
 box-sizing: border-box;
 }
-
 body {
 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
 background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
@@ -59,19 +55,16 @@ line-height: 1.6;
 min-height: 100vh;
 padding: 20px;
 }
-
 .container {
 max-width: 1200px;
 margin: 0 auto;
 }
-
 .header {
 display: flex;
 justify-content: space-between;
 align-items: center;
 margin-bottom: 30px;
 }
-
 .logo {
 font-size: 1.8rem;
 font-weight: 700;
@@ -81,7 +74,6 @@ align-items: center;
 gap: 10px;
 color: var(--primary-color);
 }
-
 .logo-text {
 color: var(--primary-color);
 background: linear-gradient(90deg, #4361ee, #3a0ca3);
@@ -89,13 +81,11 @@ background: linear-gradient(90deg, #4361ee, #3a0ca3);
 background-clip: text;
 -webkit-text-fill-color: transparent;
 }
-
 .navbar-links {
 display: flex;
 gap: 20px;
 list-style: none;
 }
-
 .navbar-link {
 color: var(--text-color);
 text-decoration: none;
@@ -106,11 +96,9 @@ padding: 5px 0;
 display: flex;
 align-items: center;
 }
-
 .navbar-link:hover {
 color: var(--primary-color);
 }
-
 .navbar-link::after {
 content: '';
 position: absolute;
@@ -121,32 +109,27 @@ height: 2px;
 background: var(--primary-color);
 transition: width 0.3s ease;
 }
-
 .navbar-link:hover::after {
 width: 100%;
 }
-
 .main-content {
 display: grid;
 grid-template-columns: 2fr 1fr;
 gap: 30px;
 margin-top: 20px;
 }
-
 .analysis-section {
 background: white;
 border-radius: var(--border-radius);
 padding: 30px;
 box-shadow: var(--box-shadow);
 }
-
 .sidebar {
 width: 350px;
 display: flex;
 flex-direction: column;
 gap: 30px;
 }
-
 .glass-panel {
 background: var(--glass-effect);
 backdrop-filter: blur(12px);
@@ -156,25 +139,21 @@ border: 1px solid var(--glass-border);
 box-shadow: var(--glass-shadow);
 padding: 20px;
 }
-
 .chart-section {
 width: 100%;
 overflow: hidden;
 }
-
 .chart-scroll-container {
 width: 100%;
 overflow-x: auto;
 overflow-y: hidden;
 padding-bottom: 10px;
 }
-
 .chart-container {
 width: 1000px;
 height: 400px;
 min-width: 100%;
 }
-
 .chart-title {
 color: var(--text-color);
 margin-bottom: 20px;
@@ -183,7 +162,6 @@ font-weight: 600;
 text-align: center;
 position: relative;
 }
-
 .chart-update-btn {
 background: linear-gradient(135deg, #4361ee, #3a0ca3);
 color: white;
@@ -198,16 +176,13 @@ margin: 20px auto 0;
 display: block;
 font-size: 0.9rem;
 }
-
 .chart-update-btn:hover {
 transform: translateY(-3px);
 box-shadow: 0 6px 20px rgba(67, 97, 238, 0.4);
 }
-
 .chart-update-btn i {
 margin-right: 8px;
 }
-
 .chart-legend {
 display: flex;
 justify-content: center;
@@ -215,25 +190,21 @@ flex-wrap: wrap;
 gap: 15px;
 margin-top: 20px;
 }
-
 .legend-item {
 display: flex;
 align-items: center;
 gap: 8px;
 font-size: 0.8rem;
 }
-
 .legend-color {
 width: 14px;
 height: 14px;
 border-radius: 3px;
 }
-
 .legend-text {
 color: var(--text-color);
 font-weight: 500;
 }
-
 .btn {
 border: none;
 padding: 10px 20px;
@@ -243,38 +214,32 @@ font-weight: 600;
 transition: all 0.3s ease;
 font-size: 0.9rem;
 }
-
 .btn-black {
 background: linear-gradient(135deg, #2b2d42, #1a1b2e);
 color: white;
 box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
-
 .btn-black:hover {
 background: linear-gradient(135deg, #1a1b2e, #0a0b1a);
 transform: translateY(-2px);
 box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
 }
-
 .article-header {
 margin-bottom: 20px;
 padding-bottom: 15px;
 border-bottom: 1px solid var(--border-color);
 }
-
 .article-title {
 font-size: 1.5rem;
 margin-bottom: 10px;
 color: var(--text-color);
 }
-
 .article-meta {
 display: flex;
 gap: 10px;
 color: #6b7280;
 font-size: 0.8rem;
 }
-
 .credibility-badge {
 padding: 3px 8px;
 border-radius: 20px;
@@ -284,36 +249,30 @@ display: inline-flex;
 align-items: center;
 gap: 5px;
 }
-
 .credibility-badge.high {
 background-color: rgba(76, 201, 240, 0.2);
 color: var(--high-credibility);
 border: 1px solid rgba(76, 201, 240, 0.3);
 }
-
 .credibility-badge.medium {
 background-color: rgba(67, 97, 238, 0.2);
 color: var(--medium-credibility);
 border: 1px solid rgba(67, 97, 238, 0.3);
 }
-
 .credibility-badge.low {
 background-color: rgba(248, 150, 30, 0.2);
 color: var(--low-credibility);
 border: 1px solid rgba(248, 150, 30, 0.3);
 }
-
 .analysis-content {
 margin: 20px 0;
 }
-
 .scores-grid {
 display: grid;
 grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
 gap: 15px;
 margin: 20px 0;
 }
-
 .score-card {
 background: var(--secondary-color);
 padding: 15px;
@@ -321,28 +280,23 @@ border-radius: var(--border-radius);
 text-align: center;
 box-shadow: 0 2px 10px rgba(0,0,0,0.05);
 }
-
 .score-value {
 font-size: 1.4rem;
 font-weight: 700;
 margin: 5px 0;
 color: var(--primary-color);
 }
-
 .score-description {
 font-size: 0.8rem;
 color: #6b7280;
 font-weight: 500;
 }
-
 .analysis-form {
 margin-top: 20px;
 }
-
 .form-group {
 margin-bottom: 15px;
 }
-
 .form-control {
 width: 100%;
 padding: 12px;
@@ -353,13 +307,11 @@ resize: vertical;
 font-family: inherit;
 font-size: 0.9rem;
 }
-
 .form-control:focus {
 outline: none;
 border-color: var(--primary-color);
 box-shadow: 0 0 0 2px rgba(67, 97, 238, 0.2);
 }
-
 .similar-articles {
 background: white;
 border-radius: var(--border-radius);
@@ -367,7 +319,6 @@ padding: 20px;
 box-shadow: var(--box-shadow);
 margin-top: 20px;
 }
-
 .similar-articles h2 {
 color: var(--text-color);
 margin-bottom: 15px;
@@ -376,7 +327,6 @@ display: flex;
 align-items: center;
 gap: 8px;
 }
-
 .similar-article {
 padding: 15px;
 margin-bottom: 15px;
@@ -385,30 +335,25 @@ border-radius: var(--border-radius);
 background: var(--secondary-color);
 transition: all 0.3s ease;
 }
-
 .similar-article:hover {
 transform: translateY(-3px);
 box-shadow: 0 3px 10px rgba(0,0,0,0.1);
 }
-
 .article-link {
 color: inherit;
 text-decoration: none;
 transition: color 0.3s ease;
 display: block;
 }
-
 .article-link:hover {
 color: var(--primary-color);
 text-decoration: underline;
 }
-
 .similar-article p {
 color: var(--text-color);
 font-size: 0.8rem;
 line-height: 1.4;
 }
-
 .analysis-history {
 background: white;
 border-radius: var(--border-radius);
@@ -416,7 +361,6 @@ padding: 20px;
 box-shadow: var(--box-shadow);
 margin-top: 20px;
 }
-
 .analysis-history h2 {
 color: var(--text-color);
 margin-bottom: 15px;
@@ -425,7 +369,6 @@ display: flex;
 align-items: center;
 gap: 8px;
 }
-
 .history-item {
 padding: 10px;
 margin-bottom: 10px;
@@ -435,11 +378,9 @@ justify-content: space-between;
 align-items: center;
 font-size: 0.8rem;
 }
-
 .history-item:hover {
 background: rgba(67, 97, 238, 0.05);
 }
-
 .history-score {
 font-weight: 600;
 color: var(--primary-color);
@@ -448,12 +389,10 @@ padding: 2px 6px;
 border-radius: 20px;
 font-size: 0.7rem;
 }
-
 .history-date {
 color: #6b7280;
 font-size: 0.7rem;
 }
-
 .loading {
 text-align: center;
 padding: 20px;
@@ -462,7 +401,6 @@ flex-direction: column;
 align-items: center;
 gap: 10px;
 }
-
 .spinner {
 border: 2px solid rgba(67, 97, 238, 0.2);
 border-radius: 50%;
@@ -471,12 +409,10 @@ width: 30px;
 height: 30px;
 animation: spin 1s linear infinite;
 }
-
 @keyframes spin {
 0% { transform: rotate(0deg); }
 100% { transform: rotate(360deg); }
 }
-
 .footer {
 background-color: white;
 padding: 20px 0;
@@ -486,7 +422,6 @@ color: #6b7280;
 font-size: 0.8rem;
 border-top: 1px solid var(--border-color);
 }
-
 @media (max-width: 768px) {
 .main-content {
 grid-template-columns: 1fr;
@@ -512,7 +447,6 @@ height: 300px;
 <i class="bi bi-newspaper"></i>
 <span class="logo-text">Media Credibility Index</span>
 </a>
-
 <nav>
 <ul class="navbar-links">
 <li><a href="{{ url_for('faq') }}" class="navbar-link">FAQ</a></li>
@@ -577,44 +511,36 @@ height: 300px;
 <div class="similar-articles">
 <h2><i class="bi bi-link-45deg"></i> Related News Articles</h2>
 <div class="similar-article">
-<h3><a href="https://www.bbc.com/news/world-middle-east-68002752" target="_blank" class="article-link">Israel-Iran tensions: What's behind the recent escalation?</a></h3>
+<h3><a href="https://www.bbc.com/news/articles/cy7nxgzlpllo" target="_blank" class="article-link">Israel-Iran conflict: Latest developments and analysis</a></h3>
 <div class="article-meta">
 <span><i class="bi bi-newspaper"></i> BBC News</span>
 <span class="credibility-badge high"><i class="bi bi-shield-check"></i> High</span>
 </div>
-<p>Analysis of the recent escalation between Israel and Iran and its potential consequences for the region.</p>
+<p>The ongoing conflict between Israel and Iran continues to escalate, with both sides exchanging military strikes. This article provides the latest updates on the situation, including international reactions and potential consequences for regional stability in the Middle East.</p>
 </div>
 <div class="similar-article">
-<h3><a href="https://www.theguardian.com/media/2024/feb/22/press-freedom-under-threat-as-journalists-face-growing-hostility-worldwide" target="_blank" class="article-link">Press freedom under threat as journalists face growing hostility worldwide</a></h3>
+<h3><a href="https://complexdiscovery.com/from-estonias-rise-to-u-s-decline-mapping-the-2025-press-freedom-index/" target="_blank" class="article-link">From Estonia's Rise to U.S. Decline: Mapping the 2025 Press Freedom Index</a></h3>
 <div class="article-meta">
-<span><i class="bi bi-newspaper"></i> The Guardian</span>
+<span><i class="bi bi-newspaper"></i> Complex Discovery</span>
 <span class="credibility-badge high"><i class="bi bi-shield-check"></i> High</span>
 </div>
-<p>Report on the increasing threats to press freedom and the challenges journalists face globally.</p>
+<p>The 2025 Press Freedom Index reveals significant shifts in global media landscapes. While Estonia continues to improve its press freedom rankings, the United States shows concerning declines. This analysis examines the factors behind these trends and their implications for democracy and journalism worldwide.</p>
 </div>
 <div class="similar-article">
-<h3><a href="https://www.reuters.com/world/europe/eu-approves-landmark-ai-rules-2024-03-13/" target="_blank" class="article-link">EU approves landmark AI rules</a></h3>
+<h3><a href="https://www.reuters.com/sustainability/us-announces-policy-changes-offshore-mineral-development-2025-06-25/" target="_blank" class="article-link">US announces policy changes for offshore mineral development</a></h3>
 <div class="article-meta">
 <span><i class="bi bi-newspaper"></i> Reuters</span>
 <span class="credibility-badge high"><i class="bi bi-shield-check"></i> High</span>
 </div>
-<p>European Union approves comprehensive regulations on artificial intelligence, setting global standards.</p>
+<p>The U.S. government has announced significant policy changes regarding offshore mineral development. These new regulations aim to balance economic interests with environmental protection, potentially reshaping the country's approach to marine resource extraction and sustainability efforts.</p>
 </div>
 <div class="similar-article">
-<h3><a href="https://www.nytimes.com/2024/03/14/world/middleeast/iran-israel-attack.html" target="_blank" class="article-link">How Iran's Attack on Israel Could Reshape the Middle East</a></h3>
+<h3><a href="https://www.aljazeera.com/news/2025/6/25/why-iran-conflict-has-raised-new-questions-about-iaeas-credibility" target="_blank" class="article-link">Iran conflict raises questions about IAEA's credibility</a></h3>
 <div class="article-meta">
-<span><i class="bi bi-newspaper"></i> The New York Times</span>
+<span><i class="bi bi-newspaper"></i> Al Jazeera</span>
 <span class="credibility-badge high"><i class="bi bi-shield-check"></i> High</span>
 </div>
-<p>Analysis of potential consequences of Iran's attack on Israel for regional stability.</p>
-</div>
-<div class="similar-article">
-<h3><a href="https://www.dw.com/en/press-freedom-under-pressure-in-europe/a-68554301" target="_blank" class="article-link">Press freedom under pressure in Europe</a></h3>
-<div class="article-meta">
-<span><i class="bi bi-newspaper"></i> Deutsche Welle</span>
-<span class="credibility-badge high"><i class="bi bi-shield-check"></i> High</span>
-</div>
-<p>Report on the challenges to media freedom in European countries and the growing threats to journalists.</p>
+<p>The ongoing conflict involving Iran has brought new scrutiny to the International Atomic Energy Agency's role and credibility. This article examines how recent events have challenged perceptions of the IAEA's effectiveness and neutrality in monitoring nuclear activities in the region.</p>
 </div>
 </div>
 <div class="analysis-history">
@@ -667,16 +593,12 @@ const data = this.data;
 const width = this.canvas.width;
 const height = this.canvas.height;
 const padding = 40;
-
 // Очистка canvas
 ctx.clearRect(0, 0, width, height);
-
 // Рисование осей
 this.drawAxes(ctx, width, height, padding);
-
 // Рисование столбцов
 this.drawBars(ctx, width, height, padding);
-
 // Рисование подписей к столбцам
 this.drawBarLabels(ctx, width, height, padding);
 }
@@ -688,7 +610,6 @@ ctx.lineTo(width - padding, height - padding);
 ctx.strokeStyle = '#e0e0e0';
 ctx.lineWidth = 1;
 ctx.stroke();
-
 // Ось Y
 ctx.beginPath();
 ctx.moveTo(padding, padding);
@@ -696,7 +617,6 @@ ctx.lineTo(padding, height - padding);
 ctx.strokeStyle = '#e0e0e0';
 ctx.lineWidth = 1;
 ctx.stroke();
-
 // Подписи оси Y
 for (let i = 0; i <= 1; i += 0.2) {
 const y = height - padding - i * (height - 2 * padding);
@@ -712,16 +632,13 @@ dataset.data.forEach((value, index) => {
 const barHeight = value * (height - 2 * padding);
 const x = padding + index * (this.barWidth + 10);
 const y = height - padding - barHeight;
-
 // Рисование столбца
 ctx.fillStyle = dataset.backgroundColor[index];
 ctx.fillRect(x, y, this.barWidth, barHeight);
-
 // Рисование границы
 ctx.strokeStyle = dataset.borderColor[index];
 ctx.lineWidth = 1;
 ctx.strokeRect(x, y, this.barWidth, barHeight);
-
 // Подпись значения
 ctx.fillStyle = '#000';
 ctx.font = '10px Arial';
@@ -758,11 +675,9 @@ destroy() {
 this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 }
 }
-
 // Глобальные переменные
 let chartInstance = null;
 let analysisHistory = [];
-
 // Данные для графика с 20 источниками
 const defaultChartData = {
 labels: [
@@ -797,17 +712,14 @@ borderColor: [
 borderWidth: 1
 }]
 };
-
 // Функция для инициализации графика
 function initChart() {
 const canvas = document.getElementById('chart');
 const ctx = canvas.getContext('2d');
-
 // Удаляем старый график, если он существует
 if (chartInstance) {
 chartInstance.destroy();
 }
-
 chartInstance = new SimpleChart(ctx, {
 type: 'bar',
 data: defaultChartData,
@@ -817,11 +729,9 @@ maintainAspectRatio: false
 }
 });
 }
-
 // Функция для обновления графика
 function updateChart() {
 if (!chartInstance) return;
-
 // Показываем индикатор загрузки
 const container = document.querySelector('.chart-scroll-container');
 const loadingHTML = `
@@ -836,7 +746,6 @@ transform: translate(-50%, -50%);
 </div>
 `;
 container.insertAdjacentHTML('afterbegin', loadingHTML);
-
 // Имитация задержки сети
 setTimeout(() => {
 // Удаляем индикатор загрузки
@@ -844,18 +753,15 @@ const loadingElement = container.querySelector('.loading');
 if (loadingElement) {
 loadingElement.remove();
 }
-
 // Генерируем новые случайные данные
 const updatedData = defaultChartData.datasets[0].data.map(score => {
 return Math.min(1, Math.max(0, score + (Math.random() - 0.5) * 0.1));
 });
-
 // Обновляем данные графика
 chartInstance.data.datasets[0].data = updatedData;
 chartInstance.update();
 }, 800);
 }
-
 // Функция для анализа статьи
 async function analyzeArticle() {
 const articleInput = document.getElementById('articleInput').value.trim();
@@ -863,7 +769,6 @@ if (!articleInput) {
 alert('Please enter article text or URL for analysis');
 return;
 }
-
 const resultsContainer = document.getElementById('analysisResults');
 resultsContainer.innerHTML = `
 <div class="loading">
@@ -871,10 +776,8 @@ resultsContainer.innerHTML = `
 <p style="color: var(--text-color); font-size: 0.8rem;">Analyzing...</p>
 </div>
 `;
-
 try {
 const mockAnalysisResult = await simulateArticleAnalysis(articleInput);
-
 // Проверяем разрешение на сохранение
 const permission = localStorage.getItem('analysisPermission');
 if (permission === 'granted') {
@@ -883,15 +786,12 @@ credibility_score: mockAnalysisResult.article.analysis.credibility_score.score,
 timestamp: new Date().toISOString(),
 title: mockAnalysisResult.article.title
 });
-
 if (analysisHistory.length > 10) {
 analysisHistory.shift();
 }
-
 updateHistoryDisplay();
 localStorage.setItem('analysisHistory', JSON.stringify(analysisHistory));
 }
-
 displayAnalysisResults(mockAnalysisResult);
 } catch (error) {
 console.error('Error analyzing article:', error);
@@ -903,14 +803,12 @@ resultsContainer.innerHTML = `
 `;
 }
 }
-
 // Имитация анализа статьи
 async function simulateArticleAnalysis(inputText) {
 await new Promise(resolve => setTimeout(resolve, 800));
 const randomScore = 0.5 + Math.random() * 0.5;
 const randomSentiment = Math.random();
 const randomBias = Math.random();
-
 return {
 status: 'success',
 article: {
@@ -933,12 +831,10 @@ credibility_level: randomScore > 0.7 ? 'High' : randomScore > 0.5 ? 'Medium' : '
 }
 };
 }
-
 // Функция для отображения результатов анализа
 function displayAnalysisResults(data) {
 const article = data.article || {};
 const analysis = article.analysis || {};
-
 let html = `
 <div class="analysis-result">
 <div class="article-header">
@@ -962,7 +858,6 @@ let html = `
 </div>
 </div>
 `;
-
 if (analysis.topics && analysis.topics.length > 0) {
 html += `
 <div class="topics-section" style="margin-top: 20px;">
@@ -981,21 +876,17 @@ font-size: 0.7rem;
 </div>
 `;
 }
-
 html += `</div>`;
 document.getElementById('analysisResults').innerHTML = html;
 }
-
 // Функция для обновления отображения истории анализов
 function updateHistoryDisplay() {
 const historyContainer = document.getElementById('historyContainer');
 historyContainer.innerHTML = '';
-
 if (analysisHistory.length === 0) {
 historyContainer.innerHTML = '<p style="text-align: center; color: #6b7280; font-size: 0.8rem;">No analysis history yet</p>';
 return;
 }
-
 analysisHistory.forEach((item) => {
 const date = new Date(item.timestamp);
 const formattedDate = date.toLocaleString();
@@ -1011,11 +902,9 @@ historyItem.innerHTML = `
 historyContainer.appendChild(historyItem);
 });
 }
-
 // Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', () => {
 initChart();
-
 // Проверяем, было ли уже запрошено разрешение
 const permissionStatus = localStorage.getItem('analysisPermissionStatus');
 if (!permissionStatus) {
@@ -1029,7 +918,6 @@ updateHistoryDisplay();
 }
 }
 });
-
 // Функция для показа начального модального окна
 function showInitialPermissionModal() {
 const modal = document.createElement('div');
@@ -1080,14 +968,12 @@ cursor: pointer;">Deny</button>
 </div>
 `;
 document.body.appendChild(modal);
-
 // Обработчики кнопок
 document.getElementById('allowStorage').addEventListener('click', () => {
 localStorage.setItem('analysisPermission', 'granted');
 localStorage.setItem('analysisPermissionStatus', 'asked');
 modal.remove();
 });
-
 document.getElementById('denyStorage').addEventListener('click', () => {
 localStorage.setItem('analysisPermission', 'denied');
 localStorage.setItem('analysisPermissionStatus', 'asked');
