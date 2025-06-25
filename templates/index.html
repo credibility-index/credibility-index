@@ -449,12 +449,12 @@ height: 300px;
     </a>
     
     <nav>
-      <ul class="navbar-links">
-        <li><a href="/faq.html" class="navbar-link">FAQ</a></li>
-        <li><a href="/feedback.html" class="navbar-link">Feedback</a></li>
-        <li><a href="/privacy.html" class="navbar-link">Privacy</a></li>
-        <li><a href="/terms.html" class="navbar-link">Terms</a></li>
-      </ul>
+<ul class="navbar-links">
+  <li><a href="{{ url_for('faq') }}" class="navbar-link">FAQ</a></li>
+  <li><a href="{{ url_for('feedback') }}" class="navbar-link">Feedback</a></li>
+  <li><a href="{{ url_for('privacy') }}" class="navbar-link">Privacy</a></li>
+  <li><a href="{{ url_for('terms') }}" class="navbar-link">Terms</a></li>
+</ul>
     </nav>
   </header>
 </div>
