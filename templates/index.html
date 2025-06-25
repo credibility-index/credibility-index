@@ -18,9 +18,6 @@
             --high-credibility: #4cc9f0;
             --medium-credibility: #4361ee;
             --low-credibility: #f8961e;
-            --success-color: #4cc9f0;
-            --warning-color: #f8961e;
-            --danger-color: #f72585;
         }
 
         /* Локальные стили для иконок */
@@ -511,15 +508,15 @@
 <body>
     <div class="container">
         <div class="header">
-            <a href="/" class="logo">
+            <a href="index.html" class="logo">
                 <i class="bi bi-newspaper"></i>
                 <span class="logo-text">Media Credibility Index</span>
             </a>
             <ul class="navbar-links">
-                <li><a href="/faq.html" class="navbar-link"><i class="bi bi-question-circle"></i> FAQ</a></li>
-                <li><a href="/feedback.html" class="navbar-link"><i class="bi bi-chat-left-text"></i> Feedback</a></li>
-                <li><a href="/privacy.html" class="navbar-link"><i class="bi bi-shield-lock"></i> Privacy</a></li>
-                <li><a href="/terms.html" class="navbar-link"><i class="bi bi-file-earmark-text"></i> Terms</a></li>
+                <li><a href="faq.html" class="navbar-link"><i class="bi bi-question-circle"></i> FAQ</a></li>
+                <li><a href="feedback.html" class="navbar-link"><i class="bi bi-chat-left-text"></i> Feedback</a></li>
+                <li><a href="privacy.html" class="navbar-link"><i class="bi bi-shield-lock"></i> Privacy</a></li>
+                <li><a href="terms.html" class="navbar-link"><i class="bi bi-file-earmark-text"></i> Terms</a></li>
             </ul>
         </div>
 
@@ -579,7 +576,7 @@
                 <div class="similar-articles">
                     <h2><i class="bi bi-link-45deg"></i> Similar Articles</h2>
                     <div class="similar-article">
-                        <h3><a href="#" onclick="loadArticle('global-news')">Global News Trends</a></h3>
+                        <h3><a href="article1.html">Global News Trends Analysis</a></h3>
                         <div class="article-meta">
                             <span><i class="bi bi-newspaper"></i> BBC</span>
                             <span class="credibility-badge high"><i class="bi bi-shield-check"></i> High</span>
@@ -587,7 +584,7 @@
                         <p>Analysis of current global news trends and their credibility patterns.</p>
                     </div>
                     <div class="similar-article">
-                        <h3><a href="#" onclick="loadArticle('media-bias')">Media Bias Report</a></h3>
+                        <h3><a href="article2.html">Media Bias in Political Reporting</a></h3>
                         <div class="article-meta">
                             <span><i class="bi bi-newspaper"></i> Guardian</span>
                             <span class="credibility-badge medium"><i class="bi bi-shield-check"></i> Medium</span>
@@ -798,7 +795,6 @@
             const canvas = document.getElementById('chart');
             const ctx = canvas.getContext('2d');
 
-            // Удаляем старый график, если он существует
             if (chartInstance) {
                 chartInstance.destroy();
             }
@@ -817,7 +813,6 @@
         function updateChart() {
             if (!chartInstance) return;
 
-            // Показываем индикатор загрузки
             const container = document.querySelector('.chart-scroll-container');
             const loadingHTML = `
                 <div class="loading" style="
@@ -833,71 +828,19 @@
 
             container.insertAdjacentHTML('afterbegin', loadingHTML);
 
-            // Имитация задержки сети
             setTimeout(() => {
-                // Удаляем индикатор загрузки
                 const loadingElement = container.querySelector('.loading');
                 if (loadingElement) {
                     loadingElement.remove();
                 }
 
-                // Генерируем новые случайные данные
                 const updatedData = defaultChartData.datasets[0].data.map(score => {
                     return Math.min(1, Math.max(0, score + (Math.random() - 0.5) * 0.1));
                 });
 
-                // Обновляем данные графика
                 chartInstance.data.datasets[0].data = updatedData;
                 chartInstance.update();
             }, 800);
-        }
-
-        // Функция для загрузки статьи
-        function loadArticle(type) {
-            let content = '';
-            let title = '';
-            let source = '';
-            let credibility = '';
-
-            switch(type) {
-                case 'global-news':
-                    content = 'Analysis of current global news trends and their credibility patterns across different regions and sources.';
-                    title = 'Global News Trends';
-                    source = 'BBC';
-                    credibility = 'high';
-                    break;
-                case 'media-bias':
-                    content = 'Examination of potential biases in political news coverage and how they affect public perception.';
-                    title = 'Media Bias Report';
-                    source = 'Guardian';
-                    credibility = 'medium';
-                    break;
-            }
-
-            const resultsContainer = document.getElementById('analysisResults');
-            resultsContainer.innerHTML = `
-                <div class="loading">
-                    <div class="spinner"></div>
-                    <p style="color: var(--text-color); font-size: 0.8rem;">Loading article...</p>
-                </div>
-            `;
-
-            setTimeout(() => {
-                resultsContainer.innerHTML = `
-                    <div class="analysis-result">
-                        <div class="article-header">
-                            <h2 style="color: var(--primary-color); font-size: 1.3rem;">${title}</h2>
-                        </div>
-                        <div class="article-meta" style="margin-bottom: 15px;">
-                            <span><i class="bi bi-newspaper"></i> ${source}</span>
-                            <span class="credibility-badge ${credibility}"><i class="bi bi-shield-check"></i> ${credibility}</span>
-                        </div>
-                        <div class="analysis-summary" style="margin-top: 15px;">
-                            <p style="color: var(--text-color); font-size: 0.9rem;">${content}</p>
-                        </div>
-                    </div>
-                `;
-            }, 500);
         }
 
         // Функция для анализа статьи
@@ -919,8 +862,6 @@
 
             try {
                 const mockAnalysisResult = await simulateArticleAnalysis(articleInput);
-
-                // Проверяем разрешение на сохранение
                 const permission = localStorage.getItem('analysisPermission');
 
                 if (permission === 'granted') {
@@ -1064,13 +1005,10 @@
         document.addEventListener('DOMContentLoaded', () => {
             initChart();
 
-            // Проверяем, было ли уже запрошено разрешение
             const permissionStatus = localStorage.getItem('analysisPermissionStatus');
-
             if (!permissionStatus) {
                 showInitialPermissionModal();
             } else {
-                // Загружаем историю анализов из localStorage
                 const savedHistory = localStorage.getItem('analysisHistory');
                 if (savedHistory) {
                     analysisHistory = JSON.parse(savedHistory);
@@ -1131,7 +1069,6 @@
 
             document.body.appendChild(modal);
 
-            // Обработчики кнопок
             document.getElementById('allowStorage').addEventListener('click', () => {
                 localStorage.setItem('analysisPermission', 'granted');
                 localStorage.setItem('analysisPermissionStatus', 'asked');
