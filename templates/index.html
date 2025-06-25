@@ -23,6 +23,29 @@
             --danger-color: #f72585;
         }
 
+        /* Локальные стили для иконок */
+        .bi {
+            display: inline-block;
+            font-style: normal;
+            font-variant: normal;
+            text-rendering: auto;
+            line-height: 1;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .bi-newspaper:before { content: "📰"; }
+        .bi-shield-check:before { content: "✔"; }
+        .bi-search:before { content: "🔍"; }
+        .bi-arrow-clockwise:before { content: "🔄"; }
+        .bi-exclamation-triangle-fill:before { content: "⚠"; }
+        .bi-clock-history:before { content: "⏳"; }
+        .bi-link-45deg:before { content: "🔗"; }
+        .bi-question-circle:before { content: "❓"; }
+        .bi-chat-left-text:before { content: "💬"; }
+        .bi-shield-lock:before { content: "🔒"; }
+        .bi-file-earmark-text:before { content: "📄"; }
+
         * {
             margin: 0;
             padding: 0;
@@ -30,7 +53,7 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
             background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
             color: var(--text-color);
             line-height: 1.6;
@@ -81,6 +104,8 @@
             transition: all 0.3s ease;
             position: relative;
             padding: 5px 0;
+            display: flex;
+            align-items: center;
         }
 
         .navbar-link:hover {
@@ -157,6 +182,18 @@
             position: relative;
         }
 
+        .chart-title::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 3px;
+            background: linear-gradient(90deg, #4361ee, #3a0ca3);
+            border-radius: 3px;
+        }
+
         .chart-update-btn {
             background: linear-gradient(135deg, #4361ee, #3a0ca3);
             color: white;
@@ -175,6 +212,10 @@
         .chart-update-btn:hover {
             transform: translateY(-3px);
             box-shadow: 0 6px 20px rgba(67, 97, 238, 0.4);
+        }
+
+        .chart-update-btn i {
+            margin-right: 8px;
         }
 
         .chart-legend {
@@ -376,6 +417,11 @@
             font-size: 1.1rem;
         }
 
+        .similar-article h3 a {
+            color: inherit;
+            text-decoration: none;
+        }
+
         .similar-article p {
             color: var(--text-color);
             font-size: 0.95rem;
@@ -546,7 +592,7 @@
                 <div class="similar-articles">
                     <h2><i class="bi bi-link-45deg"></i> Similar Articles</h2>
                     <div class="similar-article">
-                        <h3><a href="https://www.bbc.com/news" target="_blank" style="color: var(--primary-color); text-decoration: none;">Global News Trends Analysis</a></h3>
+                        <h3><a href="#" onclick="loadArticle('global-news')">Global News Trends Analysis</a></h3>
                         <div class="article-meta">
                             <span><i class="bi bi-newspaper"></i> BBC News</span>
                             <span class="credibility-badge high"><i class="bi bi-shield-check"></i> High</span>
@@ -554,7 +600,7 @@
                         <p>Comprehensive analysis of current global news trends and their credibility patterns.</p>
                     </div>
                     <div class="similar-article">
-                        <h3><a href="https://www.theguardian.com/us" target="_blank" style="color: var(--primary-color); text-decoration: none;">Media Bias in Political Reporting</a></h3>
+                        <h3><a href="#" onclick="loadArticle('media-bias')">Media Bias in Political Reporting</a></h3>
                         <div class="article-meta">
                             <span><i class="bi bi-newspaper"></i> The Guardian</span>
                             <span class="credibility-badge medium"><i class="bi bi-shield-check"></i> Medium</span>
@@ -562,7 +608,7 @@
                         <p>Examination of potential biases in political news coverage across major outlets.</p>
                     </div>
                     <div class="similar-article">
-                        <h3><a href="https://www.reuters.com/" target="_blank" style="color: var(--primary-color); text-decoration: none;">Digital Media Landscape</a></h3>
+                        <h3><a href="#" onclick="loadArticle('digital-media')">Digital Media Landscape</a></h3>
                         <div class="article-meta">
                             <span><i class="bi bi-newspaper"></i> Reuters</span>
                             <span class="credibility-badge high"><i class="bi bi-shield-check"></i> High</span>
@@ -596,6 +642,7 @@
                 this.data = config.data;
                 this.options = config.options || {};
                 this.canvas = ctx.canvas;
+                this.barWidth = 0;
                 this.init();
             }
 
@@ -610,6 +657,15 @@
                 const wrapper = container.parentElement;
                 this.canvas.width = Math.max(800, wrapper.clientWidth);
                 this.canvas.height = 500;
+                this.calculateBarWidth();
+            }
+
+            calculateBarWidth() {
+                const padding = 60;
+                const barCount = this.data.labels.length;
+                const maxBarWidth = 30;
+                const availableWidth = this.canvas.width - 2 * padding;
+                this.barWidth = Math.min(maxBarWidth, Math.max(10, availableWidth / barCount - 15));
             }
 
             render() {
@@ -618,10 +674,6 @@
                 const width = this.canvas.width;
                 const height = this.canvas.height;
                 const padding = 60;
-                const barCount = data.labels.length;
-                const maxBarWidth = 30;
-                const availableWidth = width - 2 * padding;
-                const barWidth = Math.min(maxBarWidth, Math.max(10, availableWidth / barCount - 15));
 
                 // Очистка canvas
                 ctx.clearRect(0, 0, width, height);
@@ -630,10 +682,10 @@
                 this.drawAxes(ctx, width, height, padding);
 
                 // Рисование столбцов
-                this.drawBars(ctx, width, height, padding, barWidth);
+                this.drawBars(ctx, width, height, padding);
 
                 // Рисование подписей к столбцам
-                this.drawBarLabels(ctx, width, height, padding, barWidth);
+                this.drawBarLabels(ctx, width, height, padding);
             }
 
             drawAxes(ctx, width, height, padding) {
@@ -661,44 +713,33 @@
                     ctx.textAlign = 'right';
                     ctx.fillText(i.toFixed(1), padding - 10, y + 5);
                 }
-
-                // Подписи оси X
-                const dataset = this.data.datasets[0];
-                dataset.data.forEach((value, index) => {
-                    const x = padding + index * (barWidth + 15) + barWidth / 2;
-                    const y = height - padding + 20;
-                    ctx.fillStyle = '#6b7280';
-                    ctx.font = '10px Arial';
-                    ctx.textAlign = 'center';
-                    ctx.fillText(this.data.labels[index], x, y);
-                });
             }
 
-            drawBars(ctx, width, height, padding, barWidth) {
+            drawBars(ctx, width, height, padding) {
                 const dataset = this.data.datasets[0];
                 dataset.data.forEach((value, index) => {
                     const barHeight = value * (height - 2 * padding);
-                    const x = padding + index * (barWidth + 15);
+                    const x = padding + index * (this.barWidth + 15);
                     const y = height - padding - barHeight;
 
                     // Рисование столбца
                     ctx.fillStyle = dataset.backgroundColor[index];
-                    ctx.fillRect(x, y, barWidth, barHeight);
+                    ctx.fillRect(x, y, this.barWidth, barHeight);
 
                     // Рисование границы
                     ctx.strokeStyle = dataset.borderColor[index];
                     ctx.lineWidth = 1;
-                    ctx.strokeRect(x, y, barWidth, barHeight);
+                    ctx.strokeRect(x, y, this.barWidth, barHeight);
 
                     // Подпись значения
                     ctx.fillStyle = '#000';
                     ctx.font = '12px Arial';
                     ctx.textAlign = 'center';
-                    ctx.fillText(value.toFixed(2), x + barWidth / 2, y - 5);
+                    ctx.fillText(value.toFixed(2), x + this.barWidth / 2, y - 5);
                 });
             }
 
-            drawBarLabels(ctx, width, height, padding, barWidth) {
+            drawBarLabels(ctx, width, height, padding) {
                 const dataset = this.data.datasets[0];
                 const labels = this.data.labels || [];
 
@@ -709,7 +750,7 @@
                 dataset.data.forEach((value, index) => {
                     if (!labels[index]) return;
 
-                    const x = padding + index * (barWidth + 15) + barWidth / 2;
+                    const x = padding + index * (this.barWidth + 15) + this.barWidth / 2;
                     const y = height - padding + 20;
 
                     // Разбиваем длинные названия на несколько строк
@@ -718,7 +759,7 @@
                     const lineHeight = 12;
                     let currentY = y;
 
-                    words.forEach((word, i) => {
+                    words.forEach((word) => {
                         ctx.fillText(word, x, currentY);
                         currentY += lineHeight;
                     });
@@ -726,6 +767,7 @@
             }
 
             update() {
+                this.calculateBarWidth();
                 this.render();
             }
 
@@ -733,39 +775,6 @@
                 this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
             }
         }
-
-        // Локальные стили для иконок
-        document.addEventListener('DOMContentLoaded', function() {
-            // Иконки для навигации
-            const navLinks = document.querySelectorAll('.navbar-link');
-            navLinks.forEach(link => {
-                const icon = document.createElement('i');
-                icon.className = 'bi';
-
-                if (link.textContent.includes('FAQ')) {
-                    icon.className += ' bi-question-circle';
-                    icon.textContent = '❓';
-                } else if (link.textContent.includes('Feedback')) {
-                    icon.className += ' bi-chat-left-text';
-                    icon.textContent = '💬';
-                } else if (link.textContent.includes('Privacy')) {
-                    icon.className += ' bi-shield-lock';
-                    icon.textContent = '🔒';
-                } else if (link.textContent.includes('Terms')) {
-                    icon.className += ' bi-file-earmark-text';
-                    icon.textContent = '📄';
-                }
-
-                icon.style.marginRight = '5px';
-                link.prepend(icon);
-            });
-
-            // Иконки для статей
-            const articleIcons = document.querySelectorAll('.similar-article i.bi-newspaper');
-            articleIcons.forEach(icon => {
-                icon.textContent = '📰';
-            });
-        });
 
         // Глобальные переменные
         let chartInstance = null;
@@ -865,6 +874,60 @@
             }, 1000);
         }
 
+        // Функция для загрузки статьи
+        function loadArticle(type) {
+            let content = '';
+            let title = '';
+            let source = '';
+            let credibility = '';
+
+            switch(type) {
+                case 'global-news':
+                    content = 'Comprehensive analysis of current global news trends and their credibility patterns. This article examines how different regions report on similar events and how credibility varies across sources.';
+                    title = 'Global News Trends Analysis';
+                    source = 'BBC News';
+                    credibility = 'high';
+                    break;
+                case 'media-bias':
+                    content = 'Examination of potential biases in political news coverage across major outlets. This study looks at how different media organizations frame political stories and what factors influence their reporting.';
+                    title = 'Media Bias in Political Reporting';
+                    source = 'The Guardian';
+                    credibility = 'medium';
+                    break;
+                case 'digital-media':
+                    content = 'Overview of how digital platforms are changing news consumption patterns. This article explores the shift from traditional media to digital platforms and its impact on news credibility.';
+                    title = 'Digital Media Landscape';
+                    source = 'Reuters';
+                    credibility = 'high';
+                    break;
+            }
+
+            const resultsContainer = document.getElementById('analysisResults');
+            resultsContainer.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p style="color: var(--text-color);">Loading article...</p>
+                </div>
+            `;
+
+            setTimeout(() => {
+                resultsContainer.innerHTML = `
+                    <div class="analysis-result">
+                        <div class="article-header">
+                            <h2 style="color: var(--primary-color);">${title}</h2>
+                        </div>
+                        <div class="article-meta">
+                            <span><i class="bi bi-newspaper"></i> ${source}</span>
+                            <span class="credibility-badge ${credibility}"><i class="bi bi-shield-check"></i> ${credibility.charAt(0).toUpperCase() + credibility.slice(1)}</span>
+                        </div>
+                        <div class="analysis-summary" style="margin-top: 20px;">
+                            <p style="color: var(--text-color);">${content}</p>
+                        </div>
+                    </div>
+                `;
+            }, 500);
+        }
+
         // Функция для анализа статьи
         async function analyzeArticle() {
             const articleInput = document.getElementById('articleInput').value.trim();
@@ -913,33 +976,6 @@
                     </div>
                 `;
             }
-        }
-
-        // Функция для обновления отображения истории анализов
-        function updateHistoryDisplay() {
-            const historyContainer = document.getElementById('historyContainer');
-            historyContainer.innerHTML = '';
-
-            if (analysisHistory.length === 0) {
-                historyContainer.innerHTML = '<p style="text-align: center; color: #6b7280;">No analysis history yet</p>';
-                return;
-            }
-
-            analysisHistory.forEach((item, index) => {
-                const date = new Date(item.timestamp);
-                const formattedDate = date.toLocaleString();
-
-                const historyItem = document.createElement('div');
-                historyItem.className = 'history-item';
-                historyItem.innerHTML = `
-                    <div>
-                        <span class="history-score">${item.credibility_score.toFixed(2)}</span>
-                        <span style="margin-left: 10px;">${item.title}</span>
-                    </div>
-                    <span class="history-date">${formattedDate}</span>
-                `;
-                historyContainer.appendChild(historyItem);
-            });
         }
 
         // Имитация анализа статьи
@@ -1025,6 +1061,33 @@
             document.getElementById('analysisResults').innerHTML = html;
         }
 
+        // Функция для обновления отображения истории анализов
+        function updateHistoryDisplay() {
+            const historyContainer = document.getElementById('historyContainer');
+            historyContainer.innerHTML = '';
+
+            if (analysisHistory.length === 0) {
+                historyContainer.innerHTML = '<p style="text-align: center; color: #6b7280;">No analysis history yet</p>';
+                return;
+            }
+
+            analysisHistory.forEach((item, index) => {
+                const date = new Date(item.timestamp);
+                const formattedDate = date.toLocaleString();
+
+                const historyItem = document.createElement('div');
+                historyItem.className = 'history-item';
+                historyItem.innerHTML = `
+                    <div>
+                        <span class="history-score">${item.credibility_score.toFixed(2)}</span>
+                        <span style="margin-left: 10px;">${item.title}</span>
+                    </div>
+                    <span class="history-date">${formattedDate}</span>
+                `;
+                historyContainer.appendChild(historyItem);
+            });
+        }
+
         // Инициализация при загрузке страницы
         document.addEventListener('DOMContentLoaded', () => {
             initChart();
@@ -1042,16 +1105,6 @@
                     updateHistoryDisplay();
                 }
             }
-
-            // Инициализация навигационных ссылок
-            const navLinks = document.querySelectorAll('.navbar-link');
-            navLinks.forEach(link => {
-                link.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    const page = this.getAttribute('href');
-                    window.location.href = page;
-                });
-            });
         });
 
         // Функция для показа начального модального окна
