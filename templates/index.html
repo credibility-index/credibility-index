@@ -43,147 +43,6 @@
         .bi-shield-lock:before { content: "🔒"; }
         .bi-file-earmark-text:before { content: "📄"; }
 
-        /* Локальные стили для Bootstrap */
-        .container {
-            width: 100%;
-            padding-right: 15px;
-            padding-left: 15px;
-            margin-right: auto;
-            margin-left: auto;
-        }
-
-        @media (min-width: 576px) {
-            .container {
-                max-width: 540px;
-            }
-        }
-
-        @media (min-width: 768px) {
-            .container {
-                max-width: 720px;
-            }
-        }
-
-        @media (min-width: 992px) {
-            .container {
-                max-width: 960px;
-            }
-        }
-
-        @media (min-width: 1200px) {
-            .container {
-                max-width: 1140px;
-            }
-        }
-
-        .row {
-            display: flex;
-            flex-wrap: wrap;
-            margin-right: -15px;
-            margin-left: -15px;
-        }
-
-        .col, .col-1, .col-2, .col-3, .col-4, .col-5, .col-6, .col-7, .col-8, .col-9, .col-10, .col-11, .col-12 {
-            position: relative;
-            width: 100%;
-            padding-right: 15px;
-            padding-left: 15px;
-        }
-
-        @media (min-width: 576px) {
-            .col-1 { width: 8.333333%; }
-            .col-2 { width: 16.666667%; }
-            .col-3 { width: 25%; }
-            .col-4 { width: 33.333333%; }
-            .col-5 { width: 41.666667%; }
-            .col-6 { width: 50%; }
-            .col-7 { width: 58.333333%; }
-            .col-8 { width: 66.666667%; }
-            .col-9 { width: 75%; }
-            .col-10 { width: 83.333333%; }
-            .col-11 { width: 91.666667%; }
-            .col-12 { width: 100%; }
-        }
-
-        .btn {
-            display: inline-block;
-            font-weight: 400;
-            text-align: center;
-            white-space: nowrap;
-            vertical-align: middle;
-            user-select: none;
-            border: 1px solid transparent;
-            padding: 0.375rem 0.75rem;
-            font-size: 1rem;
-            line-height: 1.5;
-            border-radius: 0.25rem;
-            transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-        }
-
-        .btn-primary {
-            color: #fff;
-            background-color: #007bff;
-            border-color: #007bff;
-        }
-
-        .btn-primary:hover {
-            color: #fff;
-            background-color: #0069d9;
-            border-color: #0062cc;
-        }
-
-        .card {
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            min-width: 0;
-            word-wrap: break-word;
-            background-color: #fff;
-            background-clip: border-box;
-            border: 1px solid rgba(0,0,0,.125);
-            border-radius: 0.25rem;
-        }
-
-        .card-body {
-            flex: 1 1 auto;
-            min-height: 1px;
-            padding: 1.25rem;
-        }
-
-        .card-title {
-            margin-bottom: 0.75rem;
-        }
-
-        .list-group {
-            display: flex;
-            flex-direction: column;
-            padding-left: 0;
-            margin-bottom: 0;
-        }
-
-        .list-group-item {
-            position: relative;
-            display: block;
-            padding: 0.75rem 1.25rem;
-            background-color: #fff;
-            border: 1px solid rgba(0,0,0,.125);
-        }
-
-        .list-group-item:first-child {
-            border-top-left-radius: 0.25rem;
-            border-top-right-radius: 0.25rem;
-        }
-
-        .list-group-item:last-child {
-            border-bottom-right-radius: 0.25rem;
-            border-bottom-left-radius: 0.25rem;
-        }
-
-        .list-group-item:hover {
-            background-color: #f8f9fa;
-        }
-
-        /* Основные стили приложения */
         * {
             margin: 0;
             padding: 0;
@@ -197,6 +56,11 @@
             line-height: 1.6;
             min-height: 100vh;
             padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
         }
 
         .header {
@@ -239,6 +103,7 @@
             padding: 5px 0;
             display: flex;
             align-items: center;
+            cursor: pointer;
         }
 
         .navbar-link:hover {
@@ -368,10 +233,7 @@
             font-weight: 500;
         }
 
-        .btn-black {
-            background: linear-gradient(135deg, #2b2d42, #1a1b2e);
-            color: white;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        .btn {
             border: none;
             padding: 10px 20px;
             border-radius: 8px;
@@ -379,6 +241,12 @@
             font-weight: 600;
             transition: all 0.3s ease;
             font-size: 0.9rem;
+        }
+
+        .btn-black {
+            background: linear-gradient(135deg, #2b2d42, #1a1b2e);
+            color: white;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
         }
 
         .btn-black:hover {
@@ -491,7 +359,8 @@
             box-shadow: 0 0 0 2px rgba(67, 97, 238, 0.2);
         }
 
-        .similar-articles {
+        .content-section {
+            display: none;
             background: white;
             border-radius: var(--border-radius);
             padding: 20px;
@@ -499,112 +368,40 @@
             margin-top: 20px;
         }
 
-        .similar-articles h2 {
-            color: var(--text-color);
-            margin-bottom: 15px;
-            font-size: 1.1rem;
-            display: flex;
-            align-items: center;
-            gap: 8px;
+        .content-section.active {
+            display: block;
         }
 
-        .similar-article {
-            padding: 15px;
-            margin-bottom: 15px;
-            border-left: 3px solid var(--primary-color);
-            border-radius: var(--border-radius);
-            background: var(--secondary-color);
-            transition: all 0.3s ease;
-        }
-
-        .similar-article:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
-        }
-
-        .similar-article h3 {
+        .content-title {
             color: var(--primary-color);
-            margin-bottom: 8px;
-            font-size: 1rem;
-        }
-
-        .similar-article h3 a {
-            color: inherit;
-            text-decoration: none;
-        }
-
-        .similar-article p {
-            color: var(--text-color);
-            font-size: 0.8rem;
-            line-height: 1.4;
-        }
-
-        .analysis-history {
-            background: white;
-            border-radius: var(--border-radius);
-            padding: 20px;
-            box-shadow: var(--box-shadow);
-            margin-top: 20px;
-        }
-
-        .analysis-history h2 {
-            color: var(--text-color);
             margin-bottom: 15px;
-            font-size: 1.1rem;
-            display: flex;
-            align-items: center;
-            gap: 8px;
+            font-size: 1.3rem;
         }
 
-        .history-item {
-            padding: 10px;
-            margin-bottom: 10px;
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.8rem;
+        .content-text {
+            color: var(--text-color);
+            font-size: 0.9rem;
+            line-height: 1.6;
+            margin-bottom: 15px;
         }
 
-        .history-item:hover {
-            background: rgba(67, 97, 238, 0.05);
-        }
-
-        .history-score {
+        .back-btn {
+            background: linear-gradient(135deg, #4361ee, #3a0ca3);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
             font-weight: 600;
-            color: var(--primary-color);
-            background: rgba(67, 97, 238, 0.1);
-            padding: 2px 6px;
-            border-radius: 20px;
-            font-size: 0.7rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(67, 97, 238, 0.3);
+            margin-top: 15px;
+            display: inline-block;
         }
 
-        .history-date {
-            color: #6b7280;
-            font-size: 0.7rem;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .spinner {
-            border: 2px solid rgba(67, 97, 238, 0.2);
-            border-radius: 50%;
-            border-top: 2px solid var(--primary-color);
-            width: 30px;
-            height: 30px;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        .back-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(67, 97, 238, 0.4);
         }
 
         .footer {
@@ -641,106 +438,155 @@
 <body>
     <div class="container">
         <div class="header">
-            <a href="index.html" class="logo">
+            <a href="#" class="logo" onclick="showMainContent()">
                 <i class="bi bi-newspaper"></i>
                 <span class="logo-text">Media Credibility Index</span>
             </a>
             <ul class="navbar-links">
-                <li><a href="faq.html" class="navbar-link"><i class="bi bi-question-circle"></i> FAQ</a></li>
-                <li><a href="feedback.html" class="navbar-link"><i class="bi bi-chat-left-text"></i> Feedback</a></li>
-                <li><a href="privacy.html" class="navbar-link"><i class="bi bi-shield-lock"></i> Privacy</a></li>
-                <li><a href="terms.html" class="navbar-link"><i class="bi bi-file-earmark-text"></i> Terms</a></li>
+                <li><a class="navbar-link" onclick="showContent('faq')"><i class="bi bi-question-circle"></i> FAQ</a></li>
+                <li><a class="navbar-link" onclick="showContent('feedback')"><i class="bi bi-chat-left-text"></i> Feedback</a></li>
+                <li><a class="navbar-link" onclick="showContent('privacy')"><i class="bi bi-shield-lock"></i> Privacy</a></li>
+                <li><a class="navbar-link" onclick="showContent('terms')"><i class="bi bi-file-earmark-text"></i> Terms</a></li>
             </ul>
         </div>
 
-        <div class="main-content">
-            <div class="analysis-section">
-                <div class="article-header">
-                    <h1 class="article-title">Analysis of Current News Trends</h1>
-                    <div class="article-meta">
-                        <span><i class="bi bi-newspaper"></i> Multiple Sources</span>
-                        <span class="credibility-badge high"><i class="bi bi-shield-check"></i> High</span>
-                    </div>
-                </div>
-                <div class="analysis-content">
-                    <div class="analysis-form">
-                        <div class="form-group">
-                            <label for="articleInput">Article URL or Text</label>
-                            <textarea class="form-control" id="articleInput" placeholder="Paste article URL or text content here for analysis..."></textarea>
+        <!-- Основной контент -->
+        <div id="main-content" class="content-section active">
+            <div class="main-content">
+                <div class="analysis-section">
+                    <div class="article-header">
+                        <h1 class="article-title">Analysis of Current News Trends</h1>
+                        <div class="article-meta">
+                            <span><i class="bi bi-newspaper"></i> Multiple Sources</span>
+                            <span class="credibility-badge high"><i class="bi bi-shield-check"></i> High</span>
                         </div>
-                        <button onclick="analyzeArticle()" class="btn btn-black">
-                            <i class="bi bi-search"></i> Analyze Article
-                        </button>
                     </div>
-                    <div id="analysisResults"></div>
+                    <div class="analysis-content">
+                        <div class="analysis-form">
+                            <div class="form-group">
+                                <label for="articleInput">Article URL or Text</label>
+                                <textarea class="form-control" id="articleInput" placeholder="Paste article URL or text content here for analysis..."></textarea>
+                            </div>
+                            <button onclick="analyzeArticle()" class="btn btn-black">
+                                <i class="bi bi-search"></i> Analyze Article
+                            </button>
+                        </div>
+                        <div id="analysisResults"></div>
+                    </div>
                 </div>
-            </div>
 
-            <div class="sidebar">
-                <div class="glass-panel">
-                    <div class="chart-section">
-                        <h2 class="chart-title">Source Credibility Comparison</h2>
-                        <div class="chart-scroll-container">
-                            <div class="chart-container">
-                                <canvas id="chart"></canvas>
+                <div class="sidebar">
+                    <div class="glass-panel">
+                        <div class="chart-section">
+                            <h2 class="chart-title">Source Credibility Comparison</h2>
+                            <div class="chart-scroll-container">
+                                <div class="chart-container">
+                                    <canvas id="chart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        <button onclick="updateChart()" class="chart-update-btn">
+                            <i class="bi bi-arrow-clockwise"></i>
+                            <span>Update Chart</span>
+                        </button>
+                        <div class="chart-legend">
+                            <div class="legend-item">
+                                <div class="legend-color" style="background-color: var(--high-credibility);"></div>
+                                <span class="legend-text">High (0.8-1.0)</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color" style="background-color: var(--medium-credibility);"></div>
+                                <span class="legend-text">Medium (0.6-0.8)</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color" style="background-color: var(--low-credibility);"></div>
+                                <span class="legend-text">Low (0-0.6)</span>
                             </div>
                         </div>
                     </div>
-                    <button onclick="updateChart()" class="chart-update-btn">
-                        <i class="bi bi-arrow-clockwise"></i>
-                        <span>Update Chart</span>
-                    </button>
-                    <div class="chart-legend">
-                        <div class="legend-item">
-                            <div class="legend-color" style="background-color: var(--high-credibility);"></div>
-                            <span class="legend-text">High (0.8-1.0)</span>
-                        </div>
-                        <div class="legend-item">
-                            <div class="legend-color" style="background-color: var(--medium-credibility);"></div>
-                            <span class="legend-text">Medium (0.6-0.8)</span>
-                        </div>
-                        <div class="legend-item">
-                            <div class="legend-color" style="background-color: var(--low-credibility);"></div>
-                            <span class="legend-text">Low (0-0.6)</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="similar-articles">
-                    <h2><i class="bi bi-link-45deg"></i> Similar Articles</h2>
-                    <div class="similar-article">
-                        <h3><a href="article1.html">Global News Trends Analysis</a></h3>
-                        <div class="article-meta">
-                            <span><i class="bi bi-newspaper"></i> BBC</span>
-                            <span class="credibility-badge high"><i class="bi bi-shield-check"></i> High</span>
-                        </div>
-                        <p>Analysis of current global news trends and their credibility patterns.</p>
-                    </div>
-                    <div class="similar-article">
-                        <h3><a href="article2.html">Media Bias in Political Reporting</a></h3>
-                        <div class="article-meta">
-                            <span><i class="bi bi-newspaper"></i> Guardian</span>
-                            <span class="credibility-badge medium"><i class="bi bi-shield-check"></i> Medium</span>
-                        </div>
-                        <p>Examination of biases in political news coverage across major outlets.</p>
-                    </div>
-                </div>
-
-                <div class="analysis-history">
-                    <h2><i class="bi bi-clock-history"></i> Analysis History</h2>
-                    <div id="historyContainer">
-                        <p style="text-align: center; color: #6b7280; font-size: 0.8rem;">No analysis history yet</p>
-                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <footer class="footer">
-        <div class="container">
-            <p>© 2025 Media Credibility Index. All rights reserved.</p>
+        <!-- FAQ раздел -->
+        <div id="faq-content" class="content-section">
+            <h2 class="content-title">Frequently Asked Questions</h2>
+            <div class="content-text">
+                <h3>What is Media Credibility Index?</h3>
+                <p>Media Credibility Index is a tool that analyzes news articles and sources to determine their credibility and potential biases.</p>
+
+                <h3>How does it work?</h3>
+                <p>Our system uses advanced algorithms to evaluate multiple factors including source reputation, writing style, factual consistency, and potential biases.</p>
+
+                <h3>Is my data safe?</h3>
+                <p>Yes, all analysis is done locally on your device and we don't store any personal information.</p>
+            </div>
+            <button onclick="showMainContent()" class="back-btn">Back to Main</button>
         </div>
-    </footer>
+
+        <!-- Feedback раздел -->
+        <div id="feedback-content" class="content-section">
+            <h2 class="content-title">Send Us Feedback</h2>
+            <div class="content-text">
+                <p>We appreciate your feedback! Please use the form below to share your thoughts about our service.</p>
+
+                <form id="feedback-form">
+                    <div class="form-group">
+                        <label for="feedback-name">Your Name</label>
+                        <input type="text" id="feedback-name" class="form-control" placeholder="Enter your name">
+                    </div>
+                    <div class="form-group">
+                        <label for="feedback-email">Email Address</label>
+                        <input type="email" id="feedback-email" class="form-control" placeholder="Enter your email">
+                    </div>
+                    <div class="form-group">
+                        <label for="feedback-message">Your Feedback</label>
+                        <textarea id="feedback-message" class="form-control" rows="4" placeholder="Enter your feedback here"></textarea>
+                    </div>
+                    <button type="button" onclick="submitFeedback()" class="btn btn-primary">Submit Feedback</button>
+                </form>
+            </div>
+            <button onclick="showMainContent()" class="back-btn">Back to Main</button>
+        </div>
+
+        <!-- Privacy раздел -->
+        <div id="privacy-content" class="content-section">
+            <h2 class="content-title">Privacy Policy</h2>
+            <div class="content-text">
+                <h3>Information We Collect</h3>
+                <p>We only collect the text content you provide for analysis and temporary usage data to improve our service.</p>
+
+                <h3>How We Use Your Information</h3>
+                <p>All analysis is performed locally on your device. We don't store or transmit your personal information.</p>
+
+                <h3>Data Security</h3>
+                <p>We implement appropriate security measures to protect against unauthorized access to your information.</p>
+            </div>
+            <button onclick="showMainContent()" class="back-btn">Back to Main</button>
+        </div>
+
+        <!-- Terms раздел -->
+        <div id="terms-content" class="content-section">
+            <h2 class="content-title">Terms of Service</h2>
+            <div class="content-text">
+                <h3>Acceptance of Terms</h3>
+                <p>By using our service, you agree to these Terms of Service.</p>
+
+                <h3>Use of Service</h3>
+                <p>You agree to use our service only for lawful purposes and in accordance with these terms.</p>
+
+                <h3>Disclaimer</h3>
+                <p>Our analysis provides general information only and should not be considered as professional advice.</p>
+            </div>
+            <button onclick="showMainContent()" class="back-btn">Back to Main</button>
+        </div>
+
+        <footer class="footer">
+            <div class="container">
+                <p>© 2025 Media Credibility Index. All rights reserved.</p>
+            </div>
+        </footer>
+    </div>
 
     <script>
         // Локальная реализация Chart.js
@@ -783,21 +629,13 @@
                 const height = this.canvas.height;
                 const padding = 40;
 
-                // Очистка canvas
                 ctx.clearRect(0, 0, width, height);
-
-                // Рисование осей
                 this.drawAxes(ctx, width, height, padding);
-
-                // Рисование столбцов
                 this.drawBars(ctx, width, height, padding);
-
-                // Рисование подписей к столбцам
                 this.drawBarLabels(ctx, width, height, padding);
             }
 
             drawAxes(ctx, width, height, padding) {
-                // Ось X
                 ctx.beginPath();
                 ctx.moveTo(padding, height - padding);
                 ctx.lineTo(width - padding, height - padding);
@@ -805,7 +643,6 @@
                 ctx.lineWidth = 1;
                 ctx.stroke();
 
-                // Ось Y
                 ctx.beginPath();
                 ctx.moveTo(padding, padding);
                 ctx.lineTo(padding, height - padding);
@@ -813,7 +650,6 @@
                 ctx.lineWidth = 1;
                 ctx.stroke();
 
-                // Подписи оси Y
                 for (let i = 0; i <= 1; i += 0.2) {
                     const y = height - padding - i * (height - 2 * padding);
                     ctx.fillStyle = '#6b7280';
@@ -830,16 +666,13 @@
                     const x = padding + index * (this.barWidth + 10);
                     const y = height - padding - barHeight;
 
-                    // Рисование столбца
                     ctx.fillStyle = dataset.backgroundColor[index];
                     ctx.fillRect(x, y, this.barWidth, barHeight);
 
-                    // Рисование границы
                     ctx.strokeStyle = dataset.borderColor[index];
                     ctx.lineWidth = 1;
                     ctx.strokeRect(x, y, this.barWidth, barHeight);
 
-                    // Подпись значения
                     ctx.fillStyle = '#000';
                     ctx.font = '10px Arial';
                     ctx.textAlign = 'center';
@@ -861,7 +694,6 @@
                     const x = padding + index * (this.barWidth + 10) + this.barWidth / 2;
                     const y = height - padding + 15;
 
-                    // Разбиваем длинные названия на несколько строк
                     const label = labels[index];
                     const words = label.split(' ');
                     const lineHeight = 10;
@@ -918,6 +750,9 @@
                 borderWidth: 1
             }]
         };
+
+        // Глобальные переменные
+        let chartInstance = null;
 
         // Функция для инициализации графика
         function initChart() {
@@ -1084,6 +919,37 @@
 
             html += `</div>`;
             document.getElementById('analysisResults').innerHTML = html;
+        }
+
+        // Функция для показа основного контента
+        function showMainContent() {
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            document.getElementById('main-content').classList.add('active');
+        }
+
+        // Функция для показа выбранного контента
+        function showContent(contentId) {
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            document.getElementById(contentId + '-content').classList.add('active');
+        }
+
+        // Функция для отправки фидбека
+        function submitFeedback() {
+            const name = document.getElementById('feedback-name').value;
+            const email = document.getElementById('feedback-email').value;
+            const message = document.getElementById('feedback-message').value;
+
+            if (!name || !email || !message) {
+                alert('Please fill in all fields');
+                return;
+            }
+
+            alert('Thank you for your feedback!');
+            document.getElementById('feedback-form').reset();
         }
 
         // Инициализация при загрузке страницы
