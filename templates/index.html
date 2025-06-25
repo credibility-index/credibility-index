@@ -6,21 +6,15 @@
     <title>Media Credibility Index</title>
     <style>
         :root {
-            --primary-color: #4361ee;
-            --secondary-color: #f8f9fa;
-            --text-color: #2b2d42;
+            --primary-color: #2563eb;
+            --secondary-color: #f8fafc;
+            --text-color: #1f2937;
             --border-color: #e2e8f0;
-            --border-radius: 12px;
-            --box-shadow: 0 10px 15px rgba(0, 0, 0, 0.05);
-            --glass-effect: rgba(255, 255, 255, 0.15);
-            --glass-border: rgba(255, 255, 255, 0.2);
-            --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            --high-credibility: #4cc9f0;
-            --medium-credibility: #4361ee;
-            --low-credibility: #f8961e;
-            --success-color: #4cc9f0;
-            --warning-color: #f8961e;
-            --danger-color: #f72585;
+            --border-radius: 8px;
+            --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
         }
 
         /* Локальные стили для иконок */
@@ -53,17 +47,20 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            font-family: 'Inter', sans-serif;
+            background-color: #f5f5f5;
             color: var(--text-color);
             line-height: 1.6;
+            display: flex;
+            flex-direction: column;
             min-height: 100vh;
-            padding: 20px;
         }
 
         .container {
             max-width: 1200px;
             margin: 0 auto;
+            padding: 20px;
+            flex: 1;
         }
 
         .header {
@@ -74,187 +71,58 @@
         }
 
         .logo {
-            font-size: 1.8rem;
-            font-weight: 700;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary-color);
             text-decoration: none;
             display: flex;
             align-items: center;
-            gap: 10px;
-            color: var(--primary-color);
-        }
-
-        .logo-text {
-            color: var(--primary-color);
-            background: linear-gradient(90deg, #4361ee, #3a0ca3);
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
+            gap: 8px;
         }
 
         .navbar-links {
             display: flex;
-            gap: 20px;
+            gap: 15px;
             list-style: none;
         }
 
         .navbar-link {
             color: var(--text-color);
             text-decoration: none;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            position: relative;
-            padding: 5px 0;
-            display: flex;
-            align-items: center;
+            transition: color 0.2s;
+            cursor: pointer;
         }
 
         .navbar-link:hover {
             color: var(--primary-color);
         }
 
-        .navbar-link::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 0;
-            height: 2px;
-            background: var(--primary-color);
-            transition: width 0.3s ease;
-        }
-
-        .navbar-link:hover::after {
-            width: 100%;
-        }
-
         .main-content {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
+            display: flex;
             gap: 30px;
             margin-top: 20px;
         }
 
         .analysis-section {
+            flex: 2;
             background: white;
             border-radius: var(--border-radius);
-            padding: 30px;
+            padding: 20px;
             box-shadow: var(--box-shadow);
         }
 
         .sidebar {
-            width: 350px;
+            flex: 1;
             display: flex;
             flex-direction: column;
-            gap: 30px;
+            gap: 20px;
         }
 
-        .glass-panel {
-            background: var(--glass-effect);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
+        .chart-container, .similar-articles {
+            background: white;
             border-radius: var(--border-radius);
-            border: 1px solid var(--glass-border);
-            box-shadow: var(--glass-shadow);
             padding: 20px;
-        }
-
-        .chart-section {
-            width: 100%;
-            overflow: hidden;
-        }
-
-        .chart-scroll-container {
-            width: 100%;
-            overflow-x: auto;
-            overflow-y: hidden;
-            padding-bottom: 10px;
-        }
-
-        .chart-container {
-            width: 1000px;
-            height: 400px;
-            min-width: 100%;
-        }
-
-        .chart-title {
-            color: var(--text-color);
-            margin-bottom: 20px;
-            font-size: 1.2rem;
-            font-weight: 600;
-            text-align: center;
-            position: relative;
-        }
-
-        .chart-update-btn {
-            background: linear-gradient(135deg, #4361ee, #3a0ca3);
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(67, 97, 238, 0.3);
-            margin: 20px auto 0;
-            display: block;
-            font-size: 0.9rem;
-        }
-
-        .chart-update-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 6px 20px rgba(67, 97, 238, 0.4);
-        }
-
-        .chart-update-btn i {
-            margin-right: 8px;
-        }
-
-        .chart-legend {
-            display: flex;
-            justify-content: center;
-            flex-wrap: wrap;
-            gap: 15px;
-            margin-top: 20px;
-        }
-
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 0.8rem;
-        }
-
-        .legend-color {
-            width: 14px;
-            height: 14px;
-            border-radius: 3px;
-        }
-
-        .legend-text {
-            color: var(--text-color);
-            font-weight: 500;
-        }
-
-        .btn {
-            border: none;
-            padding: 10px 20px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            font-size: 0.9rem;
-        }
-
-        .btn-black {
-            background: linear-gradient(135deg, #2b2d42, #1a1b2e);
-            color: white;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-        }
-
-        .btn-black:hover {
-            background: linear-gradient(135deg, #1a1b2e, #0a0b1a);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+            box-shadow: var(--box-shadow);
         }
 
         .article-header {
@@ -266,42 +134,35 @@
         .article-title {
             font-size: 1.5rem;
             margin-bottom: 10px;
-            color: var(--text-color);
         }
 
         .article-meta {
             display: flex;
-            gap: 10px;
+            gap: 15px;
             color: #6b7280;
-            font-size: 0.8rem;
+            font-size: 0.9rem;
         }
 
         .credibility-badge {
             padding: 3px 8px;
-            border-radius: 20px;
-            font-size: 0.7rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
             font-weight: 600;
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
         }
 
         .credibility-badge.high {
-            background-color: rgba(76, 201, 240, 0.2);
-            color: var(--high-credibility);
-            border: 1px solid rgba(76, 201, 240, 0.3);
+            background-color: rgba(16, 185, 129, 0.2);
+            color: #10b981;
         }
 
         .credibility-badge.medium {
-            background-color: rgba(67, 97, 238, 0.2);
-            color: var(--medium-credibility);
-            border: 1px solid rgba(67, 97, 238, 0.3);
+            background-color: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
         }
 
         .credibility-badge.low {
-            background-color: rgba(248, 150, 30, 0.2);
-            color: var(--low-credibility);
-            border: 1px solid rgba(248, 150, 30, 0.3);
+            background-color: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
         }
 
         .analysis-content {
@@ -310,7 +171,7 @@
 
         .scores-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
             gap: 15px;
             margin: 20px 0;
         }
@@ -320,20 +181,66 @@
             padding: 15px;
             border-radius: var(--border-radius);
             text-align: center;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
         }
 
         .score-value {
-            font-size: 1.4rem;
-            font-weight: 700;
+            font-size: 1.5rem;
+            font-weight: bold;
             margin: 5px 0;
-            color: var(--primary-color);
         }
 
         .score-description {
             font-size: 0.8rem;
             color: #6b7280;
-            font-weight: 500;
+        }
+
+        .similar-article {
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 3px solid var(--primary-color);
+            border-radius: var(--border-radius);
+            background: var(--secondary-color);
+            transition: transform 0.2s ease;
+        }
+
+        .similar-article:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+            display: inline-block;
+        }
+
+        .btn:hover {
+            background: #1d4ed8;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 3px solid rgba(0,0,0,0.1);
+            border-radius: 50%;
+            border-top: 3px solid var(--primary-color);
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
 
         .analysis-form {
@@ -346,164 +253,36 @@
 
         .form-control {
             width: 100%;
-            padding: 12px;
+            padding: 10px;
             border: 1px solid var(--border-color);
-            border-radius: 8px;
+            border-radius: 4px;
             min-height: 100px;
             resize: vertical;
-            font-family: inherit;
-            font-size: 0.9rem;
         }
 
-        .form-control:focus {
-            outline: none;
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 2px rgba(67, 97, 238, 0.2);
-        }
-
-        .similar-articles {
-            background: white;
-            border-radius: var(--border-radius);
-            padding: 20px;
-            box-shadow: var(--box-shadow);
-            margin-top: 20px;
-        }
-
-        .similar-articles h2 {
-            color: var(--text-color);
-            margin-bottom: 15px;
-            font-size: 1.1rem;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .similar-article {
-            padding: 15px;
-            margin-bottom: 15px;
-            border-left: 3px solid var(--primary-color);
-            border-radius: var(--border-radius);
-            background: var(--secondary-color);
-            transition: all 0.3s ease;
-        }
-
-        .similar-article:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
-        }
-
-        .similar-article h3 {
-            color: var(--primary-color);
-            margin-bottom: 8px;
-            font-size: 1rem;
-        }
-
-        .similar-article h3 a {
-            color: inherit;
-            text-decoration: none;
-        }
-
-        .similar-article p {
-            color: var(--text-color);
-            font-size: 0.8rem;
-            line-height: 1.4;
-        }
-
-        .analysis-history {
-            background: white;
-            border-radius: var(--border-radius);
-            padding: 20px;
-            box-shadow: var(--box-shadow);
-            margin-top: 20px;
-        }
-
-        .analysis-history h2 {
-            color: var(--text-color);
-            margin-bottom: 15px;
-            font-size: 1.1rem;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .history-item {
-            padding: 10px;
-            margin-bottom: 10px;
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.8rem;
-        }
-
-        .history-item:hover {
-            background: rgba(67, 97, 238, 0.05);
-        }
-
-        .history-score {
-            font-weight: 600;
-            color: var(--primary-color);
-            background: rgba(67, 97, 238, 0.1);
-            padding: 2px 6px;
-            border-radius: 20px;
-            font-size: 0.7rem;
-        }
-
-        .history-date {
-            color: #6b7280;
-            font-size: 0.7rem;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .spinner {
-            border: 2px solid rgba(67, 97, 238, 0.2);
-            border-radius: 50%;
-            border-top: 2px solid var(--primary-color);
-            width: 30px;
-            height: 30px;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+            margin-bottom: 20px;
         }
 
         .footer {
             background-color: white;
             padding: 20px 0;
-            margin-top: 30px;
+            margin-top: 40px;
             text-align: center;
             color: #6b7280;
-            font-size: 0.8rem;
-            border-top: 1px solid var(--border-color);
+            font-size: 0.9rem;
         }
 
         @media (max-width: 768px) {
             .main-content {
-                grid-template-columns: 1fr;
+                flex-direction: column;
             }
 
-            .sidebar {
-                width: 100%;
-            }
-
-            .chart-scroll-container {
-                width: 100%;
-                overflow-x: scroll;
-            }
-
-            .chart-container {
-                width: 800px;
-                height: 300px;
+            .navbar-links {
+                display: none;
             }
         }
     </style>
@@ -511,15 +290,15 @@
 <body>
     <div class="container">
         <div class="header">
-            <a href="/" class="logo">
+            <a href="index.html" class="logo">
                 <i class="bi bi-newspaper"></i>
-                <span class="logo-text">Media Credibility Index</span>
+                <span>Media Credibility Index</span>
             </a>
             <ul class="navbar-links">
-                <li><a href="/faq.html" class="navbar-link"><i class="bi bi-question-circle"></i> FAQ</a></li>
-                <li><a href="/feedback.html" class="navbar-link"><i class="bi bi-chat-left-text"></i> Feedback</a></li>
-                <li><a href="/privacy.html" class="navbar-link"><i class="bi bi-shield-lock"></i> Privacy</a></li>
-                <li><a href="/terms.html" class="navbar-link"><i class="bi bi-file-earmark-text"></i> Terms</a></li>
+                <li><a href="faq.html" class="navbar-link">FAQ</a></li>
+                <li><a href="feedback.html" class="navbar-link">Feedback</a></li>
+                <li><a href="privacy.html" class="navbar-link">Privacy</a></li>
+                <li><a href="terms.html" class="navbar-link">Terms</a></li>
             </ul>
         </div>
 
@@ -538,68 +317,44 @@
                             <label for="articleInput">Article URL or Text</label>
                             <textarea class="form-control" id="articleInput" placeholder="Paste article URL or text content here for analysis..."></textarea>
                         </div>
-                        <button onclick="analyzeArticle()" class="btn btn-black">
+                        <button onclick="analyzeArticle()" class="btn">
                             <i class="bi bi-search"></i> Analyze Article
                         </button>
                     </div>
-                    <div id="analysisResults"></div>
+                    <div id="analysisResults">
+                        <!-- Результаты анализа будут отображаться здесь -->
+                    </div>
                 </div>
             </div>
 
             <div class="sidebar">
-                <div class="glass-panel">
-                    <div class="chart-section">
-                        <h2 class="chart-title">Source Credibility Comparison</h2>
-                        <div class="chart-scroll-container">
-                            <div class="chart-container">
-                                <canvas id="chart"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                    <button onclick="updateChart()" class="chart-update-btn">
-                        <i class="bi bi-arrow-clockwise"></i>
-                        <span>Update Chart</span>
+                <div class="chart-container">
+                    <h2>Source Credibility Comparison</h2>
+                    <button onclick="updateChart()" class="btn">
+                        <i class="bi bi-arrow-clockwise"></i> Update Chart
                     </button>
-                    <div class="chart-legend">
-                        <div class="legend-item">
-                            <div class="legend-color" style="background-color: var(--high-credibility);"></div>
-                            <span class="legend-text">High (0.8-1.0)</span>
-                        </div>
-                        <div class="legend-item">
-                            <div class="legend-color" style="background-color: var(--medium-credibility);"></div>
-                            <span class="legend-text">Medium (0.6-0.8)</span>
-                        </div>
-                        <div class="legend-item">
-                            <div class="legend-color" style="background-color: var(--low-credibility);"></div>
-                            <span class="legend-text">Low (0-0.6)</span>
-                        </div>
-                    </div>
+                    <canvas id="chart"></canvas>
                 </div>
 
                 <div class="similar-articles">
-                    <h2><i class="bi bi-link-45deg"></i> Similar Articles</h2>
-                    <div class="similar-article">
-                        <h3><a href="#" onclick="loadArticle('global-news')">Global News Trends</a></h3>
-                        <div class="article-meta">
-                            <span><i class="bi bi-newspaper"></i> BBC</span>
-                            <span class="credibility-badge high"><i class="bi bi-shield-check"></i> High</span>
+                    <h2>Related Articles</h2>
+                    <div id="similarArticlesContainer">
+                        <div class="similar-article">
+                            <h3><a href="article1.html">Global News Trends Analysis</a></h3>
+                            <div class="article-meta">
+                                <span><i class="bi bi-newspaper"></i> BBC</span>
+                                <span class="credibility-badge high"><i class="bi bi-shield-check"></i> High</span>
+                            </div>
+                            <p>Comprehensive analysis of current global news trends and their credibility patterns.</p>
                         </div>
-                        <p>Analysis of current global news trends and their credibility patterns.</p>
-                    </div>
-                    <div class="similar-article">
-                        <h3><a href="#" onclick="loadArticle('media-bias')">Media Bias Report</a></h3>
-                        <div class="article-meta">
-                            <span><i class="bi bi-newspaper"></i> Guardian</span>
-                            <span class="credibility-badge medium"><i class="bi bi-shield-check"></i> Medium</span>
+                        <div class="similar-article">
+                            <h3><a href="article2.html">Media Bias in Political Reporting</a></h3>
+                            <div class="article-meta">
+                                <span><i class="bi bi-newspaper"></i> The Guardian</span>
+                                <span class="credibility-badge medium"><i class="bi bi-shield-check"></i> Medium</span>
+                            </div>
+                            <p>Examination of potential biases in political news coverage across major outlets.</p>
                         </div>
-                        <p>Examination of biases in political news coverage across major outlets.</p>
-                    </div>
-                </div>
-
-                <div class="analysis-history">
-                    <h2><i class="bi bi-clock-history"></i> Analysis History</h2>
-                    <div id="historyContainer">
-                        <p style="text-align: center; color: #6b7280; font-size: 0.8rem;">No analysis history yet</p>
                     </div>
                 </div>
             </div>
@@ -621,7 +376,6 @@
                 this.data = config.data;
                 this.options = config.options || {};
                 this.canvas = ctx.canvas;
-                this.barWidth = 0;
                 this.init();
             }
 
@@ -635,15 +389,6 @@
                 const container = this.canvas.parentElement;
                 this.canvas.width = container.clientWidth;
                 this.canvas.height = container.clientHeight;
-                this.calculateBarWidth();
-            }
-
-            calculateBarWidth() {
-                const padding = 40;
-                const barCount = this.data.labels.length;
-                const maxBarWidth = 25;
-                const availableWidth = this.canvas.width - 2 * padding;
-                this.barWidth = Math.min(maxBarWidth, Math.max(10, availableWidth / barCount - 10));
             }
 
             render() {
@@ -652,6 +397,10 @@
                 const width = this.canvas.width;
                 const height = this.canvas.height;
                 const padding = 40;
+                const barCount = data.labels.length;
+                const maxBarWidth = 30;
+                const availableWidth = width - 2 * padding;
+                const barWidth = Math.min(maxBarWidth, Math.max(10, availableWidth / barCount - 10));
 
                 // Очистка canvas
                 ctx.clearRect(0, 0, width, height);
@@ -660,10 +409,10 @@
                 this.drawAxes(ctx, width, height, padding);
 
                 // Рисование столбцов
-                this.drawBars(ctx, width, height, padding);
+                this.drawBars(ctx, width, height, padding, barWidth);
 
                 // Рисование подписей к столбцам
-                this.drawBarLabels(ctx, width, height, padding);
+                this.drawBarLabels(ctx, width, height, padding, barWidth);
             }
 
             drawAxes(ctx, width, height, padding) {
@@ -671,7 +420,7 @@
                 ctx.beginPath();
                 ctx.moveTo(padding, height - padding);
                 ctx.lineTo(width - padding, height - padding);
-                ctx.strokeStyle = '#e0e0e0';
+                ctx.strokeStyle = '#ccc';
                 ctx.lineWidth = 1;
                 ctx.stroke();
 
@@ -679,7 +428,7 @@
                 ctx.beginPath();
                 ctx.moveTo(padding, padding);
                 ctx.lineTo(padding, height - padding);
-                ctx.strokeStyle = '#e0e0e0';
+                ctx.strokeStyle = '#ccc';
                 ctx.lineWidth = 1;
                 ctx.stroke();
 
@@ -687,54 +436,52 @@
                 for (let i = 0; i <= 1; i += 0.2) {
                     const y = height - padding - i * (height - 2 * padding);
                     ctx.fillStyle = '#6b7280';
-                    ctx.font = '10px Arial';
+                    ctx.font = '12px Arial';
                     ctx.textAlign = 'right';
                     ctx.fillText(i.toFixed(1), padding - 10, y + 5);
                 }
             }
 
-            drawBars(ctx, width, height, padding) {
+            drawBars(ctx, width, height, padding, barWidth) {
                 const dataset = this.data.datasets[0];
                 dataset.data.forEach((value, index) => {
                     const barHeight = value * (height - 2 * padding);
-                    const x = padding + index * (this.barWidth + 10);
+                    const x = padding + index * (barWidth + 10);
                     const y = height - padding - barHeight;
 
                     // Рисование столбца
                     ctx.fillStyle = dataset.backgroundColor[index];
-                    ctx.fillRect(x, y, this.barWidth, barHeight);
+                    ctx.fillRect(x, y, barWidth, barHeight);
 
                     // Рисование границы
                     ctx.strokeStyle = dataset.borderColor[index];
                     ctx.lineWidth = 1;
-                    ctx.strokeRect(x, y, this.barWidth, barHeight);
+                    ctx.strokeRect(x, y, barWidth, barHeight);
 
                     // Подпись значения
                     ctx.fillStyle = '#000';
-                    ctx.font = '10px Arial';
+                    ctx.font = '12px Arial';
                     ctx.textAlign = 'center';
-                    ctx.fillText(value.toFixed(2), x + this.barWidth / 2, y - 5);
+                    ctx.fillText(value.toFixed(2), x + barWidth / 2, y - 5);
                 });
             }
 
-            drawBarLabels(ctx, width, height, padding) {
+            drawBarLabels(ctx, width, height, padding, barWidth) {
                 const dataset = this.data.datasets[0];
-                const labels = this.data.labels || [];
+                const labels = this.data.labels;
 
                 ctx.fillStyle = '#000';
-                ctx.font = '9px Arial';
+                ctx.font = '10px Arial';
                 ctx.textAlign = 'center';
 
                 dataset.data.forEach((value, index) => {
-                    if (!labels[index]) return;
-
-                    const x = padding + index * (this.barWidth + 10) + this.barWidth / 2;
+                    const x = padding + index * (barWidth + 10) + barWidth / 2;
                     const y = height - padding + 15;
 
                     // Разбиваем длинные названия на несколько строк
                     const label = labels[index];
                     const words = label.split(' ');
-                    const lineHeight = 10;
+                    const lineHeight = 12;
                     let currentY = y;
 
                     words.forEach((word) => {
@@ -745,7 +492,6 @@
             }
 
             update() {
-                this.calculateBarWidth();
                 this.render();
             }
 
@@ -761,10 +507,10 @@
         // Данные для графика с 20 источниками
         const defaultChartData = {
             labels: [
-                'BBC', 'CNN', 'Fox', 'Guardian', 'Reuters',
-                'NYT', 'Wash Post', 'Al Jazeera', 'RT', 'Bloomberg',
-                'FT', 'Economist', 'WSJ', 'USA Today', 'NPR',
-                'AP', 'Breitbart', 'BuzzFeed', 'Vox', 'Independent'
+                'BBC News', 'CNN Intl', 'Fox News', 'The Guardian', 'Reuters',
+                'NY Times', 'Wash Post', 'Al Jazeera', 'RT News', 'Bloomberg',
+                'Financial Times', 'The Economist', 'WSJ', 'USA Today', 'NPR',
+                'AP News', 'Breitbart', 'BuzzFeed', 'Vox', 'The Independent'
             ],
             datasets: [{
                 label: 'Credibility Score',
@@ -775,19 +521,19 @@
                     0.90, 0.83, 0.45, 0.68, 0.74, 0.80
                 ],
                 backgroundColor: [
-                    '#4cc9f0', '#4361ee', '#f8961e', '#4361ee', '#4cc9f0',
-                    '#4361ee', '#4cc9f0', '#4361ee', '#f8961e', '#4cc9f0',
-                    '#4361ee', '#4cc9f0', '#4361ee', '#4cc9f0', '#4361ee',
-                    '#4cc9f0', '#4361ee', '#f8961e', '#4361ee', '#f8961e', '#4cc9f0'
+                    '#4ECDC4', '#4D96FF', '#FF6B9D', '#4D96FF', '#4ECDC4',
+                    '#4D96FF', '#4ECDC4', '#4D96FF', '#FF6B9D', '#4ECDC4',
+                    '#4D96FF', '#4ECDC4', '#4D96FF', '#4ECDC4', '#4D96FF',
+                    '#4ECDC4', '#4D96FF', '#FF6B9D', '#4D96FF', '#FF6B9D', '#4ECDC4'
                 ],
                 borderColor: [
-                    'rgba(76, 201, 240, 0.8)', 'rgba(67, 97, 238, 0.8)', 'rgba(248, 150, 30, 0.8)',
-                    'rgba(67, 97, 238, 0.8)', 'rgba(76, 201, 240, 0.8)',
-                    'rgba(67, 97, 238, 0.8)', 'rgba(76, 201, 240, 0.8)', 'rgba(67, 97, 238, 0.8)',
-                    'rgba(248, 150, 30, 0.8)', 'rgba(76, 201, 240, 0.8)',
-                    'rgba(67, 97, 238, 0.8)', 'rgba(76, 201, 240, 0.8)', 'rgba(67, 97, 238, 0.8)',
-                    'rgba(76, 201, 240, 0.8)', 'rgba(67, 97, 238, 0.8)', 'rgba(248, 150, 30, 0.8)',
-                    'rgba(67, 97, 238, 0.8)', 'rgba(248, 150, 30, 0.8)', 'rgba(76, 201, 240, 0.8)'
+                    'rgba(78, 205, 196, 0.8)', 'rgba(77, 150, 255, 0.8)', 'rgba(255, 107, 157, 0.8)',
+                    'rgba(77, 150, 255, 0.8)', 'rgba(78, 205, 196, 0.8)',
+                    'rgba(77, 150, 255, 0.8)', 'rgba(78, 205, 196, 0.8)', 'rgba(77, 150, 255, 0.8)',
+                    'rgba(255, 107, 157, 0.8)', 'rgba(78, 205, 196, 0.8)',
+                    'rgba(77, 150, 255, 0.8)', 'rgba(78, 205, 196, 0.8)', 'rgba(77, 150, 255, 0.8)',
+                    'rgba(78, 205, 196, 0.8)', 'rgba(77, 150, 255, 0.8)', 'rgba(255, 107, 157, 0.8)',
+                    'rgba(77, 150, 255, 0.8)', 'rgba(255, 107, 157, 0.8)', 'rgba(78, 205, 196, 0.8)'
                 ],
                 borderWidth: 1
             }]
@@ -818,16 +564,11 @@
             if (!chartInstance) return;
 
             // Показываем индикатор загрузки
-            const container = document.querySelector('.chart-scroll-container');
+            const container = document.querySelector('.chart-container');
             const loadingHTML = `
-                <div class="loading" style="
-                    position: absolute;
-                    top: 50%;
-                    left: 50%;
-                    transform: translate(-50%, -50%);
-                ">
+                <div class="loading">
                     <div class="spinner"></div>
-                    <p style="margin-top: 10px; color: var(--text-color); font-size: 0.8rem;">Updating...</p>
+                    <p>Updating chart data...</p>
                 </div>
             `;
 
@@ -849,55 +590,7 @@
                 // Обновляем данные графика
                 chartInstance.data.datasets[0].data = updatedData;
                 chartInstance.update();
-            }, 800);
-        }
-
-        // Функция для загрузки статьи
-        function loadArticle(type) {
-            let content = '';
-            let title = '';
-            let source = '';
-            let credibility = '';
-
-            switch(type) {
-                case 'global-news':
-                    content = 'Analysis of current global news trends and their credibility patterns across different regions and sources.';
-                    title = 'Global News Trends';
-                    source = 'BBC';
-                    credibility = 'high';
-                    break;
-                case 'media-bias':
-                    content = 'Examination of potential biases in political news coverage and how they affect public perception.';
-                    title = 'Media Bias Report';
-                    source = 'Guardian';
-                    credibility = 'medium';
-                    break;
-            }
-
-            const resultsContainer = document.getElementById('analysisResults');
-            resultsContainer.innerHTML = `
-                <div class="loading">
-                    <div class="spinner"></div>
-                    <p style="color: var(--text-color); font-size: 0.8rem;">Loading article...</p>
-                </div>
-            `;
-
-            setTimeout(() => {
-                resultsContainer.innerHTML = `
-                    <div class="analysis-result">
-                        <div class="article-header">
-                            <h2 style="color: var(--primary-color); font-size: 1.3rem;">${title}</h2>
-                        </div>
-                        <div class="article-meta" style="margin-bottom: 15px;">
-                            <span><i class="bi bi-newspaper"></i> ${source}</span>
-                            <span class="credibility-badge ${credibility}"><i class="bi bi-shield-check"></i> ${credibility}</span>
-                        </div>
-                        <div class="analysis-summary" style="margin-top: 15px;">
-                            <p style="color: var(--text-color); font-size: 0.9rem;">${content}</p>
-                        </div>
-                    </div>
-                `;
-            }, 500);
+            }, 1000);
         }
 
         // Функция для анализа статьи
@@ -913,7 +606,7 @@
             resultsContainer.innerHTML = `
                 <div class="loading">
                     <div class="spinner"></div>
-                    <p style="color: var(--text-color); font-size: 0.8rem;">Analyzing...</p>
+                    <p>Analyzing article content...</p>
                 </div>
             `;
 
@@ -926,25 +619,21 @@
                 if (permission === 'granted') {
                     analysisHistory.push({
                         credibility_score: mockAnalysisResult.article.analysis.credibility_score.score,
-                        timestamp: new Date().toISOString(),
-                        title: mockAnalysisResult.article.title
+                        timestamp: new Date().toISOString()
                     });
 
                     if (analysisHistory.length > 10) {
                         analysisHistory.shift();
                     }
-
-                    updateHistoryDisplay();
-                    localStorage.setItem('analysisHistory', JSON.stringify(analysisHistory));
                 }
 
                 displayAnalysisResults(mockAnalysisResult);
             } catch (error) {
                 console.error('Error analyzing article:', error);
                 resultsContainer.innerHTML = `
-                    <div class="error-message" style="color: var(--danger-color); text-align: center; padding: 15px; font-size: 0.8rem;">
-                        <i class="bi bi-exclamation-triangle-fill" style="font-size: 1.2rem; margin-right: 8px;"></i>
-                        <span>Failed to analyze article. Please try again.</span>
+                    <div class="error-message">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <span>Failed to analyze article. Please try again later.</span>
                     </div>
                 `;
             }
@@ -952,7 +641,7 @@
 
         // Имитация анализа статьи
         async function simulateArticleAnalysis(inputText) {
-            await new Promise(resolve => setTimeout(resolve, 800));
+            await new Promise(resolve => setTimeout(resolve, 1000));
 
             const randomScore = 0.5 + Math.random() * 0.5;
             const randomSentiment = Math.random();
@@ -961,17 +650,17 @@
             return {
                 status: 'success',
                 article: {
-                    title: inputText.substring(0, 30) + (inputText.length > 30 ? '...' : ''),
+                    title: 'Analysis Results',
                     source: 'Analyzed Content',
-                    short_summary: 'Analysis of the provided content shows the following credibility metrics.',
+                    short_summary: 'This is a sample analysis of the provided article text or URL. The system has analyzed the content and determined its credibility score.',
                     analysis: {
                         credibility_score: { score: randomScore },
                         sentiment: { score: randomSentiment },
                         bias: { level: randomBias },
-                        topics: ['Politics', 'Economy', 'Technology'],
+                        topics: ['Topic 1', 'Topic 2', 'Topic 3'],
                         perspectives: {
                             neutral: {
-                                summary: 'Neutral analysis',
+                                summary: 'Neutral analysis of the content',
                                 credibility: randomScore > 0.7 ? 'High' : 'Medium'
                             }
                         }
@@ -989,41 +678,33 @@
             let html = `
                 <div class="analysis-result">
                     <div class="article-header">
-                        <h2 style="color: var(--primary-color); font-size: 1.3rem;">${article.title || 'Analysis Results'}</h2>
+                        <h2>${article.title || 'Analysis Results'}</h2>
                     </div>
-                    <div class="analysis-summary" style="margin: 15px 0;">
-                        <p style="color: var(--text-color); font-size: 0.9rem;">${article.short_summary || 'No summary available'}</p>
+                    <div class="analysis-summary">
+                        <p>${article.short_summary || 'No summary available'}</p>
                     </div>
                     <div class="scores-grid">
-                        <div class="score-card" style="background: rgba(76, 201, 240, 0.1);">
-                            <div class="score-value" style="color: var(--high-credibility); font-size: 1.2rem;">${(analysis.credibility_score?.score || 0).toFixed(2)}</div>
-                            <div class="score-description" style="font-size: 0.7rem;">Credibility</div>
+                        <div class="score-card">
+                            <div class="score-value">${(analysis.credibility_score?.score || 0).toFixed(2)}</div>
+                            <div class="score-description">Credibility</div>
                         </div>
-                        <div class="score-card" style="background: rgba(67, 97, 238, 0.1);">
-                            <div class="score-value" style="color: var(--medium-credibility); font-size: 1.2rem;">${(analysis.sentiment?.score || 0).toFixed(2)}</div>
-                            <div class="score-description" style="font-size: 0.7rem;">Sentiment</div>
+                        <div class="score-card">
+                            <div class="score-value">${(analysis.sentiment?.score || 0).toFixed(2)}</div>
+                            <div class="score-description">Sentiment</div>
                         </div>
-                        <div class="score-card" style="background: rgba(248, 150, 30, 0.1);">
-                            <div class="score-value" style="color: var(--low-credibility); font-size: 1.2rem;">${(analysis.bias?.level || 0).toFixed(2)}</div>
-                            <div class="score-description" style="font-size: 0.7rem;">Bias</div>
+                        <div class="score-card">
+                            <div class="score-value">${(analysis.bias?.level || 0).toFixed(2)}</div>
+                            <div class="score-description">Bias</div>
                         </div>
                     </div>
             `;
 
             if (analysis.topics && analysis.topics.length > 0) {
                 html += `
-                    <div class="topics-section" style="margin-top: 20px;">
-                        <h4 style="color: var(--text-color); margin-bottom: 10px; font-size: 0.9rem;">Key Topics:</h4>
-                        <div class="topics-list" style="display: flex; flex-wrap: wrap; gap: 8px;">
-                            ${analysis.topics.map(topic => `
-                                <span class="topic-badge" style="
-                                    background: rgba(67, 97, 238, 0.1);
-                                    color: var(--primary-color);
-                                    padding: 3px 8px;
-                                    border-radius: 20px;
-                                    font-size: 0.7rem;
-                                ">${topic}</span>
-                            `).join('')}
+                    <div class="topics-section">
+                        <h4>Key Topics:</h4>
+                        <div class="topics-list">
+                            ${analysis.topics.map(topic => `<span class="topic-badge">${topic}</span>`).join('')}
                         </div>
                     </div>
                 `;
@@ -1033,117 +714,20 @@
             document.getElementById('analysisResults').innerHTML = html;
         }
 
-        // Функция для обновления отображения истории анализов
-        function updateHistoryDisplay() {
-            const historyContainer = document.getElementById('historyContainer');
-            historyContainer.innerHTML = '';
-
-            if (analysisHistory.length === 0) {
-                historyContainer.innerHTML = '<p style="text-align: center; color: #6b7280; font-size: 0.8rem;">No analysis history yet</p>';
-                return;
-            }
-
-            analysisHistory.forEach((item) => {
-                const date = new Date(item.timestamp);
-                const formattedDate = date.toLocaleString();
-
-                const historyItem = document.createElement('div');
-                historyItem.className = 'history-item';
-                historyItem.innerHTML = `
-                    <div>
-                        <span class="history-score">${item.credibility_score.toFixed(2)}</span>
-                        <span style="margin-left: 8px; font-size: 0.8rem;">${item.title}</span>
-                    </div>
-                    <span class="history-date" style="font-size: 0.7rem;">${formattedDate}</span>
-                `;
-                historyContainer.appendChild(historyItem);
-            });
-        }
-
         // Инициализация при загрузке страницы
         document.addEventListener('DOMContentLoaded', () => {
             initChart();
 
-            // Проверяем, было ли уже запрошено разрешение
-            const permissionStatus = localStorage.getItem('analysisPermissionStatus');
-
-            if (!permissionStatus) {
-                showInitialPermissionModal();
-            } else {
-                // Загружаем историю анализов из localStorage
-                const savedHistory = localStorage.getItem('analysisHistory');
-                if (savedHistory) {
-                    analysisHistory = JSON.parse(savedHistory);
-                    updateHistoryDisplay();
-                }
-            }
+            // Обработчики для навигационных ссылок
+            const navLinks = document.querySelectorAll('.navbar-link');
+            navLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const page = this.getAttribute('href');
+                    window.location.href = page;
+                });
+            });
         });
-
-        // Функция для показа начального модального окна
-        function showInitialPermissionModal() {
-            const modal = document.createElement('div');
-            modal.innerHTML = `
-                <div class="permission-modal" style="
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    width: 100%;
-                    height: 100%;
-                    background-color: rgba(0,0,0,0.5);
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    z-index: 1000;">
-                    <div class="modal-content" style="
-                        background: white;
-                        padding: 25px;
-                        border-radius: 12px;
-                        max-width: 450px;
-                        width: 90%;
-                        box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
-                        <h3 style="color: var(--text-color); margin-bottom: 15px; font-size: 1.3rem;">Data Storage Permission</h3>
-                        <p style="color: var(--text-color); margin-bottom: 15px; font-size: 0.9rem;">We can store your analysis results locally to improve your experience.</p>
-                        <p style="color: var(--text-color); margin-bottom: 20px; font-size: 0.9rem;">Would you like to enable local storage for analysis history?</p>
-                        <div class="modal-actions" style="
-                            display: flex;
-                            justify-content: flex-end;
-                            gap: 10px;">
-                            <button id="allowStorage" class="btn" style="
-                                background: linear-gradient(135deg, #4361ee, #3a0ca3);
-                                color: white;
-                                padding: 8px 16px;
-                                border-radius: 8px;
-                                font-size: 0.8rem;
-                                border: none;
-                                cursor: pointer;">Allow</button>
-                            <button id="denyStorage" class="btn" style="
-                                background: #f8f9fa;
-                                color: var(--text-color);
-                                padding: 8px 16px;
-                                border-radius: 8px;
-                                border: 1px solid var(--border-color);
-                                font-size: 0.8rem;
-                                cursor: pointer;">Deny</button>
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            document.body.appendChild(modal);
-
-            // Обработчики кнопок
-            document.getElementById('allowStorage').addEventListener('click', () => {
-                localStorage.setItem('analysisPermission', 'granted');
-                localStorage.setItem('analysisPermissionStatus', 'asked');
-                modal.remove();
-            });
-
-            document.getElementById('denyStorage').addEventListener('click', () => {
-                localStorage.setItem('analysisPermission', 'denied');
-                localStorage.setItem('analysisPermissionStatus', 'asked');
-                modal.remove();
-            });
-        }
     </script>
 </body>
 </html>
