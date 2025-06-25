@@ -102,7 +102,7 @@
             gap: 20px;
         }
 
-        .glass-chart-container {
+        .glass-panel {
             background: var(--glass-effect);
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
@@ -120,6 +120,13 @@
             font-weight: 600;
         }
 
+        .chart-container {
+            position: relative;
+            width: 100%;
+            height: 400px;
+            margin-bottom: 20px;
+        }
+
         .chart-update-btn {
             background: linear-gradient(135deg, #6e8efb, #a777e3);
             color: white;
@@ -131,6 +138,9 @@
             transition: all 0.2s;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         .chart-update-btn:hover {
@@ -181,15 +191,6 @@
 
         .btn-black:hover {
             background-color: #333333;
-        }
-
-        .btn-primary {
-            background-color: var(--primary-color);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background-color: #1d4ed8;
         }
 
         .article-header {
@@ -372,12 +373,15 @@
             </div>
 
             <div class="sidebar">
-                <div class="glass-chart-container">
+                <div class="glass-panel">
                     <h2 class="chart-title">Source Credibility Comparison</h2>
+                    <div class="chart-container">
+                        <canvas id="chart"></canvas>
+                    </div>
                     <button onclick="updateChart()" class="chart-update-btn">
-                        <i class="bi bi-arrow-clockwise"></i> Update Chart
+                        <i class="bi bi-arrow-clockwise"></i>
+                        <span>Update Chart</span>
                     </button>
-                    <canvas id="chart"></canvas>
                     <div class="chart-legend">
                         <div class="legend-item">
                             <div class="legend-color" style="background-color: var(--low-credibility);"></div>
@@ -408,36 +412,24 @@
         let chartInstance = null;
         let analysisHistory = [];
 
-        // Данные для графика с большим количеством источников
+        // Данные для графика
         const defaultChartData = {
             labels: [
                 'BBC', 'CNN', 'Fox News', 'The Guardian', 'Reuters',
-                'NY Times', 'Washington Post', 'Al Jazeera', 'RT', 'Bloomberg',
-                'Financial Times', 'The Economist', 'Wall Street Journal', 'USA Today',
-                'NPR', 'AP News', 'Breitbart', 'BuzzFeed', 'Vox', 'The Independent'
+                'NY Times', 'Washington Post', 'Al Jazeera', 'RT', 'Bloomberg'
             ],
             datasets: [{
                 label: 'Credibility Score',
-                data: [
-                    0.92, 0.78, 0.65, 0.88, 0.95,
-                    0.89, 0.85, 0.72, 0.55, 0.87,
-                    0.91, 0.84, 0.82, 0.76, 0.88,
-                    0.90, 0.83, 0.45, 0.68, 0.74, 0.80
-                ],
+                data: [0.92, 0.78, 0.65, 0.88, 0.95, 0.89, 0.85, 0.72, 0.55, 0.87],
                 backgroundColor: [
                     '#4ECDC4', '#4D96FF', '#FF6B9D', '#4D96FF', '#4ECDC4',
-                    '#4D96FF', '#4ECDC4', '#4D96FF', '#FF6B9D', '#4ECDC4',
-                    '#4D96FF', '#4ECDC4', '#4D96FF', '#4ECDC4', '#4D96FF',
-                    '#4ECDC4', '#4D96FF', '#FF6B9D', '#4D96FF', '#FF6B9D', '#4ECDC4'
+                    '#4D96FF', '#4ECDC4', '#4D96FF', '#FF6B9D', '#4ECDC4'
                 ],
                 borderColor: [
                     'rgba(78, 205, 196, 0.8)', 'rgba(77, 150, 255, 0.8)', 'rgba(255, 107, 157, 0.8)',
                     'rgba(77, 150, 255, 0.8)', 'rgba(78, 205, 196, 0.8)',
                     'rgba(77, 150, 255, 0.8)', 'rgba(78, 205, 196, 0.8)', 'rgba(77, 150, 255, 0.8)',
-                    'rgba(255, 107, 157, 0.8)', 'rgba(78, 205, 196, 0.8)',
-                    'rgba(77, 150, 255, 0.8)', 'rgba(78, 205, 196, 0.8)', 'rgba(77, 150, 255, 0.8)',
-                    'rgba(78, 205, 196, 0.8)', 'rgba(77, 150, 255, 0.8)', 'rgba(255, 107, 157, 0.8)',
-                    'rgba(77, 150, 255, 0.8)', 'rgba(255, 107, 157, 0.8)', 'rgba(78, 205, 196, 0.8)'
+                    'rgba(255, 107, 157, 0.8)', 'rgba(78, 205, 196, 0.8)'
                 ],
                 borderWidth: 1
             }]
@@ -446,6 +438,11 @@
         // Функция для инициализации графика
         function initChart() {
             const ctx = document.getElementById('chart').getContext('2d');
+
+            // Удаляем старый график, если он существует
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
 
             chartInstance = new Chart(ctx, {
                 type: 'bar',
@@ -482,15 +479,6 @@
                                 color: 'rgba(0, 0, 0, 0.6)',
                                 maxRotation: 45,
                                 minRotation: 45
-                            },
-                            title: {
-                                display: true,
-                                text: 'News Sources',
-                                color: 'rgba(0, 0, 0, 0.8)',
-                                font: {
-                                    size: 14,
-                                    weight: '500'
-                                }
                             }
                         }
                     },
@@ -525,7 +513,35 @@
         // Функция для обновления графика
         function updateChart() {
             if (!chartInstance) return;
-            chartInstance.update();
+
+            // Показываем индикатор загрузки
+            const container = document.querySelector('.chart-container');
+            const loadingHTML = `
+                <div class="loading" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">
+                    <div class="spinner"></div>
+                    <p style="margin-top: 10px;">Updating chart data...</p>
+                </div>
+            `;
+
+            container.insertAdjacentHTML('afterbegin', loadingHTML);
+
+            // Имитация задержки сети
+            setTimeout(() => {
+                // Удаляем индикатор загрузки
+                const loadingElement = container.querySelector('.loading');
+                if (loadingElement) {
+                    loadingElement.remove();
+                }
+
+                // Генерируем новые случайные данные
+                const updatedData = defaultChartData.datasets[0].data.map(score => {
+                    return Math.min(1, Math.max(0, score + (Math.random() - 0.5) * 0.1));
+                });
+
+                // Обновляем данные графика
+                chartInstance.data.datasets[0].data = updatedData;
+                chartInstance.update();
+            }, 1000);
         }
 
         // Функция для анализа статьи
