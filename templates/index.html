@@ -6,38 +6,22 @@
     <title>Media Credibility Index</title>
     <style>
         :root {
-            --primary-color: #2563eb;
-            --secondary-color: #f8fafc;
-            --text-color: #1f2937;
+            --primary-color: #4361ee;
+            --secondary-color: #f8f9fa;
+            --text-color: #2b2d42;
             --border-color: #e2e8f0;
-            --border-radius: 8px;
-            --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            --glass-effect: rgba(255, 255, 255, 0.1);
+            --border-radius: 12px;
+            --box-shadow: 0 10px 15px rgba(0, 0, 0, 0.05);
+            --glass-effect: rgba(255, 255, 255, 0.15);
             --glass-border: rgba(255, 255, 255, 0.2);
             --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            --high-credibility: #4ECDC4;
-            --medium-credibility: #4D96FF;
-            --low-credibility: #FF6B9D;
+            --high-credibility: #4cc9f0;
+            --medium-credibility: #4361ee;
+            --low-credibility: #f8961e;
+            --success-color: #4cc9f0;
+            --warning-color: #f8961e;
+            --danger-color: #f72585;
         }
-
-        /* Локальные стили для иконок */
-        .bi {
-            display: inline-block;
-            font-style: normal;
-            font-variant: normal;
-            text-rendering: auto;
-            line-height: 1;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-        }
-
-        .bi-newspaper:before { content: "📰"; }
-        .bi-shield-check:before { content: "✔"; }
-        .bi-search:before { content: "🔍"; }
-        .bi-arrow-clockwise:before { content: "🔄"; }
-        .bi-exclamation-triangle-fill:before { content: "⚠"; }
-        .bi-clock-history:before { content: "⏳"; }
-        .bi-link-45deg:before { content: "🔗"; }
 
         * {
             margin: 0;
@@ -46,20 +30,17 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-            background-color: #f5f5f5;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
             color: var(--text-color);
             line-height: 1.6;
-            display: flex;
-            flex-direction: column;
             min-height: 100vh;
+            padding: 20px;
         }
 
         .container {
             max-width: 1200px;
             margin: 0 auto;
-            padding: 20px;
-            flex: 1;
         }
 
         .header {
@@ -70,38 +51,60 @@
         }
 
         .logo {
-            font-size: 1.5rem;
-            font-weight: bold;
+            font-size: 1.8rem;
+            font-weight: 700;
             text-decoration: none;
             display: flex;
             align-items: center;
-            gap: 8px;
-            color: var(--text-color);
+            gap: 10px;
+            color: var(--primary-color);
         }
 
         .logo-text {
-            color: #000000;
+            color: var(--primary-color);
+            background: linear-gradient(90deg, #4361ee, #3a0ca3);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
         .navbar-links {
             display: flex;
-            gap: 15px;
+            gap: 20px;
             list-style: none;
         }
 
         .navbar-link {
             color: var(--text-color);
             text-decoration: none;
-            transition: color 0.2s;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            position: relative;
+            padding: 5px 0;
         }
 
         .navbar-link:hover {
             color: var(--primary-color);
         }
 
+        .navbar-link::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--primary-color);
+            transition: width 0.3s ease;
+        }
+
+        .navbar-link:hover::after {
+            width: 100%;
+        }
+
         .main-content {
-            display: flex;
-            flex-direction: column;
+            display: grid;
+            grid-template-columns: 2fr 1fr;
             gap: 30px;
             margin-top: 20px;
         }
@@ -109,117 +112,138 @@
         .analysis-section {
             background: white;
             border-radius: var(--border-radius);
-            padding: 20px;
+            padding: 30px;
             box-shadow: var(--box-shadow);
         }
 
         .sidebar {
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 30px;
         }
 
         .glass-panel {
             background: var(--glass-effect);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             border-radius: var(--border-radius);
             border: 1px solid var(--glass-border);
             box-shadow: var(--glass-shadow);
-            padding: 20px;
-            margin-bottom: 20px;
+            padding: 25px;
         }
 
         .chart-container {
             position: relative;
             width: 100%;
-            height: 500px;
+            height: 450px;
             margin-bottom: 20px;
             overflow-x: auto;
         }
 
         .chart-title {
             color: var(--text-color);
-            margin-bottom: 20px;
-            font-size: 1.2rem;
+            margin-bottom: 25px;
+            font-size: 1.3rem;
             font-weight: 600;
             text-align: center;
+            position: relative;
+        }
+
+        .chart-title::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 3px;
+            background: linear-gradient(90deg, #4361ee, #3a0ca3);
+            border-radius: 3px;
         }
 
         .chart-update-btn {
-            background: linear-gradient(135deg, #6e8efb, #a777e3);
+            background: linear-gradient(135deg, #4361ee, #3a0ca3);
             color: white;
             border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
+            padding: 12px 24px;
+            border-radius: 8px;
             cursor: pointer;
-            font-weight: 500;
-            transition: all 0.2s;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            margin: 20px auto;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(67, 97, 238, 0.3);
+            margin: 25px auto 0;
             display: block;
+            font-size: 1rem;
         }
 
         .chart-update-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(67, 97, 238, 0.4);
+        }
+
+        .chart-update-btn i {
+            margin-right: 8px;
         }
 
         .chart-legend {
             display: flex;
             justify-content: center;
             flex-wrap: wrap;
-            gap: 15px;
-            margin-top: 20px;
+            gap: 20px;
+            margin-top: 30px;
         }
 
         .legend-item {
             display: flex;
             align-items: center;
-            gap: 8px;
-            margin: 0 10px;
+            gap: 10px;
         }
 
         .legend-color {
             width: 16px;
             height: 16px;
             border-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
 
         .legend-text {
             font-size: 0.9rem;
             color: var(--text-color);
+            font-weight: 500;
         }
 
         .btn {
             border: none;
-            padding: 10px 20px;
-            border-radius: 4px;
+            padding: 12px 24px;
+            border-radius: 8px;
             cursor: pointer;
-            margin-top: 10px;
-            display: inline-block;
-            font-weight: 500;
-            transition: all 0.2s;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            font-size: 1rem;
         }
 
         .btn-black {
-            background-color: #000000;
+            background: linear-gradient(135deg, #2b2d42, #1a1b2e);
             color: white;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
         }
 
         .btn-black:hover {
-            background-color: #333333;
+            background: linear-gradient(135deg, #1a1b2e, #0a0b1a);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
         }
 
         .article-header {
-            margin-bottom: 20px;
+            margin-bottom: 25px;
             padding-bottom: 15px;
             border-bottom: 1px solid var(--border-color);
         }
 
         .article-title {
-            font-size: 1.5rem;
+            font-size: 1.6rem;
             margin-bottom: 10px;
+            color: var(--text-color);
         }
 
         .article-meta {
@@ -230,110 +254,180 @@
         }
 
         .credibility-badge {
-            padding: 3px 8px;
-            border-radius: 4px;
+            padding: 5px 10px;
+            border-radius: 20px;
             font-size: 0.8rem;
             font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
         }
 
         .credibility-badge.high {
-            background-color: rgba(16, 185, 129, 0.2);
-            color: #10b981;
+            background-color: rgba(76, 201, 240, 0.2);
+            color: var(--high-credibility);
+            border: 1px solid rgba(76, 201, 240, 0.3);
         }
 
         .credibility-badge.medium {
-            background-color: rgba(245, 158, 11, 0.2);
-            color: #f59e0b;
+            background-color: rgba(67, 97, 238, 0.2);
+            color: var(--medium-credibility);
+            border: 1px solid rgba(67, 97, 238, 0.3);
         }
 
         .credibility-badge.low {
-            background-color: rgba(239, 68, 68, 0.2);
-            color: #ef4444;
+            background-color: rgba(248, 150, 30, 0.2);
+            color: var(--low-credibility);
+            border: 1px solid rgba(248, 150, 30, 0.3);
         }
 
         .analysis-content {
-            margin: 20px 0;
+            margin: 25px 0;
         }
 
         .scores-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin: 20px 0;
+            gap: 20px;
+            margin: 30px 0;
         }
 
         .score-card {
             background: var(--secondary-color);
-            padding: 15px;
+            padding: 20px;
             border-radius: var(--border-radius);
             text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            transition: transform 0.3s ease;
+        }
+
+        .score-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
         }
 
         .score-value {
-            font-size: 1.5rem;
-            font-weight: bold;
-            margin: 5px 0;
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin: 10px 0;
+            color: var(--primary-color);
         }
 
         .score-description {
-            font-size: 0.8rem;
+            font-size: 0.9rem;
             color: #6b7280;
+            font-weight: 500;
         }
 
         .analysis-form {
-            margin-top: 20px;
+            margin-top: 25px;
         }
 
         .form-group {
-            margin-bottom: 15px;
+            margin-bottom: 20px;
         }
 
         .form-control {
             width: 100%;
-            padding: 10px;
+            padding: 15px;
             border: 1px solid var(--border-color);
-            border-radius: 4px;
-            min-height: 100px;
+            border-radius: 8px;
+            min-height: 120px;
             resize: vertical;
             font-family: inherit;
+            font-size: 1rem;
+            transition: border 0.3s ease;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(67, 97, 238, 0.2);
         }
 
         .similar-articles {
             background: white;
             border-radius: var(--border-radius);
-            padding: 20px;
+            padding: 25px;
             box-shadow: var(--box-shadow);
-            margin-top: 20px;
+            margin-top: 30px;
+        }
+
+        .similar-articles h2 {
+            color: var(--text-color);
+            margin-bottom: 20px;
+            font-size: 1.3rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
         .similar-article {
-            padding: 15px;
-            margin-bottom: 15px;
-            border-left: 3px solid var(--primary-color);
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid var(--primary-color);
             border-radius: var(--border-radius);
             background: var(--secondary-color);
-            transition: transform 0.2s ease;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
         }
 
         .similar-article:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            border-left: 4px solid #3a0ca3;
+        }
+
+        .similar-article h3 {
+            color: var(--primary-color);
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+
+        .similar-article p {
+            color: var(--text-color);
+            font-size: 0.95rem;
+            line-height: 1.5;
         }
 
         .analysis-history {
             background: white;
             border-radius: var(--border-radius);
-            padding: 20px;
+            padding: 25px;
             box-shadow: var(--box-shadow);
-            margin-top: 20px;
+            margin-top: 30px;
+        }
+
+        .analysis-history h2 {
+            color: var(--text-color);
+            margin-bottom: 20px;
+            font-size: 1.3rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
         .history-item {
-            padding: 10px;
-            margin-bottom: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
             border-bottom: 1px solid var(--border-color);
             display: flex;
             justify-content: space-between;
+            align-items: center;
+            transition: background 0.3s ease;
+        }
+
+        .history-item:hover {
+            background: rgba(67, 97, 238, 0.05);
+        }
+
+        .history-score {
+            font-weight: 600;
+            color: var(--primary-color);
+            background: rgba(67, 97, 238, 0.1);
+            padding: 3px 8px;
+            border-radius: 20px;
+            font-size: 0.9rem;
         }
 
         .history-date {
@@ -341,23 +435,22 @@
             font-size: 0.8rem;
         }
 
-        .history-score {
-            font-weight: bold;
-        }
-
         .loading {
             text-align: center;
-            padding: 20px;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
         }
 
         .spinner {
-            border: 3px solid rgba(0,0,0,0.1);
+            border: 3px solid rgba(67, 97, 238, 0.2);
             border-radius: 50%;
             border-top: 3px solid var(--primary-color);
-            width: 30px;
-            height: 30px;
+            width: 40px;
+            height: 40px;
             animation: spin 1s linear infinite;
-            margin: 0 auto;
         }
 
         @keyframes spin {
@@ -367,22 +460,29 @@
 
         .footer {
             background-color: white;
-            padding: 20px 0;
-            margin-top: 40px;
+            padding: 25px 0;
+            margin-top: 50px;
             text-align: center;
             color: #6b7280;
             font-size: 0.9rem;
+            border-top: 1px solid var(--border-color);
         }
 
         @media (max-width: 768px) {
             .main-content {
-                flex-direction: column;
+                grid-template-columns: 1fr;
             }
+
             .navbar-links {
                 display: none;
             }
+
             .chart-container {
-                height: 300px;
+                height: 350px;
+            }
+
+            .analysis-section, .sidebar {
+                width: 100%;
             }
         }
     </style>
@@ -427,7 +527,7 @@
 
             <div class="sidebar">
                 <div class="glass-panel">
-                    <h2 class="chart-title">Source Credibility Comparison</h2>
+                    <h2 class="chart-title"><i class="bi bi-newspaper"></i> Source Credibility Comparison</h2>
                     <div class="chart-container">
                         <canvas id="chart"></canvas>
                     </div>
@@ -437,16 +537,16 @@
                     </button>
                     <div class="chart-legend">
                         <div class="legend-item">
-                            <div class="legend-color" style="background-color: var(--low-credibility);"></div>
-                            <span class="legend-text">Low Credibility (0-0.6)</span>
+                            <div class="legend-color" style="background-color: var(--high-credibility);"></div>
+                            <span class="legend-text">High Credibility (0.8-1.0)</span>
                         </div>
                         <div class="legend-item">
                             <div class="legend-color" style="background-color: var(--medium-credibility);"></div>
                             <span class="legend-text">Medium Credibility (0.6-0.8)</span>
                         </div>
                         <div class="legend-item">
-                            <div class="legend-color" style="background-color: var(--high-credibility);"></div>
-                            <span class="legend-text">High Credibility (0.8-1.0)</span>
+                            <div class="legend-color" style="background-color: var(--low-credibility);"></div>
+                            <span class="legend-text">Low Credibility (0-0.6)</span>
                         </div>
                     </div>
                 </div>
@@ -468,6 +568,14 @@
                             <span class="credibility-badge medium"><i class="bi bi-shield-check"></i> Medium</span>
                         </div>
                         <p>Examination of potential biases in political news coverage across major outlets.</p>
+                    </div>
+                    <div class="similar-article">
+                        <h3>Digital Media Landscape</h3>
+                        <div class="article-meta">
+                            <span><i class="bi bi-newspaper"></i> Reuters</span>
+                            <span class="credibility-badge high"><i class="bi bi-shield-check"></i> High</span>
+                        </div>
+                        <p>Overview of how digital platforms are changing news consumption patterns.</p>
                     </div>
                 </div>
 
@@ -520,7 +628,7 @@
                 const barCount = data.labels.length;
                 const maxBarWidth = 30;
                 const availableWidth = width - 2 * padding;
-                const barWidth = Math.min(maxBarWidth, Math.max(10, availableWidth / barCount - 10));
+                const barWidth = Math.min(maxBarWidth, Math.max(10, availableWidth / barCount - 15));
 
                 // Очистка canvas
                 ctx.clearRect(0, 0, width, height);
@@ -540,7 +648,7 @@
                 ctx.beginPath();
                 ctx.moveTo(padding, height - padding);
                 ctx.lineTo(width - padding, height - padding);
-                ctx.strokeStyle = '#ccc';
+                ctx.strokeStyle = '#e0e0e0';
                 ctx.lineWidth = 1;
                 ctx.stroke();
 
@@ -548,7 +656,7 @@
                 ctx.beginPath();
                 ctx.moveTo(padding, padding);
                 ctx.lineTo(padding, height - padding);
-                ctx.strokeStyle = '#ccc';
+                ctx.strokeStyle = '#e0e0e0';
                 ctx.lineWidth = 1;
                 ctx.stroke();
 
@@ -566,7 +674,7 @@
                 const dataset = this.data.datasets[0];
                 dataset.data.forEach((value, index) => {
                     const barHeight = value * (height - 2 * padding);
-                    const x = padding + index * (barWidth + 10);
+                    const x = padding + index * (barWidth + 15);
                     const y = height - padding - barHeight;
 
                     // Рисование столбца
@@ -595,14 +703,14 @@
                 ctx.textAlign = 'center';
 
                 dataset.data.forEach((value, index) => {
-                    const x = padding + index * (barWidth + 10) + barWidth / 2;
-                    const y = height - padding + 15;
+                    const x = padding + index * (barWidth + 15) + barWidth / 2;
+                    const y = height - padding + 20;
 
                     // Разбиваем длинные названия на несколько строк
                     const label = labels[index];
                     const words = label.split(' ');
                     const lineHeight = 12;
-                    let currentY = y + 5;
+                    let currentY = y;
 
                     words.forEach((word, i) => {
                         ctx.fillText(word, x, currentY);
@@ -641,19 +749,19 @@
                     0.90, 0.83, 0.45, 0.68, 0.74, 0.80
                 ],
                 backgroundColor: [
-                    '#4ECDC4', '#4D96FF', '#FF6B9D', '#4D96FF', '#4ECDC4',
-                    '#4D96FF', '#4ECDC4', '#4D96FF', '#FF6B9D', '#4ECDC4',
-                    '#4D96FF', '#4ECDC4', '#4D96FF', '#4ECDC4', '#4D96FF',
-                    '#4ECDC4', '#4D96FF', '#FF6B9D', '#4D96FF', '#FF6B9D', '#4ECDC4'
+                    '#4cc9f0', '#4361ee', '#f8961e', '#4361ee', '#4cc9f0',
+                    '#4361ee', '#4cc9f0', '#4361ee', '#f8961e', '#4cc9f0',
+                    '#4361ee', '#4cc9f0', '#4361ee', '#4cc9f0', '#4361ee',
+                    '#4cc9f0', '#4361ee', '#f8961e', '#4361ee', '#f8961e', '#4cc9f0'
                 ],
                 borderColor: [
-                    'rgba(78, 205, 196, 0.8)', 'rgba(77, 150, 255, 0.8)', 'rgba(255, 107, 157, 0.8)',
-                    'rgba(77, 150, 255, 0.8)', 'rgba(78, 205, 196, 0.8)',
-                    'rgba(77, 150, 255, 0.8)', 'rgba(78, 205, 196, 0.8)', 'rgba(77, 150, 255, 0.8)',
-                    'rgba(255, 107, 157, 0.8)', 'rgba(78, 205, 196, 0.8)',
-                    'rgba(77, 150, 255, 0.8)', 'rgba(78, 205, 196, 0.8)', 'rgba(77, 150, 255, 0.8)',
-                    'rgba(78, 205, 196, 0.8)', 'rgba(77, 150, 255, 0.8)', 'rgba(255, 107, 157, 0.8)',
-                    'rgba(77, 150, 255, 0.8)', 'rgba(255, 107, 157, 0.8)', 'rgba(78, 205, 196, 0.8)'
+                    'rgba(76, 201, 240, 0.8)', 'rgba(67, 97, 238, 0.8)', 'rgba(248, 150, 30, 0.8)',
+                    'rgba(67, 97, 238, 0.8)', 'rgba(76, 201, 240, 0.8)',
+                    'rgba(67, 97, 238, 0.8)', 'rgba(76, 201, 240, 0.8)', 'rgba(67, 97, 238, 0.8)',
+                    'rgba(248, 150, 30, 0.8)', 'rgba(76, 201, 240, 0.8)',
+                    'rgba(67, 97, 238, 0.8)', 'rgba(76, 201, 240, 0.8)', 'rgba(67, 97, 238, 0.8)',
+                    'rgba(76, 201, 240, 0.8)', 'rgba(67, 97, 238, 0.8)', 'rgba(248, 150, 30, 0.8)',
+                    'rgba(67, 97, 238, 0.8)', 'rgba(248, 150, 30, 0.8)', 'rgba(76, 201, 240, 0.8)'
                 ],
                 borderWidth: 1
             }]
@@ -693,7 +801,7 @@
                     transform: translate(-50%, -50%);
                 ">
                     <div class="spinner"></div>
-                    <p style="margin-top: 10px;">Updating chart data...</p>
+                    <p style="margin-top: 10px; color: var(--text-color);">Updating chart data...</p>
                 </div>
             `;
 
@@ -731,7 +839,7 @@
             resultsContainer.innerHTML = `
                 <div class="loading">
                     <div class="spinner"></div>
-                    <p>Analyzing article content...</p>
+                    <p style="color: var(--text-color);">Analyzing article content...</p>
                 </div>
             `;
 
@@ -753,15 +861,16 @@
                     }
 
                     updateHistoryDisplay();
+                    localStorage.setItem('analysisHistory', JSON.stringify(analysisHistory));
                 }
 
                 displayAnalysisResults(mockAnalysisResult);
             } catch (error) {
                 console.error('Error analyzing article:', error);
                 resultsContainer.innerHTML = `
-                    <div class="error-message">
-                        <i class="bi bi-exclamation-triangle-fill"></i>
-                        <span>Failed to analyze article. Please try again later.</span>
+                    <div class="error-message" style="color: var(--danger-color); text-align: center; padding: 20px;">
+                        <i class="bi bi-exclamation-triangle-fill" style="font-size: 1.5rem; margin-right: 10px;"></i>
+                        <span style="font-size: 1.1rem;">Failed to analyze article. Please try again later.</span>
                     </div>
                 `;
             }
@@ -772,6 +881,11 @@
             const historyContainer = document.getElementById('historyContainer');
             historyContainer.innerHTML = '';
 
+            if (analysisHistory.length === 0) {
+                historyContainer.innerHTML = '<p style="text-align: center; color: #6b7280;">No analysis history yet</p>';
+                return;
+            }
+
             analysisHistory.forEach((item, index) => {
                 const date = new Date(item.timestamp);
                 const formattedDate = date.toLocaleString();
@@ -781,7 +895,7 @@
                 historyItem.innerHTML = `
                     <div>
                         <span class="history-score">${item.credibility_score.toFixed(2)}</span>
-                        <span>${item.title}</span>
+                        <span style="margin-left: 10px;">${item.title}</span>
                     </div>
                     <span class="history-date">${formattedDate}</span>
                 `;
@@ -828,22 +942,22 @@
             let html = `
                 <div class="analysis-result">
                     <div class="article-header">
-                        <h2>${article.title || 'Analysis Results'}</h2>
+                        <h2 style="color: var(--primary-color);">${article.title || 'Analysis Results'}</h2>
                     </div>
                     <div class="analysis-summary">
-                        <p>${article.short_summary || 'No summary available'}</p>
+                        <p style="color: var(--text-color);">${article.short_summary || 'No summary available'}</p>
                     </div>
                     <div class="scores-grid">
-                        <div class="score-card">
-                            <div class="score-value">${(analysis.credibility_score?.score || 0).toFixed(2)}</div>
+                        <div class="score-card" style="background: rgba(76, 201, 240, 0.1);">
+                            <div class="score-value" style="color: var(--high-credibility);">${(analysis.credibility_score?.score || 0).toFixed(2)}</div>
                             <div class="score-description">Credibility</div>
                         </div>
-                        <div class="score-card">
-                            <div class="score-value">${(analysis.sentiment?.score || 0).toFixed(2)}</div>
+                        <div class="score-card" style="background: rgba(67, 97, 238, 0.1);">
+                            <div class="score-value" style="color: var(--medium-credibility);">${(analysis.sentiment?.score || 0).toFixed(2)}</div>
                             <div class="score-description">Sentiment</div>
                         </div>
-                        <div class="score-card">
-                            <div class="score-value">${(analysis.bias?.level || 0).toFixed(2)}</div>
+                        <div class="score-card" style="background: rgba(248, 150, 30, 0.1);">
+                            <div class="score-value" style="color: var(--low-credibility);">${(analysis.bias?.level || 0).toFixed(2)}</div>
                             <div class="score-description">Bias</div>
                         </div>
                     </div>
@@ -851,10 +965,18 @@
 
             if (analysis.topics && analysis.topics.length > 0) {
                 html += `
-                    <div class="topics-section">
-                        <h4>Key Topics:</h4>
-                        <div class="topics-list">
-                            ${analysis.topics.map(topic => `<span class="topic-badge">${topic}</span>`).join('')}
+                    <div class="topics-section" style="margin-top: 30px;">
+                        <h4 style="color: var(--text-color); margin-bottom: 15px;">Key Topics:</h4>
+                        <div class="topics-list" style="display: flex; flex-wrap: wrap; gap: 10px;">
+                            ${analysis.topics.map(topic => `
+                                <span class="topic-badge" style="
+                                    background: rgba(67, 97, 238, 0.1);
+                                    color: var(--primary-color);
+                                    padding: 5px 10px;
+                                    border-radius: 20px;
+                                    font-size: 0.9rem;
+                                ">${topic}</span>
+                            `).join('')}
                         </div>
                     </div>
                 `;
@@ -917,31 +1039,35 @@
                     <div class="modal-content" style="
                         background: white;
                         padding: 30px;
-                        border-radius: 8px;
+                        border-radius: 12px;
                         max-width: 500px;
-                        width: 90%;">
-                        <h3>Data Storage Permission</h3>
-                        <p>We can store your analysis results locally to improve your experience. This data will never leave your device.</p>
-                        <p>Would you like to enable local storage for analysis history?</p>
+                        width: 90%;
+                        box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
+                        <h3 style="color: var(--text-color); margin-bottom: 15px; font-size: 1.5rem;">Data Storage Permission</h3>
+                        <p style="color: var(--text-color); margin-bottom: 20px;">We can store your analysis results locally to improve your experience. This data will never leave your device.</p>
+                        <p style="color: var(--text-color); margin-bottom: 25px;">Would you like to enable local storage for analysis history?</p>
                         <div class="modal-actions" style="
                             display: flex;
                             justify-content: flex-end;
-                            gap: 15px;
-                            margin-top: 20px;">
-                            <button id="allowStorage" class="btn btn-primary" style="
-                                background: linear-gradient(135deg, #6e8efb, #a777e3);
+                            gap: 15px;">
+                            <button id="allowStorage" class="btn" style="
+                                background: linear-gradient(135deg, #4361ee, #3a0ca3);
                                 color: white;
-                                padding: 8px 16px;
-                                border-radius: 4px;
+                                padding: 10px 20px;
+                                border-radius: 8px;
                                 border: none;
-                                cursor: pointer;">Allow</button>
+                                cursor: pointer;
+                                font-weight: 600;
+                                transition: all 0.3s ease;">Allow</button>
                             <button id="denyStorage" class="btn" style="
-                                background: #f8fafc;
+                                background: #f8f9fa;
                                 color: var(--text-color);
-                                padding: 8px 16px;
-                                border-radius: 4px;
+                                padding: 10px 20px;
+                                border-radius: 8px;
                                 border: 1px solid var(--border-color);
-                                cursor: pointer;">Deny</button>
+                                cursor: pointer;
+                                font-weight: 600;
+                                transition: all 0.3s ease;">Deny</button>
                         </div>
                     </div>
                 </div>
