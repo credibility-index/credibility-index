@@ -335,6 +335,7 @@ border-left: 3px solid var(--primary-color);
 border-radius: var(--border-radius);
 background: var(--secondary-color);
 transition: all 0.3s ease;
+cursor: pointer;
 }
 .similar-article:hover {
 transform: translateY(-3px);
@@ -345,9 +346,14 @@ color: var(--primary-color);
 margin-bottom: 8px;
 font-size: 1rem;
 }
-.similar-article h3 a {
+.article-link {
 color: inherit;
 text-decoration: none;
+transition: color 0.3s ease;
+display: block;
+}
+.article-link:hover {
+color: var(--primary-color);
 }
 .similar-article p {
 color: var(--text-color);
@@ -447,571 +453,629 @@ height: 300px;
       <i class="bi bi-newspaper"></i>
       <span class="logo-text">Media Credibility Index</span>
     </a>
-    
+
     <nav>
-<ul class="navbar-links">
-  <li><a href="{{ url_for('faq') }}" class="navbar-link">FAQ</a></li>
-  <li><a href="{{ url_for('feedback') }}" class="navbar-link">Feedback</a></li>
-  <li><a href="{{ url_for('privacy') }}" class="navbar-link">Privacy</a></li>
-  <li><a href="{{ url_for('terms') }}" class="navbar-link">Terms</a></li>
-</ul>
+      <ul class="navbar-links">
+        <li><a href="{{ url_for('faq') }}" class="navbar-link">FAQ</a></li>
+        <li><a href="{{ url_for('feedback') }}" class="navbar-link">Feedback</a></li>
+        <li><a href="{{ url_for('privacy') }}" class="navbar-link">Privacy</a></li>
+        <li><a href="{{ url_for('terms') }}" class="navbar-link">Terms</a></li>
+      </ul>
     </nav>
   </header>
 </div>
-
-</div>
 <div class="main-content">
-<div class="analysis-section">
-<div class="article-header">
-<h1 class="article-title">Analysis of Current News Trends</h1>
-<div class="article-meta">
-<span><i class="bi bi-newspaper"></i> Multiple Sources</span>
-<span class="credibility-badge high"><i class="bi bi-shield-check"></i> High</span>
-</div>
-</div>
-<div class="analysis-content">
-<div class="analysis-form">
-<div class="form-group">
-<label for="articleInput">Article URL or Text</label>
-<textarea class="form-control" id="articleInput" placeholder="Paste article URL or text content here for analysis..."></textarea>
-</div>
-<button onclick="analyzeArticle()" class="btn btn-black">
-<i class="bi bi-search"></i> Analyze Article
-</button>
-</div>
-<div id="analysisResults"></div>
-</div>
-</div>
-<div class="sidebar">
-<div class="glass-panel">
-<div class="chart-section">
-<h2 class="chart-title">Source Credibility Comparison</h2>
-<div class="chart-scroll-container">
-<div class="chart-container">
-<canvas id="chart"></canvas>
-</div>
-</div>
-</div>
-<button onclick="updateChart()" class="chart-update-btn">
-<i class="bi bi-arrow-clockwise"></i>
-<span>Update Chart</span>
-</button>
-<div class="chart-legend">
-<div class="legend-item">
-<div class="legend-color" style="background-color: var(--high-credibility);"></div>
-<span class="legend-text">High (0.8-1.0)</span>
-</div>
-<div class="legend-item">
-<div class="legend-color" style="background-color: var(--medium-credibility);"></div>
-<span class="legend-text">Medium (0.6-0.8)</span>
-</div>
-<div class="legend-item">
-<div class="legend-color" style="background-color: var(--low-credibility);"></div>
-<span class="legend-text">Low (0-0.6)</span>
-</div>
-</div>
-</div>
-<div class="similar-articles">
-<h2><i class="bi bi-link-45deg"></i> Same Topic Articles</h2>
-<div class="similar-article">
-<h3><a href="#" onclick="loadArticle('global-news')">Global News Trends</a></h3>
-<div class="article-meta">
-<span><i class="bi bi-newspaper"></i> BBC</span>
-<span class="credibility-badge high"><i class="bi bi-shield-check"></i> High</span>
-</div>
-<p>Analysis of current global news trends and their credibility patterns.</p>
-</div>
-<div class="similar-article">
-<h3><a href="#" onclick="loadArticle('media-bias')">Media Bias Report</a></h3>
-<div class="article-meta">
-<span><i class="bi bi-newspaper"></i> Guardian</span>
-<span class="credibility-badge medium"><i class="bi bi-shield-check"></i> Medium</span>
-</div>
-<p>Examination of biases in political news coverage across major outlets.</p>
-</div>
-</div>
-<div class="analysis-history">
-<h2><i class="bi bi-clock-history"></i> Analysis History</h2>
-<div id="historyContainer">
-<p style="text-align: center; color: #6b7280; font-size: 0.8rem;">No analysis history yet</p>
-</div>
-</div>
-</div>
-</div>
+  <div class="analysis-section">
+    <div class="article-header">
+      <h1 class="article-title">Analysis of Current News Trends</h1>
+      <div class="article-meta">
+        <span><i class="bi bi-newspaper"></i> Multiple Sources</span>
+        <span class="credibility-badge high"><i class="bi bi-shield-check"></i> High</span>
+      </div>
+    </div>
+    <div class="analysis-content">
+      <div class="analysis-form">
+        <div class="form-group">
+          <label for="articleInput">Article URL or Text</label>
+          <textarea class="form-control" id="articleInput" placeholder="Paste article URL or text content here for analysis..."></textarea>
+        </div>
+        <button onclick="analyzeArticle()" class="btn btn-black">
+          <i class="bi bi-search"></i> Analyze Article
+        </button>
+      </div>
+      <div id="analysisResults"></div>
+    </div>
+  </div>
+  <div class="sidebar">
+    <div class="glass-panel">
+      <div class="chart-section">
+        <h2 class="chart-title">Source Credibility Comparison</h2>
+        <div class="chart-scroll-container">
+          <div class="chart-container">
+            <canvas id="chart"></canvas>
+          </div>
+        </div>
+      </div>
+      <button onclick="updateChart()" class="chart-update-btn">
+        <i class="bi bi-arrow-clockwise"></i>
+        <span>Update Chart</span>
+      </button>
+      <div class="chart-legend">
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: var(--high-credibility);"></div>
+          <span class="legend-text">High (0.8-1.0)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: var(--medium-credibility);"></div>
+          <span class="legend-text">Medium (0.6-0.8)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: var(--low-credibility);"></div>
+          <span class="legend-text">Low (0-0.6)</span>
+        </div>
+      </div>
+    </div>
+    <div class="similar-articles">
+      <h2><i class="bi bi-link-45deg"></i> Same Topic Articles</h2>
+      <div class="similar-article" onclick="loadArticle('global-news')">
+        <h3 class="article-link">Global News Trends</h3>
+        <div class="article-meta">
+          <span><i class="bi bi-newspaper"></i> BBC</span>
+          <span class="credibility-badge high"><i class="bi bi-shield-check"></i> High</span>
+        </div>
+        <p>Analysis of current global news trends and their credibility patterns.</p>
+      </div>
+      <div class="similar-article" onclick="loadArticle('media-bias')">
+        <h3 class="article-link">Media Bias Report</h3>
+        <div class="article-meta">
+          <span><i class="bi bi-newspaper"></i> Guardian</span>
+          <span class="credibility-badge medium"><i class="bi bi-shield-check"></i> Medium</span>
+        </div>
+        <p>Examination of biases in political news coverage across major outlets.</p>
+      </div>
+    </div>
+    <div class="analysis-history">
+      <h2><i class="bi bi-clock-history"></i> Analysis History</h2>
+      <div id="historyContainer">
+        <p style="text-align: center; color: #6b7280; font-size: 0.8rem;">No analysis history yet</p>
+      </div>
+    </div>
+  </div>
 </div>
 <footer class="footer">
-<div class="container">
-<p>© 2025 Media Credibility Index. All rights reserved.</p>
-</div>
+  <div class="container">
+    <p>© 2025 Media Credibility Index. All rights reserved.</p>
+  </div>
 </footer>
 <script>
 // Локальная реализация Chart.js
 class SimpleChart {
-constructor(ctx, config) {
-this.ctx = ctx;
-this.config = config;
-this.data = config.data;
-this.options = config.options || {};
-this.canvas = ctx.canvas;
-this.barWidth = 0;
-this.init();
+  constructor(ctx, config) {
+    this.ctx = ctx;
+    this.config = config;
+    this.data = config.data;
+    this.options = config.options || {};
+    this.canvas = ctx.canvas;
+    this.barWidth = 0;
+    this.init();
+  }
+
+  init() {
+    this.resize();
+    window.addEventListener('resize', () => this.resize());
+    this.render();
+  }
+
+  resize() {
+    const container = this.canvas.parentElement;
+    this.canvas.width = container.clientWidth;
+    this.canvas.height = container.clientHeight;
+    this.calculateBarWidth();
+  }
+
+  calculateBarWidth() {
+    const padding = 40;
+    const barCount = this.data.labels.length;
+    const maxBarWidth = 25;
+    const availableWidth = this.canvas.width - 2 * padding;
+    this.barWidth = Math.min(maxBarWidth, Math.max(10, availableWidth / barCount - 10));
+  }
+
+  render() {
+    const ctx = this.ctx;
+    const data = this.data;
+    const width = this.canvas.width;
+    const height = this.canvas.height;
+    const padding = 40;
+
+    // Очистка canvas
+    ctx.clearRect(0, 0, width, height);
+
+    // Рисование осей
+    this.drawAxes(ctx, width, height, padding);
+
+    // Рисование столбцов
+    this.drawBars(ctx, width, height, padding);
+
+    // Рисование подписей к столбцам
+    this.drawBarLabels(ctx, width, height, padding);
+  }
+
+  drawAxes(ctx, width, height, padding) {
+    // Ось X
+    ctx.beginPath();
+    ctx.moveTo(padding, height - padding);
+    ctx.lineTo(width - padding, height - padding);
+    ctx.strokeStyle = '#e0e0e0';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Ось Y
+    ctx.beginPath();
+    ctx.moveTo(padding, padding);
+    ctx.lineTo(padding, height - padding);
+    ctx.strokeStyle = '#e0e0e0';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Подписи оси Y
+    for (let i = 0; i <= 1; i += 0.2) {
+      const y = height - padding - i * (height - 2 * padding);
+      ctx.fillStyle = '#6b7280';
+      ctx.font = '10px Arial';
+      ctx.textAlign = 'right';
+      ctx.fillText(i.toFixed(1), padding - 10, y + 5);
+    }
+  }
+
+  drawBars(ctx, width, height, padding) {
+    const dataset = this.data.datasets[0];
+    dataset.data.forEach((value, index) => {
+      const barHeight = value * (height - 2 * padding);
+      const x = padding + index * (this.barWidth + 10);
+      const y = height - padding - barHeight;
+
+      // Рисование столбца
+      ctx.fillStyle = dataset.backgroundColor[index];
+      ctx.fillRect(x, y, this.barWidth, barHeight);
+
+      // Рисование границы
+      ctx.strokeStyle = dataset.borderColor[index];
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x, y, this.barWidth, barHeight);
+
+      // Подпись значения
+      ctx.fillStyle = '#000';
+      ctx.font = '10px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(value.toFixed(2), x + this.barWidth / 2, y - 5);
+    });
+  }
+
+  drawBarLabels(ctx, width, height, padding) {
+    const dataset = this.data.datasets[0];
+    const labels = this.data.labels || [];
+    ctx.fillStyle = '#000';
+    ctx.font = '9px Arial';
+    ctx.textAlign = 'center';
+
+    dataset.data.forEach((value, index) => {
+      if (!labels[index]) return;
+      const x = padding + index * (this.barWidth + 10) + this.barWidth / 2;
+      const y = height - padding + 15;
+
+      // Разбиваем длинные названия на несколько строк
+      const label = labels[index];
+      const words = label.split(' ');
+      const lineHeight = 10;
+      let currentY = y;
+
+      words.forEach((word) => {
+        ctx.fillText(word, x, currentY);
+        currentY += lineHeight;
+      });
+    });
+  }
+
+  update() {
+    this.calculateBarWidth();
+    this.render();
+  }
+
+  destroy() {
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+  }
 }
-init() {
-this.resize();
-window.addEventListener('resize', () => this.resize());
-this.render();
-}
-resize() {
-const container = this.canvas.parentElement;
-this.canvas.width = container.clientWidth;
-this.canvas.height = container.clientHeight;
-this.calculateBarWidth();
-}
-calculateBarWidth() {
-const padding = 40;
-const barCount = this.data.labels.length;
-const maxBarWidth = 25;
-const availableWidth = this.canvas.width - 2 * padding;
-this.barWidth = Math.min(maxBarWidth, Math.max(10, availableWidth / barCount - 10));
-}
-render() {
-const ctx = this.ctx;
-const data = this.data;
-const width = this.canvas.width;
-const height = this.canvas.height;
-const padding = 40;
-// Очистка canvas
-ctx.clearRect(0, 0, width, height);
-// Рисование осей
-this.drawAxes(ctx, width, height, padding);
-// Рисование столбцов
-this.drawBars(ctx, width, height, padding);
-// Рисование подписей к столбцам
-this.drawBarLabels(ctx, width, height, padding);
-}
-drawAxes(ctx, width, height, padding) {
-// Ось X
-ctx.beginPath();
-ctx.moveTo(padding, height - padding);
-ctx.lineTo(width - padding, height - padding);
-ctx.strokeStyle = '#e0e0e0';
-ctx.lineWidth = 1;
-ctx.stroke();
-// Ось Y
-ctx.beginPath();
-ctx.moveTo(padding, padding);
-ctx.lineTo(padding, height - padding);
-ctx.strokeStyle = '#e0e0e0';
-ctx.lineWidth = 1;
-ctx.stroke();
-// Подписи оси Y
-for (let i = 0; i <= 1; i += 0.2) {
-const y = height - padding - i * (height - 2 * padding);
-ctx.fillStyle = '#6b7280';
-ctx.font = '10px Arial';
-ctx.textAlign = 'right';
-ctx.fillText(i.toFixed(1), padding - 10, y + 5);
-}
-}
-drawBars(ctx, width, height, padding) {
-const dataset = this.data.datasets[0];
-dataset.data.forEach((value, index) => {
-const barHeight = value * (height - 2 * padding);
-const x = padding + index * (this.barWidth + 10);
-const y = height - padding - barHeight;
-// Рисование столбца
-ctx.fillStyle = dataset.backgroundColor[index];
-ctx.fillRect(x, y, this.barWidth, barHeight);
-// Рисование границы
-ctx.strokeStyle = dataset.borderColor[index];
-ctx.lineWidth = 1;
-ctx.strokeRect(x, y, this.barWidth, barHeight);
-// Подпись значения
-ctx.fillStyle = '#000';
-ctx.font = '10px Arial';
-ctx.textAlign = 'center';
-ctx.fillText(value.toFixed(2), x + this.barWidth / 2, y - 5);
-});
-}
-drawBarLabels(ctx, width, height, padding) {
-const dataset = this.data.datasets[0];
-const labels = this.data.labels || [];
-ctx.fillStyle = '#000';
-ctx.font = '9px Arial';
-ctx.textAlign = 'center';
-dataset.data.forEach((value, index) => {
-if (!labels[index]) return;
-const x = padding + index * (this.barWidth + 10) + this.barWidth / 2;
-const y = height - padding + 15;
-// Разбиваем длинные названия на несколько строк
-const label = labels[index];
-const words = label.split(' ');
-const lineHeight = 10;
-let currentY = y;
-words.forEach((word) => {
-ctx.fillText(word, x, currentY);
-currentY += lineHeight;
-});
-});
-}
-update() {
-this.calculateBarWidth();
-this.render();
-}
-destroy() {
-this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-}
-}
+
 // Глобальные переменные
 let chartInstance = null;
 let analysisHistory = [];
+
 // Данные для графика с 20 источниками
 const defaultChartData = {
-labels: [
-'BBC', 'CNN', 'Fox', 'Guardian', 'Reuters',
-'NYT', 'Wash Post', 'Al Jazeera', 'RT', 'Bloomberg',
-'FT', 'Economist', 'WSJ', 'USA Today', 'NPR',
-'AP', 'Breitbart', 'BuzzFeed', 'Vox', 'Independent'
-],
-datasets: [{
-label: 'Credibility Score',
-data: [
-0.92, 0.78, 0.65, 0.88, 0.95,
-0.89, 0.85, 0.72, 0.55, 0.87,
-0.91, 0.84, 0.82, 0.76, 0.88,
-0.90, 0.83, 0.45, 0.68, 0.74, 0.80
-],
-backgroundColor: [
-'#4cc9f0', '#4361ee', '#f8961e', '#4361ee', '#4cc9f0',
-'#4361ee', '#4cc9f0', '#4361ee', '#f8961e', '#4cc9f0',
-'#4361ee', '#4cc9f0', '#4361ee', '#4cc9f0', '#4361ee',
-'#4cc9f0', '#4361ee', '#f8961e', '#4361ee', '#f8961e', '#4cc9f0'
-],
-borderColor: [
-'rgba(76, 201, 240, 0.8)', 'rgba(67, 97, 238, 0.8)', 'rgba(248, 150, 30, 0.8)',
-'rgba(67, 97, 238, 0.8)', 'rgba(76, 201, 240, 0.8)',
-'rgba(67, 97, 238, 0.8)', 'rgba(76, 201, 240, 0.8)', 'rgba(67, 97, 238, 0.8)',
-'rgba(248, 150, 30, 0.8)', 'rgba(76, 201, 240, 0.8)',
-'rgba(67, 97, 238, 0.8)', 'rgba(76, 201, 240, 0.8)', 'rgba(67, 97, 238, 0.8)',
-'rgba(76, 201, 240, 0.8)', 'rgba(67, 97, 238, 0.8)', 'rgba(248, 150, 30, 0.8)',
-'rgba(67, 97, 238, 0.8)', 'rgba(248, 150, 30, 0.8)', 'rgba(76, 201, 240, 0.8)'
-],
-borderWidth: 1
-}]
+  labels: [
+    'BBC', 'CNN', 'Fox', 'Guardian', 'Reuters',
+    'NYT', 'Wash Post', 'Al Jazeera', 'RT', 'Bloomberg',
+    'FT', 'Economist', 'WSJ', 'USA Today', 'NPR',
+    'AP', 'Breitbart', 'BuzzFeed', 'Vox', 'Independent'
+  ],
+  datasets: [{
+    label: 'Credibility Score',
+    data: [
+      0.92, 0.78, 0.65, 0.88, 0.95,
+      0.89, 0.85, 0.72, 0.55, 0.87,
+      0.91, 0.84, 0.82, 0.76, 0.88,
+      0.90, 0.83, 0.45, 0.68, 0.74, 0.80
+    ],
+    backgroundColor: [
+      '#4cc9f0', '#4361ee', '#f8961e', '#4361ee', '#4cc9f0',
+      '#4361ee', '#4cc9f0', '#4361ee', '#f8961e', '#4cc9f0',
+      '#4361ee', '#4cc9f0', '#4361ee', '#4cc9f0', '#4361ee',
+      '#4cc9f0', '#4361ee', '#f8961e', '#4361ee', '#f8961e', '#4cc9f0'
+    ],
+    borderColor: [
+      'rgba(76, 201, 240, 0.8)', 'rgba(67, 97, 238, 0.8)', 'rgba(248, 150, 30, 0.8)',
+      'rgba(67, 97, 238, 0.8)', 'rgba(76, 201, 240, 0.8)',
+      'rgba(67, 97, 238, 0.8)', 'rgba(76, 201, 240, 0.8)', 'rgba(67, 97, 238, 0.8)',
+      'rgba(248, 150, 30, 0.8)', 'rgba(76, 201, 240, 0.8)',
+      'rgba(67, 97, 238, 0.8)', 'rgba(76, 201, 240, 0.8)', 'rgba(67, 97, 238, 0.8)',
+      'rgba(76, 201, 240, 0.8)', 'rgba(67, 97, 238, 0.8)', 'rgba(248, 150, 30, 0.8)',
+      'rgba(67, 97, 238, 0.8)', 'rgba(248, 150, 30, 0.8)', 'rgba(76, 201, 240, 0.8)'
+    ],
+    borderWidth: 1
+  }]
 };
+
 // Функция для инициализации графика
 function initChart() {
-const canvas = document.getElementById('chart');
-const ctx = canvas.getContext('2d');
-// Удаляем старый график, если он существует
-if (chartInstance) {
-chartInstance.destroy();
+  const canvas = document.getElementById('chart');
+  const ctx = canvas.getContext('2d');
+
+  // Удаляем старый график, если он существует
+  if (chartInstance) {
+    chartInstance.destroy();
+  }
+
+  chartInstance = new SimpleChart(ctx, {
+    type: 'bar',
+    data: defaultChartData,
+    options: {
+      responsive: true,
+      maintainAspectRatio: false
+    }
+  });
 }
-chartInstance = new SimpleChart(ctx, {
-type: 'bar',
-data: defaultChartData,
-options: {
-responsive: true,
-maintainAspectRatio: false
-}
-});
-}
+
 // Функция для обновления графика
 function updateChart() {
-if (!chartInstance) return;
-// Показываем индикатор загрузки
-const container = document.querySelector('.chart-scroll-container');
-const loadingHTML = `
-<div class="loading" style="
-position: absolute;
-top: 50%;
-left: 50%;
-transform: translate(-50%, -50%);
-">
-<div class="spinner"></div>
-<p style="margin-top: 10px; color: var(--text-color); font-size: 0.8rem;">Updating...</p>
-</div>
-`;
-container.insertAdjacentHTML('afterbegin', loadingHTML);
-// Имитация задержки сети
-setTimeout(() => {
-// Удаляем индикатор загрузки
-const loadingElement = container.querySelector('.loading');
-if (loadingElement) {
-loadingElement.remove();
+  if (!chartInstance) return;
+
+  // Показываем индикатор загрузки
+  const container = document.querySelector('.chart-scroll-container');
+  const loadingHTML = `
+    <div class="loading" style="
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    ">
+      <div class="spinner"></div>
+      <p style="margin-top: 10px; color: var(--text-color); font-size: 0.8rem;">Updating...</p>
+    </div>
+  `;
+  container.insertAdjacentHTML('afterbegin', loadingHTML);
+
+  // Имитация задержки сети
+  setTimeout(() => {
+    // Удаляем индикатор загрузки
+    const loadingElement = container.querySelector('.loading');
+    if (loadingElement) {
+      loadingElement.remove();
+    }
+
+    // Генерируем новые случайные данные
+    const updatedData = defaultChartData.datasets[0].data.map(score => {
+      return Math.min(1, Math.max(0, score + (Math.random() - 0.5) * 0.1));
+    });
+
+    // Обновляем данные графика
+    chartInstance.data.datasets[0].data = updatedData;
+    chartInstance.update();
+  }, 800);
 }
-// Генерируем новые случайные данные
-const updatedData = defaultChartData.datasets[0].data.map(score => {
-return Math.min(1, Math.max(0, score + (Math.random() - 0.5) * 0.1));
-});
-// Обновляем данные графика
-chartInstance.data.datasets[0].data = updatedData;
-chartInstance.update();
-}, 800);
-}
+
 // Функция для загрузки статьи
 function loadArticle(type) {
-let content = '';
-let title = '';
-let source = '';
-let credibility = '';
-switch(type) {
-case 'global-news':
-content = 'Analysis of current global news trends and their credibility patterns across different regions and sources.';
-title = 'Global News Trends';
-source = 'BBC';
-credibility = 'high';
-break;
-case 'media-bias':
-content = 'Examination of potential biases in political news coverage and how they affect public perception.';
-title = 'Media Bias Report';
-source = 'Guardian';
-credibility = 'medium';
-break;
+  const articles = {
+    'global-news': {
+      title: 'Global News Trends',
+      source: 'BBC',
+      credibility: 'high',
+      content: 'Analysis of current global news trends and their credibility patterns across different regions and sources.'
+    },
+    'media-bias': {
+      title: 'Media Bias Report',
+      source: 'Guardian',
+      credibility: 'medium',
+      content: 'Examination of potential biases in political news coverage and how they affect public perception.'
+    }
+  };
+
+  const article = articles[type];
+  if (!article) {
+    console.error('Article not found');
+    return;
+  }
+
+  const resultsContainer = document.getElementById('analysisResults');
+  resultsContainer.innerHTML = `
+    <div class="loading">
+      <div class="spinner"></div>
+      <p style="color: var(--text-color); font-size: 0.8rem;">Loading article...</p>
+    </div>
+  `;
+
+  setTimeout(() => {
+    resultsContainer.innerHTML = `
+      <div class="analysis-result">
+        <div class="article-header">
+          <h2 style="color: var(--primary-color); font-size: 1.3rem;">${article.title}</h2>
+          <div class="article-meta" style="margin-bottom: 15px;">
+            <span><i class="bi bi-newspaper"></i> ${article.source}</span>
+            <span class="credibility-badge ${article.credibility}"><i class="bi bi-shield-check"></i> ${article.credibility}</span>
+          </div>
+        </div>
+        <div class="analysis-summary" style="margin-top: 15px;">
+          <p style="color: var(--text-color); font-size: 0.9rem;">${article.content}</p>
+        </div>
+      </div>
+    `;
+  }, 500);
 }
-const resultsContainer = document.getElementById('analysisResults');
-resultsContainer.innerHTML = `
-<div class="loading">
-<div class="spinner"></div>
-<p style="color: var(--text-color); font-size: 0.8rem;">Loading article...</p>
-</div>
-`;
-setTimeout(() => {
-resultsContainer.innerHTML = `
-<div class="analysis-result">
-<div class="article-header">
-<h2 style="color: var(--primary-color); font-size: 1.3rem;">${title}</h2>
-</div>
-<div class="article-meta" style="margin-bottom: 15px;">
-<span><i class="bi bi-newspaper"></i> ${source}</span>
-<span class="credibility-badge ${credibility}"><i class="bi bi-shield-check"></i> ${credibility}</span>
-</div>
-<div class="analysis-summary" style="margin-top: 15px;">
-<p style="color: var(--text-color); font-size: 0.9rem;">${content}</p>
-</div>
-</div>
-`;
-}, 500);
-}
+
 // Функция для анализа статьи
 async function analyzeArticle() {
-const articleInput = document.getElementById('articleInput').value.trim();
-if (!articleInput) {
-alert('Please enter article text or URL for analysis');
-return;
+  const articleInput = document.getElementById('articleInput').value.trim();
+  if (!articleInput) {
+    alert('Please enter article text or URL for analysis');
+    return;
+  }
+
+  const resultsContainer = document.getElementById('analysisResults');
+  resultsContainer.innerHTML = `
+    <div class="loading">
+      <div class="spinner"></div>
+      <p style="color: var(--text-color); font-size: 0.8rem;">Analyzing...</p>
+    </div>
+  `;
+
+  try {
+    const mockAnalysisResult = await simulateArticleAnalysis(articleInput);
+
+    // Проверяем разрешение на сохранение
+    const permission = localStorage.getItem('analysisPermission');
+    if (permission === 'granted') {
+      analysisHistory.push({
+        credibility_score: mockAnalysisResult.article.analysis.credibility_score.score,
+        timestamp: new Date().toISOString(),
+        title: mockAnalysisResult.article.title
+      });
+
+      if (analysisHistory.length > 10) {
+        analysisHistory.shift();
+      }
+
+      updateHistoryDisplay();
+      localStorage.setItem('analysisHistory', JSON.stringify(analysisHistory));
+    }
+
+    displayAnalysisResults(mockAnalysisResult);
+  } catch (error) {
+    console.error('Error analyzing article:', error);
+    resultsContainer.innerHTML = `
+      <div class="error-message" style="color: var(--danger-color); text-align: center; padding: 15px; font-size: 0.8rem;">
+        <i class="bi bi-exclamation-triangle-fill" style="font-size: 1.2rem; margin-right: 8px;"></i>
+        <span>Failed to analyze article. Please try again.</span>
+      </div>
+    `;
+  }
 }
-const resultsContainer = document.getElementById('analysisResults');
-resultsContainer.innerHTML = `
-<div class="loading">
-<div class="spinner"></div>
-<p style="color: var(--text-color); font-size: 0.8rem;">Analyzing...</p>
-</div>
-`;
-try {
-const mockAnalysisResult = await simulateArticleAnalysis(articleInput);
-// Проверяем разрешение на сохранение
-const permission = localStorage.getItem('analysisPermission');
-if (permission === 'granted') {
-analysisHistory.push({
-credibility_score: mockAnalysisResult.article.analysis.credibility_score.score,
-timestamp: new Date().toISOString(),
-title: mockAnalysisResult.article.title
-});
-if (analysisHistory.length > 10) {
-analysisHistory.shift();
-}
-updateHistoryDisplay();
-localStorage.setItem('analysisHistory', JSON.stringify(analysisHistory));
-}
-displayAnalysisResults(mockAnalysisResult);
-} catch (error) {
-console.error('Error analyzing article:', error);
-resultsContainer.innerHTML = `
-<div class="error-message" style="color: var(--danger-color); text-align: center; padding: 15px; font-size: 0.8rem;">
-<i class="bi bi-exclamation-triangle-fill" style="font-size: 1.2rem; margin-right: 8px;"></i>
-<span>Failed to analyze article. Please try again.</span>
-</div>
-`;
-}
-}
+
 // Имитация анализа статьи
 async function simulateArticleAnalysis(inputText) {
-await new Promise(resolve => setTimeout(resolve, 800));
-const randomScore = 0.5 + Math.random() * 0.5;
-const randomSentiment = Math.random();
-const randomBias = Math.random();
-return {
-status: 'success',
-article: {
-title: inputText.substring(0, 30) + (inputText.length > 30 ? '...' : ''),
-source: 'Analyzed Content',
-short_summary: 'Analysis of the provided content shows the following credibility metrics.',
-analysis: {
-credibility_score: { score: randomScore },
-sentiment: { score: randomSentiment },
-bias: { level: randomBias },
-topics: ['Politics', 'Economy', 'Technology'],
-perspectives: {
-neutral: {
-summary: 'Neutral analysis',
-credibility: randomScore > 0.7 ? 'High' : 'Medium'
+  await new Promise(resolve => setTimeout(resolve, 800));
+  const randomScore = 0.5 + Math.random() * 0.5;
+  const randomSentiment = Math.random();
+  const randomBias = Math.random();
+
+  return {
+    status: 'success',
+    article: {
+      title: inputText.substring(0, 30) + (inputText.length > 30 ? '...' : ''),
+      source: 'Analyzed Content',
+      short_summary: 'Analysis of the provided content shows the following credibility metrics.',
+      analysis: {
+        credibility_score: { score: randomScore },
+        sentiment: { score: randomSentiment },
+        bias: { level: randomBias },
+        topics: ['Politics', 'Economy', 'Technology'],
+        perspectives: {
+          neutral: {
+            summary: 'Neutral analysis',
+            credibility: randomScore > 0.7 ? 'High' : 'Medium'
+          }
+        }
+      },
+      credibility_level: randomScore > 0.7 ? 'High' : randomScore > 0.5 ? 'Medium' : 'Low'
+    }
+  };
 }
-}
-},
-credibility_level: randomScore > 0.7 ? 'High' : randomScore > 0.5 ? 'Medium' : 'Low'
-}
-};
-}
+
 // Функция для отображения результатов анализа
 function displayAnalysisResults(data) {
-const article = data.article || {};
-const analysis = article.analysis || {};
-let html = `
-<div class="analysis-result">
-<div class="article-header">
-<h2 style="color: var(--primary-color); font-size: 1.3rem;">${article.title || 'Analysis Results'}</h2>
-</div>
-<div class="analysis-summary" style="margin: 15px 0;">
-<p style="color: var(--text-color); font-size: 0.9rem;">${article.short_summary || 'No summary available'}</p>
-</div>
-<div class="scores-grid">
-<div class="score-card" style="background: rgba(76, 201, 240, 0.1);">
-<div class="score-value" style="color: var(--high-credibility); font-size: 1.2rem;">${(analysis.credibility_score?.score || 0).toFixed(2)}</div>
-<div class="score-description" style="font-size: 0.7rem;">Credibility</div>
-</div>
-<div class="score-card" style="background: rgba(67, 97, 238, 0.1);">
-<div class="score-value" style="color: var(--medium-credibility); font-size: 1.2rem;">${(analysis.sentiment?.score || 0).toFixed(2)}</div>
-<div class="score-description" style="font-size: 0.7rem;">Sentiment</div>
-</div>
-<div class="score-card" style="background: rgba(248, 150, 30, 0.1);">
-<div class="score-value" style="color: var(--low-credibility); font-size: 1.2rem;">${(analysis.bias?.level || 0).toFixed(2)}</div>
-<div class="score-description" style="font-size: 0.7rem;">Bias</div>
-</div>
-</div>
-`;
-if (analysis.topics && analysis.topics.length > 0) {
-html += `
-<div class="topics-section" style="margin-top: 20px;">
-<h4 style="color: var(--text-color); margin-bottom: 10px; font-size: 0.9rem;">Key Topics:</h4>
-<div class="topics-list" style="display: flex; flex-wrap: wrap; gap: 8px;">
-${analysis.topics.map(topic => `
-<span class="topic-badge" style="
-background: rgba(67, 97, 238, 0.1);
-color: var(--primary-color);
-padding: 3px 8px;
-border-radius: 20px;
-font-size: 0.7rem;
-">${topic}</span>
-`).join('')}
-</div>
-</div>
-`;
+  const article = data.article || {};
+  const analysis = article.analysis || {};
+
+  let html = `
+    <div class="analysis-result">
+      <div class="article-header">
+        <h2 style="color: var(--primary-color); font-size: 1.3rem;">${article.title || 'Analysis Results'}</h2>
+      </div>
+      <div class="analysis-summary" style="margin: 15px 0;">
+        <p style="color: var(--text-color); font-size: 0.9rem;">${article.short_summary || 'No summary available'}</p>
+      </div>
+      <div class="scores-grid">
+        <div class="score-card" style="background: rgba(76, 201, 240, 0.1);">
+          <div class="score-value" style="color: var(--high-credibility); font-size: 1.2rem;">${(analysis.credibility_score?.score || 0).toFixed(2)}</div>
+          <div class="score-description" style="font-size: 0.7rem;">Credibility</div>
+        </div>
+        <div class="score-card" style="background: rgba(67, 97, 238, 0.1);">
+          <div class="score-value" style="color: var(--medium-credibility); font-size: 1.2rem;">${(analysis.sentiment?.score || 0).toFixed(2)}</div>
+          <div class="score-description" style="font-size: 0.7rem;">Sentiment</div>
+        </div>
+        <div class="score-card" style="background: rgba(248, 150, 30, 0.1);">
+          <div class="score-value" style="color: var(--low-credibility); font-size: 1.2rem;">${(analysis.bias?.level || 0).toFixed(2)}</div>
+          <div class="score-description" style="font-size: 0.7rem;">Bias</div>
+        </div>
+      </div>
+  `;
+
+  if (analysis.topics && analysis.topics.length > 0) {
+    html += `
+      <div class="topics-section" style="margin-top: 20px;">
+        <h4 style="color: var(--text-color); margin-bottom: 10px; font-size: 0.9rem;">Key Topics:</h4>
+        <div class="topics-list" style="display: flex; flex-wrap: wrap; gap: 8px;">
+          ${analysis.topics.map(topic => `
+            <span class="topic-badge" style="
+              background: rgba(67, 97, 238, 0.1);
+              color: var(--primary-color);
+              padding: 3px 8px;
+              border-radius: 20px;
+              font-size: 0.7rem;
+            ">${topic}</span>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  html += `</div>`;
+  document.getElementById('analysisResults').innerHTML = html;
 }
-html += `</div>`;
-document.getElementById('analysisResults').innerHTML = html;
-}
+
 // Функция для обновления отображения истории анализов
 function updateHistoryDisplay() {
-const historyContainer = document.getElementById('historyContainer');
-historyContainer.innerHTML = '';
-if (analysisHistory.length === 0) {
-historyContainer.innerHTML = '<p style="text-align: center; color: #6b7280; font-size: 0.8rem;">No analysis history yet</p>';
-return;
+  const historyContainer = document.getElementById('historyContainer');
+  historyContainer.innerHTML = '';
+
+  if (analysisHistory.length === 0) {
+    historyContainer.innerHTML = '<p style="text-align: center; color: #6b7280; font-size: 0.8rem;">No analysis history yet</p>';
+    return;
+  }
+
+  analysisHistory.forEach((item) => {
+    const date = new Date(item.timestamp);
+    const formattedDate = date.toLocaleString();
+    const historyItem = document.createElement('div');
+    historyItem.className = 'history-item';
+    historyItem.innerHTML = `
+      <div>
+        <span class="history-score">${item.credibility_score.toFixed(2)}</span>
+        <span style="margin-left: 8px; font-size: 0.8rem;">${item.title}</span>
+      </div>
+      <span class="history-date" style="font-size: 0.7rem;">${formattedDate}</span>
+    `;
+    historyContainer.appendChild(historyItem);
+  });
 }
-analysisHistory.forEach((item) => {
-const date = new Date(item.timestamp);
-const formattedDate = date.toLocaleString();
-const historyItem = document.createElement('div');
-historyItem.className = 'history-item';
-historyItem.innerHTML = `
-<div>
-<span class="history-score">${item.credibility_score.toFixed(2)}</span>
-<span style="margin-left: 8px; font-size: 0.8rem;">${item.title}</span>
-</div>
-<span class="history-date" style="font-size: 0.7rem;">${formattedDate}</span>
-`;
-historyContainer.appendChild(historyItem);
-});
-}
+
 // Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', () => {
-initChart();
-// Проверяем, было ли уже запрошено разрешение
-const permissionStatus = localStorage.getItem('analysisPermissionStatus');
-if (!permissionStatus) {
-showInitialPermissionModal();
-} else {
-// Загружаем историю анализов из localStorage
-const savedHistory = localStorage.getItem('analysisHistory');
-if (savedHistory) {
-analysisHistory = JSON.parse(savedHistory);
-updateHistoryDisplay();
-}
-}
+  initChart();
+
+  // Проверяем, было ли уже запрошено разрешение
+  const permissionStatus = localStorage.getItem('analysisPermissionStatus');
+  if (!permissionStatus) {
+    showInitialPermissionModal();
+  } else {
+    // Загружаем историю анализов из localStorage
+    const savedHistory = localStorage.getItem('analysisHistory');
+    if (savedHistory) {
+      analysisHistory = JSON.parse(savedHistory);
+      updateHistoryDisplay();
+    }
+  }
 });
+
 // Функция для показа начального модального окна
 function showInitialPermissionModal() {
-const modal = document.createElement('div');
-modal.innerHTML = `
-<div class="permission-modal" style="
-position: fixed;
-top: 0;
-left: 0;
-width: 100%;
-height: 100%;
-background-color: rgba(0,0,0,0.5);
-display: flex;
-justify-content: center;
-align-items: center;
-z-index: 1000;">
-<div class="modal-content" style="
-background: white;
-padding: 25px;
-border-radius: 12px;
-max-width: 450px;
-width: 90%;
-box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
-<h3 style="color: var(--text-color); margin-bottom: 15px; font-size: 1.3rem;">Data Storage Permission</h3>
-<p style="color: var(--text-color); margin-bottom: 15px; font-size: 0.9rem;">We can store your analysis results locally to improve your experience.</p>
-<p style="color: var(--text-color); margin-bottom: 20px; font-size: 0.9rem;">Would you like to enable local storage for analysis history?</p>
-<div class="modal-actions" style="
-display: flex;
-justify-content: flex-end;
-gap: 10px;">
-<button id="allowStorage" class="btn" style="
-background: linear-gradient(135deg, #4361ee, #3a0ca3);
-color: white;
-padding: 8px 16px;
-border-radius: 8px;
-font-size: 0.8rem;
-border: none;
-cursor: pointer;">Allow</button>
-<button id="denyStorage" class="btn" style="
-background: #f8f9fa;
-color: var(--text-color);
-padding: 8px 16px;
-border-radius: 8px;
-border: 1px solid var(--border-color);
-font-size: 0.8rem;
-cursor: pointer;">Deny</button>
-</div>
-</div>
-</div>
-`;
-document.body.appendChild(modal);
-// Обработчики кнопок
-document.getElementById('allowStorage').addEventListener('click', () => {
-localStorage.setItem('analysisPermission', 'granted');
-localStorage.setItem('analysisPermissionStatus', 'asked');
-modal.remove();
-});
-document.getElementById('denyStorage').addEventListener('click', () => {
-localStorage.setItem('analysisPermission', 'denied');
-localStorage.setItem('analysisPermissionStatus', 'asked');
-modal.remove();
-});
+  const modal = document.createElement('div');
+  modal.innerHTML = `
+    <div class="permission-modal" style="
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    ">
+      <div class="modal-content" style="
+        background: white;
+        padding: 25px;
+        border-radius: 12px;
+        max-width: 450px;
+        width: 90%;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      ">
+        <h3 style="color: var(--text-color); margin-bottom: 15px; font-size: 1.3rem;">Data Storage Permission</h3>
+        <p style="color: var(--text-color); margin-bottom: 15px; font-size: 0.9rem;">We can store your analysis results locally to improve your experience.</p>
+        <p style="color: var(--text-color); margin-bottom: 20px; font-size: 0.9rem;">Would you like to enable local storage for analysis history?</p>
+        <div class="modal-actions" style="
+          display: flex;
+          justify-content: flex-end;
+          gap: 10px;
+        ">
+          <button id="allowStorage" class="btn" style="
+            background: linear-gradient(135deg, #4361ee, #3a0ca3);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            border: none;
+            cursor: pointer;
+          ">Allow</button>
+          <button id="denyStorage" class="btn" style="
+            background: #f8f9fa;
+            color: var(--text-color);
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            font-size: 0.8rem;
+            cursor: pointer;
+          ">Deny</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  // Обработчики кнопок
+  document.getElementById('allowStorage').addEventListener('click', () => {
+    localStorage.setItem('analysisPermission', 'granted');
+    localStorage.setItem('analysisPermissionStatus', 'asked');
+    modal.remove();
+  });
+
+  document.getElementById('denyStorage').addEventListener('click', () => {
+    localStorage.setItem('analysisPermission', 'denied');
+    localStorage.setItem('analysisPermissionStatus', 'asked');
+    modal.remove();
+  });
 }
 </script>
 </body>
 </html>
-
