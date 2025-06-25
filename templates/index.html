@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Media Credibility Index</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
             --primary-color: #2563eb;
@@ -22,6 +20,37 @@
             --low-credibility: #FF6B9D;
         }
 
+        /* Локальные стили для иконок */
+        .bi {
+            display: inline-block;
+            font-style: normal;
+            font-variant: normal;
+            text-rendering: auto;
+            line-height: 1;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .bi-newspaper:before {
+            content: "📰";
+        }
+
+        .bi-shield-check:before {
+            content: "✔";
+        }
+
+        .bi-search:before {
+            content: "🔍";
+        }
+
+        .bi-arrow-clockwise:before {
+            content: "🔄";
+        }
+
+        .bi-exclamation-triangle-fill:before {
+            content: "⚠";
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -29,7 +58,7 @@
         }
 
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
             background-color: #f5f5f5;
             color: var(--text-color);
             line-height: 1.6;
@@ -59,6 +88,7 @@
             display: flex;
             align-items: center;
             gap: 8px;
+            color: var(--text-color);
         }
 
         .logo-text {
@@ -311,6 +341,7 @@
             border-radius: 4px;
             min-height: 100px;
             resize: vertical;
+            font-family: inherit;
         }
 
         .footer {
@@ -408,6 +439,117 @@
     </footer>
 
     <script>
+        // Локальная реализация Chart.js
+        class SimpleChart {
+            constructor(ctx, config) {
+                this.ctx = ctx;
+                this.config = config;
+                this.data = config.data;
+                this.options = config.options || {};
+                this.canvas = ctx.canvas;
+                this.init();
+            }
+
+            init() {
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+                this.render();
+            }
+
+            resize() {
+                const container = this.canvas.parentElement;
+                this.canvas.width = container.clientWidth;
+                this.canvas.height = container.clientHeight;
+            }
+
+            render() {
+                const ctx = this.ctx;
+                const data = this.data;
+                const width = this.canvas.width;
+                const height = this.canvas.height;
+                const padding = 40;
+                const barWidth = (width - 2 * padding) / data.labels.length - 10;
+
+                // Очистка canvas
+                ctx.clearRect(0, 0, width, height);
+
+                // Рисование осей
+                this.drawAxes(ctx, width, height, padding);
+
+                // Рисование столбцов
+                this.drawBars(ctx, width, height, padding, barWidth);
+            }
+
+            drawAxes(ctx, width, height, padding) {
+                // Ось X
+                ctx.beginPath();
+                ctx.moveTo(padding, height - padding);
+                ctx.lineTo(width - padding, height - padding);
+                ctx.strokeStyle = '#ccc';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                // Ось Y
+                ctx.beginPath();
+                ctx.moveTo(padding, padding);
+                ctx.lineTo(padding, height - padding);
+                ctx.strokeStyle = '#ccc';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                // Подписи оси Y
+                for (let i = 0; i <= 1; i += 0.2) {
+                    const y = height - padding - i * (height - 2 * padding);
+                    ctx.fillStyle = '#6b7280';
+                    ctx.font = '12px Arial';
+                    ctx.textAlign = 'right';
+                    ctx.fillText(i.toFixed(1), padding - 10, y + 5);
+                }
+
+                // Подписи оси X
+                this.data.labels.forEach((label, index) => {
+                    const x = padding + index * (barWidth + 10) + barWidth / 2;
+                    ctx.fillStyle = '#6b7280';
+                    ctx.font = '12px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(label, x, height - padding + 20);
+                });
+            }
+
+            drawBars(ctx, width, height, padding, barWidth) {
+                this.data.datasets.forEach(dataset => {
+                    dataset.data.forEach((value, index) => {
+                        const barHeight = value * (height - 2 * padding);
+                        const x = padding + index * (barWidth + 10);
+                        const y = height - padding - barHeight;
+
+                        // Рисование столбца
+                        ctx.fillStyle = dataset.backgroundColor[index];
+                        ctx.fillRect(x, y, barWidth, barHeight);
+
+                        // Рисование границы
+                        ctx.strokeStyle = dataset.borderColor[index];
+                        ctx.lineWidth = 1;
+                        ctx.strokeRect(x, y, barWidth, barHeight);
+
+                        // Подпись значения
+                        ctx.fillStyle = '#000';
+                        ctx.font = '12px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(value.toFixed(2), x + barWidth / 2, y - 5);
+                    });
+                });
+            }
+
+            update() {
+                this.render();
+            }
+
+            destroy() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+            }
+        }
+
         // Глобальные переменные
         let chartInstance = null;
         let analysisHistory = [];
@@ -437,75 +579,20 @@
 
         // Функция для инициализации графика
         function initChart() {
-            const ctx = document.getElementById('chart').getContext('2d');
+            const canvas = document.getElementById('chart');
+            const ctx = canvas.getContext('2d');
 
             // Удаляем старый график, если он существует
             if (chartInstance) {
                 chartInstance.destroy();
             }
 
-            chartInstance = new Chart(ctx, {
+            chartInstance = new SimpleChart(ctx, {
                 type: 'bar',
                 data: defaultChartData,
                 options: {
                     responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            max: 1,
-                            grid: {
-                                color: 'rgba(255, 255, 255, 0.1)'
-                            },
-                            ticks: {
-                                color: 'rgba(0, 0, 0, 0.6)',
-                                stepSize: 0.2
-                            },
-                            title: {
-                                display: true,
-                                text: 'Credibility Score',
-                                color: 'rgba(0, 0, 0, 0.8)',
-                                font: {
-                                    size: 14,
-                                    weight: '500'
-                                }
-                            }
-                        },
-                        x: {
-                            grid: {
-                                display: false
-                            },
-                            ticks: {
-                                color: 'rgba(0, 0, 0, 0.6)',
-                                maxRotation: 45,
-                                minRotation: 45
-                            }
-                        }
-                    },
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                            titleColor: '#ffffff',
-                            bodyColor: '#ffffff',
-                            borderColor: 'rgba(255, 255, 255, 0.2)',
-                            borderWidth: 1,
-                            padding: 10,
-                            bodyFont: {
-                                size: 14
-                            },
-                            titleFont: {
-                                size: 16,
-                                weight: '500'
-                            }
-                        }
-                    },
-                    animation: {
-                        duration: 1000,
-                        easing: 'easeOutQuart'
-                    }
+                    maintainAspectRatio: false
                 }
             });
         }
@@ -562,6 +649,7 @@
             `;
 
             try {
+                // Имитация запроса к API
                 const mockAnalysisResult = await simulateArticleAnalysis(articleInput);
 
                 // Проверяем разрешение на сохранение
@@ -714,24 +802,7 @@
         function showInitialPermissionModal() {
             const modal = document.createElement('div');
             modal.innerHTML = `
-                <div class="permission-modal">
-                    <div class="modal-content">
-                        <h3>Data Storage Permission</h3>
-                        <p>We can store your analysis results locally to improve your experience. This data will never leave your device.</p>
-                        <p>Would you like to enable local storage for analysis history?</p>
-                        <div class="modal-actions">
-                            <button id="allowStorage" class="btn btn-primary">Allow</button>
-                            <button id="denyStorage" class="btn">Deny</button>
-                            <button id="askLater" class="btn">Ask me later</button>
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            // Стили для модального окна
-            const style = document.createElement('style');
-            style.textContent = `
-                .permission-modal {
+                <div class="permission-modal" style="
                     position: fixed;
                     top: 0;
                     left: 0;
@@ -741,24 +812,47 @@
                     display: flex;
                     justify-content: center;
                     align-items: center;
-                    z-index: 1000;
-                }
-                .permission-modal .modal-content {
-                    background: white;
-                    padding: 30px;
-                    border-radius: 8px;
-                    max-width: 500px;
-                    width: 90%;
-                }
-                .permission-modal .modal-actions {
-                    display: flex;
-                    justify-content: flex-end;
-                    gap: 15px;
-                    margin-top: 20px;
-                }
+                    z-index: 1000;">
+                    <div class="modal-content" style="
+                        background: white;
+                        padding: 30px;
+                        border-radius: 8px;
+                        max-width: 500px;
+                        width: 90%;">
+                        <h3>Data Storage Permission</h3>
+                        <p>We can store your analysis results locally to improve your experience. This data will never leave your device.</p>
+                        <p>Would you like to enable local storage for analysis history?</p>
+                        <div class="modal-actions" style="
+                            display: flex;
+                            justify-content: flex-end;
+                            gap: 15px;
+                            margin-top: 20px;">
+                            <button id="allowStorage" class="btn btn-primary" style="
+                                background: linear-gradient(135deg, #6e8efb, #a777e3);
+                                color: white;
+                                padding: 8px 16px;
+                                border-radius: 4px;
+                                border: none;
+                                cursor: pointer;">Allow</button>
+                            <button id="denyStorage" class="btn" style="
+                                background: #f8fafc;
+                                color: var(--text-color);
+                                padding: 8px 16px;
+                                border-radius: 4px;
+                                border: 1px solid var(--border-color);
+                                cursor: pointer;">Deny</button>
+                            <button id="askLater" class="btn" style="
+                                background: #f8fafc;
+                                color: var(--text-color);
+                                padding: 8px 16px;
+                                border-radius: 4px;
+                                border: 1px solid var(--border-color);
+                                cursor: pointer;">Ask me later</button>
+                        </div>
+                    </div>
+                </div>
             `;
 
-            document.head.appendChild(style);
             document.body.appendChild(modal);
 
             // Обработчики кнопок
