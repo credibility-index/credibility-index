@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 import anthropic
 from pydantic import BaseModel
 from cache import CacheManager
+from news_api import NewsAPI  # Используем только NewsAPI вместо EnhancedNewsAPI
 
 # Configure logging
 logging.basicConfig(
@@ -31,7 +32,7 @@ class ClaudeAPI:
 
     def __init__(self):
         self.cache = CacheManager()
-        self.news_api = EnhancedNewsAPI()
+        self.news_api = NewsAPI()  # Используем NewsAPI вместо EnhancedNewsAPI
         self.client = self._initialize_anthropic_client()
         self.max_retries = 3
         self.retry_delay = 1
@@ -57,10 +58,8 @@ class ClaudeAPI:
         """Makes API request with retries"""
         retry_count = 0
         last_error = None
-
         if not self.client:
             raise Exception("Anthropic client is not initialized")
-
         while retry_count < self.max_retries:
             try:
                 if method == "messages.create":
@@ -84,7 +83,6 @@ class ClaudeAPI:
                 logger.warning(f"API error. Retrying in {wait_time} seconds")
                 time.sleep(wait_time)
                 continue
-
         logger.error(f"All retries exhausted. Last error: {str(last_error)}")
         raise Exception(f"All retries exhausted. Last error: {str(last_error)}")
 
@@ -126,7 +124,6 @@ class ClaudeAPI:
                 content = "No content provided"
             if not source:
                 source = "Unknown source"
-
             return f"""Perform a comprehensive analysis of the following article content with a focus on critical thinking and credibility assessment.
 
 Article Source: {source}
