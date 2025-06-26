@@ -5,6 +5,7 @@ import time
 from pathlib import Path
 import re
 import json
+import string
 from datetime import datetime
 from urllib.parse import urlparse
 from flask import Flask, request, jsonify, render_template
@@ -13,6 +14,7 @@ from flask_talisman import Talisman
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_caching import Cache
+import random
 import anthropic
 from newspaper import Article, Config
 from bs4 import BeautifulSoup
