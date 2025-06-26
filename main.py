@@ -1,6 +1,7 @@
 import os
 import sys
 import logging
+import time
 from pathlib import Path
 import re
 import json
@@ -26,6 +27,8 @@ from typing import Optional, List, Dict, Any, Tuple
 from cache import CacheManager
 from claude_api import ClaudeAPI
 from news_api import NewsAPI
+from redis import Redis
+from redis.exceptions import ConnectionError, TimeoutError
 
 # Initialize Flask application
 app = Flask(__name__, static_folder='static', template_folder='templates')
@@ -52,14 +55,81 @@ limiter = Limiter(
     storage_uri=os.getenv('RATELIMIT_STORAGE_URL', 'memory://')
 )
 
-# Configure Celery with proper Redis connection handling
+def create_redis_connection():
+    """Create Redis connection with retry logic using Railway environment variables"""
+    # Используем внутренний URL Railway для лучшей производительности
+    redis_url = f"redis://{os.getenv('REDISUSER', 'default')}:{os.getenv('REDISPASSWORD', 'PRxrZBrAMdzypdQxVauTIWOHhFXksxqY')}@{os.getenv('REDISHOST', 'redis.railway.internal')}:{os.getenv('REDISPORT', '6379')}"
+
+    max_retries = 5
+    retry_delay = 1
+
+    for attempt in range(max_retries):
+        try:
+            redis_client = Redis.from_url(
+                redis_url,
+                socket_connect_timeout=5,
+                socket_timeout=10,
+                socket_keepalive=True,
+                retry_on_timeout=True,
+                decode_responses=True,
+                health_check_interval=30
+            )
+
+            if redis_client.ping():
+                logging.getLogger(__name__).info("Successfully connected to Redis using internal URL")
+                return redis_client
+
+        except (ConnectionError, TimeoutError) as e:
+            if attempt == max_retries - 1:
+                logging.getLogger(__name__).error(f"Failed to connect to Redis after {max_retries} attempts: {str(e)}")
+                return None
+            wait_time = retry_delay * (2 ** attempt)
+            logging.getLogger(__name__).warning(f"Redis connection failed, retrying in {wait_time} seconds...")
+            time.sleep(wait_time)
+
+    return None
+
 def make_celery(app):
-    """Create and configure Celery instance"""
+    """Create and configure Celery instance with improved Redis connection handling"""
+    # Используем внутренний URL Railway для лучшей производительности
+    redis_url = f"redis://{os.getenv('REDISUSER', 'default')}:{os.getenv('REDISPASSWORD', 'PRxrZBrAMdzypdQxVauTIWOHhFXksxqY')}@{os.getenv('REDISHOST', 'redis.railway.internal')}:{os.getenv('REDISPORT', '6379')}"
+
+    # Test Redis connection before creating Celery instance
+    try:
+        test_client = create_redis_connection()
+        if not test_client:
+            logging.getLogger(__name__).error("Could not establish Redis connection")
+    except Exception as e:
+        logging.getLogger(__name__).error(f"Redis connection test failed: {str(e)}")
+
     celery = Celery(
         app.import_name,
-        broker=os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0'),
-        backend=os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
+        broker=redis_url,
+        backend=redis_url
     )
+
+    # Configure Redis connection options
+    celery.conf.broker_transport_options = {
+        'retry': True,
+        'retry_policy': {
+            'timeout': 30.0,
+            'max_retries': 20,
+            'interval_start': 0,
+            'interval_step': 1,
+            'interval_max': 5
+        },
+        'socket_connect_timeout': 10,
+        'socket_timeout': 30,
+        'socket_keepalive': True,
+        'socket_keepalive_options': {
+            'tcp_keepcnt': 3,
+            'tcp_keepidle': 60,
+            'tcp_keepintvl': 10
+        },
+        'health_check_interval': 30,
+        'max_connections': 100,
+        'max_connection_memory': 100000000  # 100MB
+    }
 
     # Update Celery configuration from Flask app
     celery.conf.update(app.config)
@@ -122,11 +192,38 @@ def configure_logging():
 # Configure logging
 configure_logging()
 
+def check_redis_connection():
+    """Check Redis connection at startup"""
+    try:
+        redis_url = f"redis://{os.getenv('REDISUSER', 'default')}:{os.getenv('REDISPASSWORD', 'PRxrZBrAMdzypdQxVauTIWOHhFXksxqY')}@{os.getenv('REDISHOST', 'redis.railway.internal')}:{os.getenv('REDISPORT', '6379')}"
+        redis_client = Redis.from_url(
+            redis_url,
+            socket_connect_timeout=5,
+            socket_timeout=10,
+            socket_keepalive=True,
+            retry_on_timeout=True,
+            decode_responses=True
+        )
+        if redis_client.ping():
+            logging.getLogger(__name__).info("Redis connection test successful")
+            return True
+        return False
+    except Exception as e:
+        logging.getLogger(__name__).error(f"Redis connection check failed: {str(e)}")
+        return False
+
 # Initialize components
 try:
     cache_manager = CacheManager()
     claude_api = ClaudeAPI()
     news_api = NewsAPI()
+
+    # Check Redis connection
+    if not check_redis_connection():
+        logging.getLogger(__name__).warning("Could not connect to Redis - some features may not work properly")
+    else:
+        logging.getLogger(__name__).info("Successfully connected to Redis")
+
 except Exception as e:
     logging.getLogger(__name__).error(f"Failed to initialize components: {str(e)}")
     raise
@@ -570,8 +667,13 @@ def health_check():
 
         # Check Redis connection
         try:
-            from redis import Redis
-            redis_client = Redis.from_url(os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0'))
+            redis_url = f"redis://{os.getenv('REDISUSER', 'default')}:{os.getenv('REDISPASSWORD', 'PRxrZBrAMdzypdQxVauTIWOHhFXksxqY')}@{os.getenv('REDISHOST', 'redis.railway.internal')}:{os.getenv('REDISPORT', '6379')}"
+            redis_client = Redis.from_url(
+                redis_url,
+                socket_connect_timeout=5,
+                socket_timeout=10,
+                socket_keepalive=True
+            )
             if redis_client.ping():
                 api_status['redis'] = 'operational'
         except Exception as e:
