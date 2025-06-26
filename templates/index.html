@@ -904,8 +904,9 @@
         }
 
         // Обновленная функция для анализа статьи
-        async function analyzeArticle() {
+      async function analyzeArticle() {
             const articleInput = document.getElementById('articleInput').value.trim();
+
             if (!articleInput) {
                 alert('Please enter article text or URL for analysis');
                 return;
@@ -913,34 +914,61 @@
 
             const resultsContainer = document.getElementById('analysisResults');
             resultsContainer.innerHTML = `
-            <div class="loading">
-                <div class="spinner"></div>
-                <p style="color: var(--text-color); font-size: 0.8rem;">Starting analysis...</p>
-            </div>
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p style="color: var(--text-color); font-size: 0.8rem;">Starting analysis...</p>
+                </div>
             `;
 
             try {
-                // Отправляем запрос на начало анализа
-                const response = await fetch('/start-analysis', {
+                // Используем относительный путь для API
+                const apiUrl = '/start-analysis';
+
+                // Логируем запрос
+                console.log('Sending analysis request to:', apiUrl);
+                console.log('Request payload:', { input_text: articleInput });
+
+                // Отправляем запрос с явным указанием Content-Type
+                const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        'Accept': 'application/json'
                     },
-                    body: JSON.stringify({ input_text: articleInput })
+                    body: JSON.stringify({
+                        input_text: articleInput,
+                        // Добавляем метаданные для отладки
+                        client_timestamp: new Date().toISOString(),
+                        client_info: {
+                            user_agent: navigator.userAgent,
+                            language: navigator.language
+                        }
+                    })
                 });
 
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.message || `Failed to start analysis: ${response.status}`);
+                // Обрабатываем ответ
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    const text = await response.text();
+                    throw new Error(`Unexpected response format: ${text.substring(0, 100)}`);
                 }
 
                 const data = await response.json();
 
+                if (!response.ok) {
+                    throw new Error(data.message || `Server error: ${response.status}`);
+                }
+
                 if (data.status === 'error') {
-                    throw new Error(data.message || 'Failed to start analysis');
+                    throw new Error(data.message || 'Analysis failed to start');
+                }
+
+                if (!data.task_id) {
+                    throw new Error('Invalid response format: missing task_id');
                 }
 
                 currentTaskId = data.task_id;
+                console.log('Analysis started with task ID:', currentTaskId);
 
                 // Начинаем опрос статуса задачи
                 pollTaskStatus();
@@ -949,13 +977,13 @@
                 const permission = localStorage.getItem('analysisPermission');
                 if (permission === 'granted') {
                     analysisHistory.push({
-                        input: articleInput,
+                        input: articleInput.substring(0, 50) + (articleInput.length > 50 ? '...' : ''),
                         timestamp: new Date().toISOString(),
-                        title: articleInput.substring(0, 30) + (articleInput.length > 30 ? '...' : '')
+                        task_id: currentTaskId
                     });
 
                     if (analysisHistory.length > 10) {
-                        analysisHistory.shift();
+                        analysisHistory = analysisHistory.slice(-10);
                     }
 
                     updateHistoryDisplay();
@@ -963,17 +991,20 @@
                 }
 
             } catch (error) {
-                console.error('Error starting analysis:', error);
+                console.error('Analysis error:', error);
                 resultsContainer.innerHTML = `
-                <div class="error-message" style="color: var(--danger-color); text-align: center; padding: 15px; font-size: 0.8rem;">
-                    <i class="bi bi-exclamation-triangle-fill" style="font-size: 1.2rem; margin-right: 8px;"></i>
-                    <span>${error.message || 'Failed to start analysis. Please try again.'}</span>
-                </div>
+                    <div class="error-message" style="color: var(--danger-color); text-align: center; padding: 15px; font-size: 0.8rem;">
+                        <i class="bi bi-exclamation-triangle-fill" style="font-size: 1.2rem; margin-right: 8px;"></i>
+                        <span>Error: \\\${error.message || 'Failed to start analysis'}</span>
+                        <div style="margin-top: 10px; font-size: 0.7rem; color: #6b7280;">
+                            Please check your connection and try again.
+                        </div>
+                    </div>
                 `;
             }
         }
 
-        // Функция для опроса статуса задачи
+        // Исправленная функция для опроса статуса задачи
         async function pollTaskStatus() {
             const resultsContainer = document.getElementById('analysisResults');
             const progressContainer = document.createElement('div');
@@ -987,50 +1018,88 @@
                 clearInterval(pollInterval);
             }
 
+            let attempts = 0;
+            const maxAttempts = 30; // Максимальное количество попыток (1 минута при интервале 2 секунды)
+
             pollInterval = setInterval(async () => {
+                attempts++;
+
+                if (attempts > maxAttempts) {
+                    clearInterval(pollInterval);
+                    resultsContainer.innerHTML = `
+                        <div class="error-message" style="color: var(--danger-color); text-align: center; padding: 15px; font-size: 0.8rem;">
+                            <i class="bi bi-exclamation-triangle-fill" style="font-size: 1.2rem; margin-right: 8px;"></i>
+                            <span>Analysis timed out</span>
+                            <div style="margin-top: 10px; font-size: 0.7rem; color: #6b7280;">
+                                The analysis is taking longer than expected. Please try again later.
+                            </div>
+                        </div>
+                    `;
+                    return;
+                }
+
                 try {
-                    const response = await fetch(`/task-status/${currentTaskId}`);
+                    const response = await fetch(`/task-status/${currentTaskId}`, {
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    });
+
                     if (!response.ok) {
-                        throw new Error(`Failed to get task status: ${response.status}`);
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.message || `Status check failed: ${response.status}`);
                     }
 
                     const data = await response.json();
 
+                    if (!data || typeof data !== 'object') {
+                        throw new Error('Invalid response format from server');
+                    }
+
                     if (data.status === 'PENDING') {
                         progressContainer.innerHTML = `
-                        <div class="spinner"></div>
-                        <p style="color: var(--text-color); font-size: 0.8rem;">Analysis started, waiting for results...</p>
+                            <div class="spinner"></div>
+                            <p style="color: var(--text-color); font-size: 0.8rem;">
+                                Analysis is pending... (attempt \\\${attempts}/\\\${maxAttempts})
+                            </p>
                         `;
                     }
                     else if (data.status === 'PROGRESS') {
                         progressContainer.innerHTML = `
-                        <div class="spinner"></div>
-                        <p style="color: var(--text-color); font-size: 0.8rem;">
-                            Analysis in progress: ${data.progress || 0}% - ${data.message || 'Processing'}
-                        </p>
+                            <div class="spinner"></div>
+                            <p style="color: var(--text-color); font-size: 0.8rem;">
+                                Analysis in progress: \\\${data.progress || 0}% - \\\${data.message || 'Processing'}
+                            </p>
                         `;
                     }
                     else if (data.status === 'SUCCESS') {
                         clearInterval(pollInterval);
-                        displayAnalysisResults(data.result);
+                        if (data.result) {
+                            displayAnalysisResults(data.result);
+                        } else {
+                            throw new Error('Analysis completed but no results returned');
+                        }
                     }
                     else {
                         clearInterval(pollInterval);
-                        throw new Error(data.message || 'Analysis failed');
+                        throw new Error(data.message || 'Analysis failed with unknown status');
                     }
+
                 } catch (error) {
                     clearInterval(pollInterval);
-                    console.error('Error polling task status:', error);
+                    console.error('Polling error:', error);
                     resultsContainer.innerHTML = `
-                    <div class="error-message" style="color: var(--danger-color); text-align: center; padding: 15px; font-size: 0.8rem;">
-                        <i class="bi bi-exclamation-triangle-fill" style="font-size: 1.2rem; margin-right: 8px;"></i>
-                        <span>${error.message || 'Failed to complete analysis. Please try again.'}</span>
-                    </div>
+                        <div class="error-message" style="color: var(--danger-color); text-align: center; padding: 15px; font-size: 0.8rem;">
+                            <i class="bi bi-exclamation-triangle-fill" style="font-size: 1.2rem; margin-right: 8px;"></i>
+                            <span>Error: \\\${error.message || 'Failed to complete analysis'}</span>
+                            <div style="margin-top: 10px; font-size: 0.7rem; color: #6b7280;">
+                                Please refresh the page and try again.
+                            </div>
+                        </div>
                     `;
                 }
             }, 2000); // Опрос каждые 2 секунды
         }
-
         // Обновленная функция для отображения результатов анализа
         function displayAnalysisResults(data) {
             const article = data.article || {};
