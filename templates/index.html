@@ -23,6 +23,7 @@
             --danger-color: #f72585;
         }
 
+        /* Иконки */
         .bi {
             display: inline-block;
             font-style: normal;
@@ -44,6 +45,49 @@
         .bi-shield-lock:before { content: "🔒"; }
         .bi-file-earmark-text:before { content: "📄"; }
 
+        /* Стили для новых элементов */
+        .score-explanation {
+            font-size: 0.7rem;
+            color: #6b7280;
+            margin-top: 5px;
+            text-align: center;
+        }
+
+        .perspective-card {
+            background: var(--secondary-color);
+            padding: 10px;
+            border-radius: var(--border-radius);
+            margin-bottom: 10px;
+        }
+
+        .perspective-card h5 {
+            color: var(--primary-color);
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+        }
+
+        .perspective-card p {
+            color: var(--text-color);
+            font-size: 0.8rem;
+            margin-bottom: 5px;
+        }
+
+        .perspectives-section {
+            margin-top: 20px;
+        }
+
+        .perspectives-section h4 {
+            color: var(--text-color);
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+        }
+
+        #analysis-progress {
+            margin-top: 10px;
+            text-align: center;
+        }
+
+        /* Остальные стили остаются без изменений */
         * {
             margin: 0;
             padding: 0;
@@ -769,6 +813,8 @@
         // Глобальные переменные
         let chartInstance = null;
         let analysisHistory = [];
+        let currentTaskId = null;
+        let pollInterval = null;
 
         // Данные для графика с 20 источниками
         const defaultChartData = {
@@ -857,7 +903,7 @@
             }, 800);
         }
 
-        // Функция для анализа статьи
+        // Обновленная функция для анализа статьи
         async function analyzeArticle() {
             const articleInput = document.getElementById('articleInput').value.trim();
             if (!articleInput) {
@@ -869,13 +915,13 @@
             resultsContainer.innerHTML = `
             <div class="loading">
                 <div class="spinner"></div>
-                <p style="color: var(--text-color); font-size: 0.8rem;">Analyzing...</p>
+                <p style="color: var(--text-color); font-size: 0.8rem;">Starting analysis...</p>
             </div>
             `;
 
             try {
-                // Отправляем запрос на ваш бэкенд
-                const response = await fetch('/analyze', {
+                // Отправляем запрос на начало анализа
+                const response = await fetch('/start-analysis', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -885,22 +931,27 @@
 
                 if (!response.ok) {
                     const errorData = await response.json();
-                    throw new Error(errorData.message || `Analysis failed with status: ${response.status}`);
+                    throw new Error(errorData.message || `Failed to start analysis: ${response.status}`);
                 }
 
                 const data = await response.json();
 
                 if (data.status === 'error') {
-                    throw new Error(data.message || 'Analysis failed');
+                    throw new Error(data.message || 'Failed to start analysis');
                 }
+
+                currentTaskId = data.task_id;
+
+                // Начинаем опрос статуса задачи
+                pollTaskStatus();
 
                 // Сохраняем историю анализа
                 const permission = localStorage.getItem('analysisPermission');
                 if (permission === 'granted') {
                     analysisHistory.push({
-                        credibility_score: data.article.analysis.credibility_score.score,
+                        input: articleInput,
                         timestamp: new Date().toISOString(),
-                        title: data.article.title
+                        title: articleInput.substring(0, 30) + (articleInput.length > 30 ? '...' : '')
                     });
 
                     if (analysisHistory.length > 10) {
@@ -911,19 +962,76 @@
                     localStorage.setItem('analysisHistory', JSON.stringify(analysisHistory));
                 }
 
-                displayAnalysisResults(data);
             } catch (error) {
-                console.error('Error analyzing article:', error);
+                console.error('Error starting analysis:', error);
                 resultsContainer.innerHTML = `
                 <div class="error-message" style="color: var(--danger-color); text-align: center; padding: 15px; font-size: 0.8rem;">
                     <i class="bi bi-exclamation-triangle-fill" style="font-size: 1.2rem; margin-right: 8px;"></i>
-                    <span>${error.message || 'Failed to analyze article. Please try again.'}</span>
+                    <span>${error.message || 'Failed to start analysis. Please try again.'}</span>
                 </div>
                 `;
             }
         }
 
-        // Функция для отображения результатов анализа
+        // Функция для опроса статуса задачи
+        async function pollTaskStatus() {
+            const resultsContainer = document.getElementById('analysisResults');
+            const progressContainer = document.createElement('div');
+            progressContainer.id = 'analysis-progress';
+            progressContainer.style.marginTop = '10px';
+            progressContainer.style.textAlign = 'center';
+            resultsContainer.appendChild(progressContainer);
+
+            // Очищаем предыдущий интервал, если он есть
+            if (pollInterval) {
+                clearInterval(pollInterval);
+            }
+
+            pollInterval = setInterval(async () => {
+                try {
+                    const response = await fetch(`/task-status/${currentTaskId}`);
+                    if (!response.ok) {
+                        throw new Error(`Failed to get task status: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+
+                    if (data.status === 'PENDING') {
+                        progressContainer.innerHTML = `
+                        <div class="spinner"></div>
+                        <p style="color: var(--text-color); font-size: 0.8rem;">Analysis started, waiting for results...</p>
+                        `;
+                    }
+                    else if (data.status === 'PROGRESS') {
+                        progressContainer.innerHTML = `
+                        <div class="spinner"></div>
+                        <p style="color: var(--text-color); font-size: 0.8rem;">
+                            Analysis in progress: ${data.progress || 0}% - ${data.message || 'Processing'}
+                        </p>
+                        `;
+                    }
+                    else if (data.status === 'SUCCESS') {
+                        clearInterval(pollInterval);
+                        displayAnalysisResults(data.result);
+                    }
+                    else {
+                        clearInterval(pollInterval);
+                        throw new Error(data.message || 'Analysis failed');
+                    }
+                } catch (error) {
+                    clearInterval(pollInterval);
+                    console.error('Error polling task status:', error);
+                    resultsContainer.innerHTML = `
+                    <div class="error-message" style="color: var(--danger-color); text-align: center; padding: 15px; font-size: 0.8rem;">
+                        <i class="bi bi-exclamation-triangle-fill" style="font-size: 1.2rem; margin-right: 8px;"></i>
+                        <span>${error.message || 'Failed to complete analysis. Please try again.'}</span>
+                    </div>
+                    `;
+                }
+            }, 2000); // Опрос каждые 2 секунды
+        }
+
+        // Обновленная функция для отображения результатов анализа
         function displayAnalysisResults(data) {
             const article = data.article || {};
             const analysis = article.analysis || {};
@@ -945,21 +1053,30 @@
                 <div class="scores-grid">
                     <div class="score-card" style="background: rgba(76, 201, 240, 0.1);">
                         <div class="score-value" style="color: var(--high-credibility); font-size: 1.2rem;">
-                            ${(analysis.credibility_score?.score || 0).toFixed(2)}
+                            ${(article.credibility_score?.score || 0).toFixed(2)}
                         </div>
                         <div class="score-description" style="font-size: 0.7rem;">Credibility</div>
+                        <div class="score-explanation" style="font-size: 0.7rem; color: #6b7280; margin-top: 5px;">
+                            ${article.credibility_score?.explanation || ''}
+                        </div>
                     </div>
                     <div class="score-card" style="background: rgba(67, 97, 238, 0.1);">
                         <div class="score-value" style="color: var(--medium-credibility); font-size: 1.2rem;">
                             ${(analysis.sentiment?.score || 0).toFixed(2)}
                         </div>
                         <div class="score-description" style="font-size: 0.7rem;">Sentiment</div>
+                        <div class="score-explanation" style="font-size: 0.7rem; color: #6b7280; margin-top: 5px;">
+                            ${analysis.sentiment?.explanation || ''}
+                        </div>
                     </div>
                     <div class="score-card" style="background: rgba(248, 150, 30, 0.1);">
                         <div class="score-value" style="color: var(--low-credibility); font-size: 1.2rem;">
                             ${(analysis.bias?.level || 0).toFixed(2)}
                         </div>
                         <div class="score-description" style="font-size: 0.7rem;">Bias</div>
+                        <div class="score-explanation" style="font-size: 0.7rem; color: #6b7280; margin-top: 5px;">
+                            ${analysis.bias?.explanation || ''}
+                        </div>
                     </div>
                 </div>
             `;
@@ -976,9 +1093,26 @@
                             padding: 3px 8px;
                             border-radius: 20px;
                             font-size: 0.7rem;
-                        ">${topic}</span>
+                        ">${typeof topic === 'object' ? topic.name : topic}</span>
                         `).join('')}
                     </div>
+                </div>
+                `;
+            }
+
+            if (analysis.perspectives) {
+                html += `
+                <div class="perspectives-section" style="margin-top: 20px;">
+                    <h4 style="color: var(--text-color); margin-bottom: 10px; font-size: 0.9rem;">Perspectives:</h4>
+                    ${Object.entries(analysis.perspectives).map(([perspective, data]) => `
+                    <div class="perspective-card">
+                        <h5 style="color: var(--primary-color); font-size: 0.9rem; margin-bottom: 5px;">${perspective}</h5>
+                        <p style="color: var(--text-color); font-size: 0.8rem; margin-bottom: 5px;">${data.summary}</p>
+                        <span class="credibility-badge ${data.credibility || 'medium'}" style="font-size: 0.7rem;">
+                            <i class="bi bi-shield-check"></i> ${data.credibility || 'Medium'}
+                        </span>
+                    </div>
+                    `).join('')}
                 </div>
                 `;
             }
@@ -992,9 +1126,9 @@
                         <h4 style="font-size: 1rem; margin-bottom: 5px;">
                             <a href="${similar.url}" target="_blank" style="color: var(--primary-color);">${similar.title}</a>
                         </h4>
-                        <p style="font-size: 0.8rem; color: var(--text-color);">${similar.description}</p>
+                        <p style="font-size: 0.8rem; color: var(--text-color);">${similar.description || 'No description available'}</p>
                         <div class="article-meta" style="margin-top: 5px;">
-                            <span style="font-size: 0.7rem;"><i class="bi bi-newspaper"></i> ${similar.source.name}</span>
+                            <span style="font-size: 0.7rem;"><i class="bi bi-newspaper"></i> ${similar.source?.name || 'Unknown'}</span>
                             <span class="credibility-badge ${similar.credibility_level || 'medium'}" style="font-size: 0.7rem;">
                                 <i class="bi bi-shield-check"></i> ${similar.credibility_level || 'Medium'}
                             </span>
@@ -1026,7 +1160,7 @@
                 historyItem.className = 'history-item';
                 historyItem.innerHTML = `
                 <div>
-                    <span class="history-score">${item.credibility_score.toFixed(2)}</span>
+                    <span class="history-score">${item.credibility_score?.toFixed(2) || 'N/A'}</span>
                     <span style="margin-left: 8px; font-size: 0.8rem;">${item.title}</span>
                 </div>
                 <span class="history-date" style="font-size: 0.7rem;">${formattedDate}</span>
@@ -1038,6 +1172,12 @@
         // Инициализация при загрузке страницы
         document.addEventListener('DOMContentLoaded', () => {
             initChart();
+
+            // Очищаем интервал опроса при загрузке страницы
+            if (pollInterval) {
+                clearInterval(pollInterval);
+                pollInterval = null;
+            }
 
             const permissionStatus = localStorage.getItem('analysisPermissionStatus');
             if (!permissionStatus) {
