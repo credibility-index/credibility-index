@@ -23,25 +23,28 @@ from celery import Celery
 import requests
 import threading
 from typing import Optional, List, Dict, Any, Tuple
-from cache import CacheManager  # Предполагается, что этот модуль существует
-from claude_api import ClaudeAPI  # Предполагается, что этот модуль существует
+from cache import CacheManager
+from claude_api import ClaudeAPI
+from news_api import EnhancedNewsAPI
 
-# Инициализация приложения Flask
+# Initialize Flask application
 app = Flask(__name__, static_folder='static', template_folder='templates')
-# Конфигурация кэша
+
+# Configure cache
 app.config['CACHE_TYPE'] = os.getenv('CACHE_TYPE', 'SimpleCache')
 cache = Cache(app)
 
-# Настройка Talisman
+# Configure Talisman for security headers
 Talisman(app,
-         content_security_policy={
-             'default-src': "'self'",
-             'script-src': ["'self'", "'unsafe-inline'"],
-             'style-src': ["'self'", "'unsafe-inline'"],
-             'img-src': ["'self'", "data:"]
-         })
+    content_security_policy={
+        'default-src': "'self'",
+        'script-src': ["'self'", "'unsafe-inline'"],
+        'style-src': ["'self'", "'unsafe-inline'"],
+        'img-src': ["'self'", "data:"]
+    }
+)
 
-# Настройка ограничения запросов
+# Configure rate limiting
 limiter = Limiter(
     app=app,
     key_func=get_remote_address,
@@ -49,204 +52,85 @@ limiter = Limiter(
     storage_uri=os.getenv('RATELIMIT_STORAGE_URL', 'memory://')
 )
 
-# Добавьте декоратор кэширования для статических страниц
-from flask_caching import Cache
+# Configure Celery with proper Redis connection handling
+def make_celery(app):
+    """Create and configure Celery instance"""
+    celery = Celery(
+        app.import_name,
+        broker=os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0'),
+        backend=os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
+    )
 
-cache = Cache(app, config={'CACHE_TYPE': 'SimpleCache'})
-@app.route('/faq')
-@cache.cached(timeout=3600)  # Кэшировать на 1 час
-def faq():
-    return render_template('faq.html')
-# Настройка приложения
-app.config.update(
-    SECRET_KEY=os.getenv('FLASK_SECRET_KEY', 'your-secret-key-here'),
-    CELERY_BROKER_URL=os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0'),
-    CELERY_RESULT_BACKEND=os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
-)
-@app.route('/feedback')
-def feedback():
-    return render_template('feedback.html')
+    # Update Celery configuration from Flask app
+    celery.conf.update(app.config)
 
+    # Configure task routes
+    celery.conf.task_routes = {
+        'processtask': {'queue': 'high_priority'},
+    }
 
-@app.route('/privacy')
-def privacy():
-    return render_template('privacy.html')
+    # Configure task time limits
+    celery.conf.task_time_limit = 300
+    celery.conf.task_soft_time_limit = 240
 
-@app.route('/terms')
-def terms():
-    return render_template('terms.html')
-@app.errorhandler(404)
-def page_not_found(e):
-    return render_template('404.html'), 404
+    # Configure result expiration
+    celery.conf.result_expires = 3600
 
-@app.errorhandler(500)
-def internal_server_error(e):
-    return render_template('500.html'), 500
+    class ContextTask(celery.Task):
+        def __call__(self, *args, **kwargs):
+            with app.app_context():
+                return self.run(*args, **kwargs)
 
-# Инициализация Celery
-celery = Celery(app.name, broker=app.config['CELERY_BROKER_URL'])
-celery.conf.update(app.config)
+    celery.Task = ContextTask
+    return celery
 
-# Глобальные переменные
+# Initialize Celery
+celery = make_celery(app)
+
+# Global variables
 analysis_history = []
 history_lock = threading.Lock()
 
-# Настройка логирования
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+# Configure logging
+def configure_logging():
+    """Configure logging settings"""
+    log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
+    log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 
-# Инициализация Sentry
-if os.getenv('SENTRY_DSN'):
-    sentry_sdk.init(
-        dsn=os.getenv('SENTRY_DSN'),
-        integrations=[FlaskIntegration()],
-        traces_sample_rate=1.0,
-        environment=os.getenv('FLASK_ENV', 'development')
+    if os.getenv('FLASK_ENV') == 'development':
+        log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s - %(filename)s:%(lineno)d'
+
+    handlers = [logging.StreamHandler(sys.stdout)]
+    if os.getenv('LOG_FILE'):
+        handlers.append(logging.FileHandler(os.getenv('LOG_FILE')))
+
+    logging.basicConfig(
+        level=getattr(logging, log_level, logging.INFO),
+        format=log_format,
+        handlers=handlers
     )
 
-class NewsAPI:
-    def __init__(self):
-        self.api_key = os.getenv('NEWS_API_KEY')
-        self.endpoint = os.getenv('NEWS_ENDPOINT', 'https://newsapi.org/v2')
-        self.session = self._create_session()
-
-        if not self.api_key:
-            logger.error("NEWS_API_KEY is not set")
-            raise ValueError("NEWS_API_KEY environment variable is not set")
-
-    def _create_session(self):
-        """Создает сессию с повторными попытками"""
-        session = requests.Session()
-        retries = Retry(
-            total=3,
-            backoff_factor=1,
-            status_forcelist=[500, 502, 503, 504]
+    if os.getenv('SENTRY_DSN'):
+        sentry_sdk.init(
+            dsn=os.getenv('SENTRY_DSN'),
+            integrations=[FlaskIntegration()],
+            traces_sample_rate=1.0,
+            environment=os.getenv('FLASK_ENV', 'development')
         )
-        adapter = HTTPAdapter(max_retries=retries)
-        session.mount("http://", adapter)
-        session.mount("https://", adapter)
-        return session
 
-    def get_everything(self, query: str, page_size: int = 5, sort_by: str = 'publishedAt',
-                     from_param: Optional[str] = None, to: Optional[str] = None) -> List[Dict[str, Any]]:
-        """
-        Получает статьи по запросу из NewsAPI.
-        """
-        try:
-            url = f"{self.endpoint}/everything"  # Исправленный URL
-            params = {
-                'q': query,
-                'pageSize': page_size,
-                'sortBy': sort_by,
-                'apiKey': self.api_key
-            }
+# Configure logging
+configure_logging()
 
-            if from_param:
-                params['from'] = from_param
-            if to:
-                params['to'] = to
-
-            response = self.session.get(url, params=params, timeout=10)
-            response.raise_for_status()
-            data = response.json()
-
-            if data.get('status') != 'ok':
-                logger.error(f"NewsAPI returned error: {data.get('message', 'Unknown error')}")
-                return self._get_fallback_articles(query, page_size)
-
-            return self._enrich_articles(data.get('articles', []))
-
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Error fetching news from NewsAPI: {str(e)}")
-            return self._get_fallback_articles(query, page_size)
-        except Exception as e:
-            logger.error(f"Unexpected error in NewsAPI: {str(e)}")
-            return self._get_fallback_articles(query, page_size)
-
-    def _get_fallback_articles(self, query: str, count: int) -> List[Dict[str, Any]]:
-        """Возвращает резервные статьи при ошибках API"""
-        mock_articles = [
-            {
-                "title": f"Article about {query} (Fallback)",
-                "source": {"name": "Fallback Source", "id": None},
-                "url": "https://example.com/fallback1",
-                "description": f"Sample article about {query}",
-                "publishedAt": datetime.now().isoformat(),
-                "content": f"This is a fallback article about {query}. In a real application, this would be replaced with actual news content."
-            },
-            {
-                "title": f"Latest news on {query} (Fallback)",
-                "source": {"name": "Mock News", "id": None},
-                "url": "https://example.com/fallback2",
-                "description": f"Recent developments in {query}",
-                "publishedAt": datetime.now().isoformat(),
-                "content": f"Fallback content about recent {query} developments. This mock article simulates what real news API would return."
-            },
-            {
-                "title": f"Expert analysis of {query} (Fallback)",
-                "source": {"name": "Demo News", "id": None},
-                "url": "https://example.com/fallback3",
-                "description": f"Expert opinions on {query}",
-                "publishedAt": datetime.now().isoformat(),
-                "content": f"Mock expert analysis of {query}. This fallback content demonstrates what our system would show if the news API was working."
-            }
-        ]
-        return mock_articles[:count]
-
-    def _enrich_articles(self, articles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Улучшает данные статей, добавляя дефолтные значения"""
-        enriched = []
-        for article in articles:
-            enriched.append({
-                'title': article.get('title', 'Untitled Article'),
-                'description': article.get('description', 'No description available'),
-                'url': article.get('url', '#'),
-                'source': {
-                    'name': article.get('source', {}).get('name', 'Unknown Source'),
-                    'url': article.get('source', {}).get('url', None)
-                },
-                'publishedAt': article.get('publishedAt', datetime.now().isoformat()),
-                'content': article.get('content', 'Full content not available')
-            })
-        return enriched
-
-# Настройка CORS для всех маршрутов
-CORS(app, resources={
-    r"/*": {
-        "origins": os.getenv('CORS_ORIGINS', '*').split(','),
-        "methods": ["GET", "POST", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization"]
-    }
-})
-
-# Инициализация компонентов
+# Initialize components
 try:
-    cache = CacheManager()
+    cache_manager = CacheManager()
     claude_api = ClaudeAPI()
-    news_api = NewsAPI()
-except ImportError as e:
-    logger.error(f"Failed to import modules: {str(e)}")
-    raise
+    news_api = EnhancedNewsAPI()
 except Exception as e:
     logger.error(f"Failed to initialize components: {str(e)}")
     raise
 
-# Инициализация клиента Anthropic
-try:
-    anthropic_api_key = os.getenv('ANTHROPIC_API_KEY')
-    if not anthropic_api_key:
-        logger.warning("ANTHROPIC_API_KEY is not set, some features may not work")
-        anthropic_client = None
-    else:
-        anthropic_client = anthropic.Anthropic(api_key=anthropic_api_key)
-except Exception as e:
-    logger.error(f"Failed to initialize Anthropic client: {str(e)}")
-    anthropic_client = None
-
-# Тестовые данные (можно вынести в отдельный конфиг)
+# Test data
 daily_buzz = {
     "article": {
         "title": "Today's featured analysis",
@@ -269,18 +153,72 @@ source_credibility_data = {
     "credibility_scores": [0.92, 0.88, 0.75]
 }
 
+# Error handlers
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template('404.html'), 404
+
+@app.errorhandler(500)
+def internal_server_error(e):
+    return render_template('500.html'), 500
+
+# Routes
+@app.route('/')
+def index():
+    """Main page of the application"""
+    return render_template('index.html')
+
+@app.route('/faq')
+@cache.cached(timeout=3600)
+def faq():
+    return render_template('faq.html')
+
+@app.route('/feedback')
+def feedback():
+    return render_template('feedback.html')
+
+@app.route('/privacy')
+def privacy():
+    return render_template('privacy.html')
+
+@app.route('/terms')
+def terms():
+    return render_template('terms.html')
+
+@app.route('/source-credibility-chart')
+def get_source_credibility_chart():
+    """Returns data for source credibility chart"""
+    try:
+        return jsonify(source_credibility_data)
+    except Exception as e:
+        logger.error(f"Error getting source credibility chart: {str(e)}")
+        return jsonify({
+            "sources": ["BBC", "Reuters", "CNN"],
+            "credibility_scores": [0.9, 0.85, 0.75]
+        }), 500
+
+@app.route('/analysis-history')
+def get_analysis_history():
+    """Returns analysis history"""
+    try:
+        with history_lock:
+            return jsonify({"history": analysis_history})
+    except Exception as e:
+        logger.error(f"Error getting analysis history: {str(e)}")
+        return jsonify({"history": []}), 500
+
 @celery.task(bind=True)
 def analyze_article_async(self, url_or_text: str) -> Dict[str, Any]:
-    """Асинхронная задача для анализа статьи"""
+    """Asynchronous task for article analysis"""
     try:
-        # Проверяем кэш
-        cached_result = cache.get_cached_article_analysis(url_or_text)
+        # Check cache
+        cached_result = cache_manager.get_cached_article_analysis(url_or_text)
         if cached_result:
             return {"status": "success", "result": cached_result, "cached": True}
 
         self.update_state(state='PROGRESS', meta={'progress': 10, 'message': 'Starting analysis'})
 
-        # Извлекаем контент
+        # Extract content
         if url_or_text.startswith(('http://', 'https://')):
             content, source, title, error = extract_text_from_url(url_or_text)
             if error:
@@ -291,23 +229,23 @@ def analyze_article_async(self, url_or_text: str) -> Dict[str, Any]:
             source = 'Direct Input'
             title = 'User-provided Text'
 
-        # Анализ через Claude API
+        # Analyze with Claude API
         self.update_state(state='PROGRESS', meta={'progress': 50, 'message': 'Analyzing with Claude API'})
         analysis = claude_api.analyze_article(content, source)
 
-        # Формируем запрос для поиска похожих статей
+        # Build query for similar articles
         query = build_newsapi_query(analysis)
 
-        # Получаем похожие статьи
+        # Get similar articles
         similar_articles = []
         if query:
             self.update_state(state='PROGRESS', meta={'progress': 70, 'message': 'Finding similar articles'})
             similar_articles = news_api.get_everything(query=query, page_size=5)
 
-        # Определяем уровень достоверности
-        credibility_level = determine_credibility_level(analysis.get('credibility_score', {}).get('score', 0.6))
+        # Determine credibility level
+        credibility_level = claude_api.determine_credibility_level(analysis.get('credibility_score', {}).get('score', 0.6))
 
-        # Формируем результат
+        # Build result
         result = {
             'title': title,
             'source': source,
@@ -316,13 +254,18 @@ def analyze_article_async(self, url_or_text: str) -> Dict[str, Any]:
             'analysis': analysis,
             'credibility_level': credibility_level,
             'similar_articles': similar_articles,
-            'search_query': query
+            'search_query': query,
+            'metadata': {
+                'analysis_timestamp': datetime.now().isoformat(),
+                'content_length': len(content),
+                'source_credibility': claude_api.determine_credibility_level_from_source(source)
+            }
         }
 
-        # Кэшируем результат
-        cache.cache_article_analysis(url_or_text, result)
+        # Cache result
+        cache_manager.cache_article_analysis(url_or_text, result)
 
-        # Обновляем историю анализа
+        # Update analysis history
         with history_lock:
             global analysis_history
             analysis_history.insert(0, {
@@ -330,9 +273,11 @@ def analyze_article_async(self, url_or_text: str) -> Dict[str, Any]:
                 "source": source,
                 "url": url_or_text if url_or_text.startswith(('http://', 'https://')) else None,
                 "summary": content[:200] + '...' if len(content) > 200 else content,
-                "credibility": credibility_level
+                "credibility": credibility_level,
+                "timestamp": datetime.now().isoformat(),
+                "credibility_score": result['analysis']['credibility_score']['score']
             })
-            analysis_history = analysis_history[:10]  # Оставляем только последние 10 записей
+            analysis_history = analysis_history[:10]  # Keep only last 10 entries
 
         self.update_state(state='PROGRESS', meta={'progress': 100, 'message': 'Completed'})
         return {"status": "success", "result": result}
@@ -342,19 +287,20 @@ def analyze_article_async(self, url_or_text: str) -> Dict[str, Any]:
         return {"status": "error", "message": str(e)}
 
 def build_newsapi_query(analysis: dict) -> str:
-    """Строит запрос для NewsAPI на основе анализа статьи"""
+    """Builds query for NewsAPI based on article analysis"""
     try:
         query_parts = []
-        # Добавляем темы
-        topics = analysis.get('topics', [])
+
+        # Add topics
+        topics = analysis.get('content_analysis', {}).get('main_topics', [])
         if isinstance(topics, list):
             query_parts.extend([t['name'] if isinstance(t, dict) else t for t in topics[:3]])
 
-        # Добавляем важные сущности (если есть в анализе)
-        entities = analysis.get('entities', [])
-        if isinstance(entities, list):
-            important_entities = [e for e in entities if isinstance(e, dict) and e.get('importance', 0) > 0.7]
-            query_parts.extend([e['name'] for e in important_entities[:3]])
+        # Add important entities
+        key_arguments = analysis.get('content_analysis', {}).get('key_arguments', [])
+        if isinstance(key_arguments, list):
+            important_arguments = [arg['argument'] for arg in key_arguments if isinstance(arg, dict)]
+            query_parts.extend(important_arguments[:3])
 
         return ' OR '.join(query_parts) if query_parts else "technology"
     except Exception as e:
@@ -362,7 +308,7 @@ def build_newsapi_query(analysis: dict) -> str:
         return "technology"
 
 def extract_text_from_url(url: str) -> Tuple[Optional[str], Optional[str], Optional[str], Optional[str]]:
-    """Извлекает текст из URL с улучшенной обработкой ошибок"""
+    """Extracts text from URL with improved error handling"""
     try:
         parsed = urlparse(url)
         if not all([parsed.scheme, parsed.netloc]):
@@ -370,11 +316,11 @@ def extract_text_from_url(url: str) -> Tuple[Optional[str], Optional[str], Optio
 
         clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
 
-        # Пропускаем видео-сайты
+        # Skip video sites
         if any(domain in parsed.netloc for domain in ['youtube.com', 'vimeo.com', 'twitch.tv', 'tiktok.com']):
             return None, parsed.netloc.replace('www.', ''), "Video content detected", None
 
-        # Используем newspaper для извлечения контента
+        # Use newspaper for content extraction
         config = Config()
         config.browser_user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
         config.request_timeout = 30
@@ -394,7 +340,7 @@ def extract_text_from_url(url: str) -> Tuple[Optional[str], Optional[str], Optio
         except Exception as e:
             logger.warning(f"Newspaper failed to process {url}: {str(e)}")
 
-        # Альтернативный метод извлечения контента
+        # Alternative content extraction method
         try:
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -410,14 +356,14 @@ def extract_text_from_url(url: str) -> Tuple[Optional[str], Optional[str], Optio
 
             soup = BeautifulSoup(response.text, 'html.parser')
 
-            # Удаляем ненужные элементы
+            # Remove unwanted elements
             for element in soup(['script', 'style', 'noscript', 'iframe', 'svg', 'nav', 'footer', 'header']):
                 element.decompose()
 
-            # Пытаемся найти основной контент статьи
+            # Try to find main content
             main_content = soup.find('article') or \
-                         soup.find('div', {'class': re.compile('article|content|main|post|entry')}) or \
-                         soup.find('main')
+                        soup.find('div', {'class': re.compile('article|content|main|post|entry')}) or \
+                        soup.find('main')
 
             if main_content:
                 paragraphs = main_content.find_all('p')
@@ -431,7 +377,7 @@ def extract_text_from_url(url: str) -> Tuple[Optional[str], Optional[str], Optio
                             None
                         )
 
-            # Если не удалось найти основной контент, берем все абзацы
+            # If no main content found, get all paragraphs
             paragraphs = soup.find_all('p')
             if paragraphs:
                 text = ' '.join([p.get_text().strip() for p in paragraphs if p.get_text().strip()])
@@ -454,15 +400,14 @@ def extract_text_from_url(url: str) -> Tuple[Optional[str], Optional[str], Optio
         return None, None, "Unexpected error occurred", str(e)
 
 def determine_credibility_level(score: float) -> str:
-    """Определяет уровень достоверности с улучшенной обработкой входных данных"""
+    """Determines credibility level with improved input handling"""
     try:
         if isinstance(score, dict):
             score = score.get('score', 0.6)
-
         if isinstance(score, (float, int)):
             score = float(score)
         else:
-            score = 0.6  # Значение по умолчанию
+            score = 0.6  # Default value
 
         if score >= 0.8:
             return "High"
@@ -475,84 +420,44 @@ def determine_credibility_level(score: float) -> str:
         return "Medium"
 
 def determine_credibility_level_from_source(source_name: str) -> str:
-    """Определяет уровень достоверности на основе источника с улучшенной обработкой"""
+    """Determines credibility level from source with improved handling"""
     try:
         source_name = source_name.lower()
-
         high_credibility_sources = [
-            'bbc', 'reuters', 'associated press', 'the new york times',
-            'the guardian', 'the wall street journal', 'bloomberg'
+            'bbc.com', 'reuters.com', 'nytimes.com', 'theguardian.com',
+            'washingtonpost.com', 'wsj.com', 'ft.com', 'economist.com'
         ]
         medium_credibility_sources = [
-            'cnn', 'fox news', 'usa today', 'the washington post',
-            'npr', 'al jazeera', 'the independent'
+            'cnn.com', 'foxnews.com', 'usatoday.com', 'washingtonpost.com',
+            'npr.org', 'aljazeera.com', 'theindependent.co.uk'
+        ]
+        low_credibility_sources = [
+            'dailymail.co.uk', 'breitbart.com', 'infowars.com',
+            'thesun.co.uk', 'rt.com', 'sputniknews.com'
         ]
 
-        if any(source in source_name for source in high_credibility_sources):
+        domain = source_name
+        if source_name.startswith(('http://', 'https://')):
+            domain = urlparse(source_name).netloc
+
+        if any(hcs in domain for hcs in high_credibility_sources):
             return "High"
-        elif any(source in source_name for source in medium_credibility_sources):
-            return "Medium"
-        else:
+        elif any(lcs in domain for lcs in low_credibility_sources):
             return "Low"
+        elif any(mcs in domain for mcs in medium_credibility_sources):
+            return "Medium"
+        elif domain.endswith('.gov') or domain.endswith('.edu'):
+            return "High"
+        else:
+            return "Medium"
     except Exception as e:
         logger.error(f"Error determining source credibility: {str(e)}")
         return "Medium"
 
-# Маршруты
-@app.route('/')
-def index():
-    """Главная страница приложения"""
-    return render_template('index.html')
-
-@app.route('/daily-buzz')
-def get_daily_buzz():
-    """Возвращает статью дня"""
-    try:
-        cached_buzz = cache.get_cached_buzz_analysis()
-        if cached_buzz:
-            return jsonify({"article": cached_buzz})
-
-        buzz_analysis = claude_api.get_buzz_analysis()
-        cache.cache_buzz_analysis(buzz_analysis)
-        return jsonify({"article": buzz_analysis})
-
-    except Exception as e:
-        logger.error(f"Error getting daily buzz: {str(e)}")
-        # Возвращаем тестовые данные с информацией об ошибке
-        return jsonify({
-            "article": {
-                "title": "Daily Buzz (Fallback)",
-                "source": "Fallback Data",
-                "short_summary": f"Could not load daily buzz: {str(e)}. Showing fallback data.",
-                "analysis": daily_buzz['article']['analysis']
-            }
-        })
-
-@app.route('/source-credibility-chart')
-def get_source_credibility_chart():
-    """Возвращает данные для графика достоверности источников"""
-    try:
-        return jsonify(source_credibility_data)
-    except Exception as e:
-        logger.error(f"Error getting source credibility chart: {str(e)}")
-        return jsonify({
-            "sources": ["BBC", "Reuters", "CNN"],
-            "credibility_scores": [0.9, 0.85, 0.75]
-        }), 500
-
-@app.route('/analysis-history')
-def get_analysis_history():
-    """Возвращает историю анализов"""
-    try:
-        with history_lock:
-            return jsonify({"history": analysis_history})
-    except Exception as e:
-        logger.error(f"Error getting analysis history: {str(e)}")
-        return jsonify({"history": []}), 500
-
+# Routes for analysis
 @app.route('/start-analysis', methods=['POST', 'OPTIONS'])
 def start_analysis():
-    """Начинает асинхронный анализ статьи"""
+    """Starts asynchronous article analysis"""
     if request.method == 'OPTIONS':
         return jsonify({}), 200
 
@@ -565,14 +470,11 @@ def start_analysis():
         if not input_text:
             return jsonify({'status': 'error', 'message': 'Input text cannot be empty'}), 400
 
-        # Дополнительная валидация URL
+        # Additional URL validation
         if input_text.startswith(('http://', 'https://')):
-            try:
-                parsed = urlparse(input_text)
-                if not all([parsed.scheme, parsed.netloc]):
-                    return jsonify({'status': 'error', 'message': 'Invalid URL format'}), 400
-            except Exception:
-                return jsonify({'status': 'error', 'message': 'Invalid URL format'}), 400
+            valid, error = validate_url(input_text)
+            if not valid:
+                return jsonify({'status': 'error', 'message': error}), 400
         elif len(input_text) < 50:
             return jsonify({'status': 'error', 'message': 'Content is too short for analysis'}), 400
 
@@ -593,9 +495,10 @@ def start_analysis():
 
 @app.route('/task-status/<task_id>')
 def get_task_status(task_id):
-    """Проверяет статус асинхронной задачи"""
+    """Checks status of asynchronous task"""
     try:
         task = analyze_article_async.AsyncResult(task_id)
+
         if task.state == 'PENDING':
             response = {
                 'status': task.state,
@@ -614,12 +517,14 @@ def get_task_status(task_id):
                 'result': task.result,
                 'message': 'Task completed successfully'
             }
-        else:  # FAILURE или другие состояния
+        else:  # FAILURE or other states
             response = {
                 'status': task.state,
                 'message': str(task.info) if task.info else 'Task failed'
             }
+
         return jsonify(response)
+
     except Exception as e:
         logger.error(f"Error getting task status: {str(e)}")
         return jsonify({
@@ -628,162 +533,11 @@ def get_task_status(task_id):
             'details': str(e)
         }), 500
 
-@app.route('/analyze', methods=['POST', 'OPTIONS'])
-def analyze_article():
-    """Анализирует статью синхронно"""
-    if request.method == 'OPTIONS':
-        return jsonify({}), 200
-
-    try:
-        data = request.get_json()
-        if not data or 'input_text' not in data:
-            return jsonify({
-                'status': 'error',
-                'message': 'Input text is required',
-                'details': 'The request must include an input_text field'
-            }), 400
-
-        input_text = data['input_text'].strip()
-        if not input_text:
-            return jsonify({
-                'status': 'error',
-                'message': 'Input text cannot be empty',
-                'details': 'The input text field cannot be empty or just whitespace'
-            }), 400
-
-        # Дополнительная валидация URL
-        if input_text.startswith(('http://', 'https://')):
-            try:
-                parsed = urlparse(input_text)
-                if not all([parsed.scheme, parsed.netloc]):
-                    return jsonify({
-                        'status': 'error',
-                        'message': 'Invalid URL format',
-                        'details': 'URL must start with http:// or https:// and contain a valid domain'
-                    }), 400
-            except Exception:
-                return jsonify({
-                    'status': 'error',
-                    'message': 'Invalid URL format',
-                    'details': 'URL must start with http:// or https:// and contain a valid domain'
-                }), 400
-        elif len(input_text) < 50:
-            return jsonify({
-                'status': 'error',
-                'message': 'Content is too short for analysis',
-                'details': 'The input text must be at least 50 characters long'
-            }), 400
-
-        # Проверяем кэш
-        cached_result = cache.get_cached_article_analysis(input_text)
-        if cached_result:
-            return jsonify({
-                'status': 'success',
-                'article': cached_result,
-                'cached': True,
-                'message': 'Result retrieved from cache'
-            })
-
-        # Извлечение контента из URL или использование прямого ввода
-        if input_text.startswith(('http://', 'https://')):
-            content, source, title, error = extract_text_from_url(input_text)
-            if error:
-                return jsonify({
-                    'status': 'error',
-                    'message': f"Failed to extract content from URL: {error}",
-                    'source': source,
-                    'title': title,
-                    'input_text': input_text,
-                    'fallback_data': {
-                        'similar_articles': news_api._get_fallback_articles("technology", 3),
-                        'credibility_level': 'Medium'
-                    }
-                }), 400
-        else:
-            content = input_text
-            source = 'Direct Input'
-            title = 'User-provided Text'
-
-        # Анализ статьи
-        analysis = claude_api.analyze_article(content, source)
-        credibility_level = determine_credibility_level(analysis.get('credibility_score', {}).get('score', 0.6))
-
-        # Получаем похожие статьи
-        query = build_newsapi_query(analysis)
-        similar_articles = []
-        if query:
-            similar_articles = news_api.get_everything(query=query, page_size=5)
-
-        # Формируем результат
-        result = {
-            'title': title,
-            'source': source,
-            'url': input_text if input_text.startswith(('http://', 'https://')) else None,
-            'short_summary': content[:200] + '...' if len(content) > 200 else content,
-            'analysis': analysis,
-            'credibility_level': credibility_level,
-            'credibility_score': analysis.get('credibility_score', {'score': 0.6}),
-            'similar_articles': similar_articles,
-            'search_query': query,
-            'metadata': {
-                'analysis_timestamp': datetime.now().isoformat(),
-                'content_length': len(content),
-                'source_credibility': determine_credibility_level_from_source(source)
-            }
-        }
-
-        # Кэшируем результат
-        cache.cache_article_analysis(input_text, result)
-
-        # Обновляем историю анализа
-        with history_lock:
-            global analysis_history
-            analysis_history.insert(0, {
-                "title": title,
-                "source": source,
-                "url": input_text if input_text.startswith(('http://', 'https://')) else None,
-                "summary": content[:200] + '...' if len(content) > 200 else content,
-                "credibility": credibility_level,
-                "timestamp": datetime.now().isoformat(),
-                "credibility_score": result['credibility_score']['score'] if isinstance(result['credibility_score'], dict) else result['credibility_score']
-            })
-            analysis_history = analysis_history[:10]  # Оставляем только последние 10 записей
-
-        return jsonify({
-            'status': 'success',
-            'article': result,
-            'message': 'Analysis completed successfully'
-        })
-
-    except Exception as e:
-        logger.error(f"Error analyzing article: {str(e)}", exc_info=True)
-        return jsonify({
-            'status': 'error',
-            'message': 'An unexpected error occurred during analysis',
-            'details': str(e),
-            'fallback_data': {
-                'similar_articles': news_api._get_fallback_articles("technology", 3),
-                'credibility_level': 'Medium',
-                'analysis': {
-                    'credibility_score': {'score': 0.6},
-                    'sentiment': {'score': 0.0},
-                    'bias': {'level': 0.3},
-                    'topics': [],
-                    'perspectives': {
-                        'neutral': {
-                            'summary': 'Fallback analysis due to error',
-                            'credibility': 'Medium'
-                        }
-                    }
-                }
-            }
-        }), 500
-
 @app.route('/clear-cache', methods=['POST'])
 def clear_cache():
-    """Очищает кэш анализа"""
+    """Clears analysis cache"""
     try:
-        cache.clear_all_caches()
+        cache_manager.clear_all_caches()
         return jsonify({
             'status': 'success',
             'message': 'Cache cleared successfully'
@@ -798,16 +552,25 @@ def clear_cache():
 
 @app.route('/health')
 def health_check():
-    """Проверка состояния приложения"""
+    """Application health check"""
     try:
-        # Проверяем соединение с базой (если используется)
-        # Проверяем доступность API
         api_status = {
             'news_api': 'unavailable',
-            'claude_api': 'unavailable'
+            'claude_api': 'unavailable',
+            'redis': 'unavailable'
         }
 
-        # Проверяем NewsAPI
+        # Check Redis connection
+        try:
+            from redis import Redis
+            redis_client = Redis.from_url(os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0'))
+            if redis_client.ping():
+                api_status['redis'] = 'operational'
+        except Exception as e:
+            logger.warning(f"Redis health check failed: {str(e)}")
+            api_status['redis'] = f'unavailable: {str(e)}'
+
+        # Check NewsAPI
         try:
             test_result = news_api.get_everything("test", page_size=1)
             if test_result:
@@ -816,11 +579,10 @@ def health_check():
             logger.warning(f"NewsAPI health check failed: {str(e)}")
             api_status['news_api'] = f'unavailable: {str(e)}'
 
-        # Проверяем ClaudeAPI (если возможно)
+        # Check ClaudeAPI
         try:
-            if hasattr(claude_api, 'health_check'):
-                if claude_api.health_check():
-                    api_status['claude_api'] = 'operational'
+            if claude_api.client:
+                api_status['claude_api'] = 'operational'
         except Exception as e:
             logger.warning(f"ClaudeAPI health check failed: {str(e)}")
             api_status['claude_api'] = f'unavailable: {str(e)}'
@@ -831,6 +593,7 @@ def health_check():
             'api_status': api_status,
             'cache_status': 'operational' if cache else 'unavailable'
         })
+
     except Exception as e:
         logger.error(f"Error during health check: {str(e)}")
         return jsonify({
@@ -839,8 +602,22 @@ def health_check():
             'timestamp': datetime.now().isoformat()
         }), 500
 
+def validate_url(url: str) -> Tuple[bool, Optional[str]]:
+    """Validates URL with stricter checks"""
+    try:
+        parsed = urlparse(url)
+        if not all([parsed.scheme, parsed.netloc]):
+            return False, "Invalid URL format - missing scheme or netloc"
+        if parsed.scheme not in ('http', 'https'):
+            return False, "Invalid URL scheme - must be http or https"
+        if not parsed.netloc.replace('.', '').isalnum():
+            return False, "Invalid domain name in URL"
+        return True, None
+    except Exception as e:
+        return False, f"URL validation error: {str(e)}"
+
 def check_newsapi_connection():
-    """Проверка соединения с NewsAPI при старте"""
+    """Check NewsAPI connection at startup"""
     try:
         test_query = "technology"
         articles = news_api.get_everything(query=test_query, page_size=1)
@@ -854,64 +631,12 @@ def check_newsapi_connection():
         logger.error(f"NewsAPI connection check failed: {str(e)}")
         return False
 
-def configure_logging():
-    """Настройка логирования"""
-    log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
-
-    # Настройка формата логов
-    log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    if os.getenv('FLASK_ENV') == 'development':
-        log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s - %(filename)s:%(lineno)d'
-
-    # Настройка обработчиков логов
-    handlers = [logging.StreamHandler(sys.stdout)]
-    if os.getenv('LOG_FILE'):
-        handlers.append(logging.FileHandler(os.getenv('LOG_FILE')))
-
-    # Применение конфигурации
-    logging.basicConfig(
-        level=getattr(logging, log_level, logging.INFO),
-        format=log_format,
-        handlers=handlers
-    )
-
-    if os.getenv('SENTRY_DSN'):
-        sentry_sdk.init(
-            dsn=os.getenv('SENTRY_DSN'),
-            integrations=[FlaskIntegration()],
-            traces_sample_rate=1.0,
-            environment=os.getenv('FLASK_ENV', 'development')
-        )
-
-def validate_url(url: str) -> Tuple[bool, Optional[str]]:
-    """
-    Валидация URL с более строгими проверками
-    Возвращает кортеж: (валиден ли URL, сообщение об ошибке)
-    """
-    try:
-        parsed = urlparse(url)
-        if not all([parsed.scheme, parsed.netloc]):
-            return False, "Invalid URL format - missing scheme or netloc"
-
-        if parsed.scheme not in ('http', 'https'):
-            return False, "Invalid URL scheme - must be http or https"
-
-        if not parsed.netloc.replace('.', '').isalnum():
-            return False, "Invalid domain name in URL"
-
-        return True, None
-    except Exception as e:
-        return False, f"URL validation error: {str(e)}"
-
 if __name__ == '__main__':
-    # Конфигурация логирования
-    configure_logging()
-
-    # Проверка соединения с NewsAPI при старте
+    # Check NewsAPI connection at startup
     if not check_newsapi_connection():
         logger.warning("Could not connect to NewsAPI - will use fallback data")
 
-    # Запуск приложения
+    # Run application
     app.run(
         host='0.0.0.0',
         port=int(os.environ.get('PORT', 5000)),
