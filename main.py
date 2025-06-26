@@ -25,7 +25,7 @@ import threading
 from typing import Optional, List, Dict, Any, Tuple
 from cache import CacheManager
 from claude_api import ClaudeAPI
-
+from news_api import NewsAPI  # Удалено упоминание EnhancedNewsAPI
 
 # Initialize Flask application
 app = Flask(__name__, static_folder='static', template_folder='templates')
@@ -101,6 +101,7 @@ def configure_logging():
         log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s - %(filename)s:%(lineno)d'
 
     handlers = [logging.StreamHandler(sys.stdout)]
+
     if os.getenv('LOG_FILE'):
         handlers.append(logging.FileHandler(os.getenv('LOG_FILE')))
 
@@ -125,7 +126,7 @@ configure_logging()
 try:
     cache_manager = CacheManager()
     claude_api = ClaudeAPI()
-    news_api = EnhancedNewsAPI()
+    news_api = NewsAPI()  # Используем только NewsAPI
 except Exception as e:
     logger.error(f"Failed to initialize components: {str(e)}")
     raise
@@ -303,6 +304,7 @@ def build_newsapi_query(analysis: dict) -> str:
             query_parts.extend(important_arguments[:3])
 
         return ' OR '.join(query_parts) if query_parts else "technology"
+
     except Exception as e:
         logger.error(f"Error building NewsAPI query: {str(e)}")
         return "technology"
@@ -337,6 +339,7 @@ def extract_text_from_url(url: str) -> Tuple[Optional[str], Optional[str], Optio
                     article.title.strip() if article.title else "No title available",
                     None
                 )
+
         except Exception as e:
             logger.warning(f"Newspaper failed to process {url}: {str(e)}")
 
@@ -345,6 +348,7 @@ def extract_text_from_url(url: str) -> Tuple[Optional[str], Optional[str], Optio
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
             }
+
             session = requests.Session()
             retries = Retry(total=3, backoff_factor=1)
             adapter = HTTPAdapter(max_retries=retries)
@@ -404,6 +408,7 @@ def determine_credibility_level(score: float) -> str:
     try:
         if isinstance(score, dict):
             score = score.get('score', 0.6)
+
         if isinstance(score, (float, int)):
             score = float(score)
         else:
@@ -415,6 +420,7 @@ def determine_credibility_level(score: float) -> str:
             return "Medium"
         else:
             return "Low"
+
     except Exception as e:
         logger.error(f"Error determining credibility level: {str(e)}")
         return "Medium"
@@ -423,14 +429,17 @@ def determine_credibility_level_from_source(source_name: str) -> str:
     """Determines credibility level from source with improved handling"""
     try:
         source_name = source_name.lower()
+
         high_credibility_sources = [
             'bbc.com', 'reuters.com', 'nytimes.com', 'theguardian.com',
             'washingtonpost.com', 'wsj.com', 'ft.com', 'economist.com'
         ]
+
         medium_credibility_sources = [
             'cnn.com', 'foxnews.com', 'usatoday.com', 'washingtonpost.com',
             'npr.org', 'aljazeera.com', 'theindependent.co.uk'
         ]
+
         low_credibility_sources = [
             'dailymail.co.uk', 'breitbart.com', 'infowars.com',
             'thesun.co.uk', 'rt.com', 'sputniknews.com'
@@ -450,6 +459,7 @@ def determine_credibility_level_from_source(source_name: str) -> str:
             return "High"
         else:
             return "Medium"
+
     except Exception as e:
         logger.error(f"Error determining source credibility: {str(e)}")
         return "Medium"
