@@ -3,13 +3,13 @@ import logging
 import json
 import time
 import re
-import requests
 from typing import Dict, Any, Optional, List, Union
 from datetime import datetime
 from urllib.parse import urlparse
 import anthropic
 from pydantic import BaseModel
 from cache import CacheManager
+from news_api import EnhancedNewsAPI
 
 # Configure logging
 logging.basicConfig(
@@ -26,134 +26,6 @@ class ArticleAnalysis(BaseModel):
     topics: List[Dict[str, Any]]
     perspectives: Dict[str, Dict[str, Any]]
     key_arguments: List[str]
-
-class EnhancedNewsAPI:
-    """Enhanced version of NewsAPI with robust error handling"""
-    def __init__(self):
-        self.api_key = os.getenv('NEWS_API_KEY')
-        self.base_url = "https://newsapi.org/v2"
-        self.fallback_articles = [
-            {
-                "title": "Technology News (Fallback)",
-                "source": {"name": "Tech Demo News", "url": None},
-                "url": None,
-                "description": "Fallback data about technology trends",
-                "publishedAt": datetime.now().isoformat(),
-                "content": "This is a fallback article shown when there are temporary issues with the API."
-            },
-            {
-                "title": "Economic Overview (Fallback)",
-                "source": {"name": "Econ Demo", "url": None},
-                "url": None,
-                "description": "Fallback data about economic indicators",
-                "publishedAt": datetime.now().isoformat(),
-                "content": "This is a fallback article shown when there are temporary issues with the API."
-            }
-        ]
-        self.max_retries = 3
-        self.retry_delay = 1
-
-    def get_everything(self, query: str, page_size: int = 5, **kwargs) -> List[Dict[str, Any]]:
-        """Gets articles with error handling and retries"""
-        retry_count = 0
-        last_error = None
-
-        if not self.api_key:
-            logger.error("NEWS_API_KEY is not set")
-            return self._get_fallback_articles(query, page_size)
-
-        while retry_count < self.max_retries:
-            try:
-                params = {
-                    'q': query,
-                    'pageSize': page_size,
-                    'apiKey': self.api_key,
-                    **kwargs
-                }
-                url = f"{self.base_url}/everything"
-                response = requests.get(url, params=params, timeout=15)
-
-                if response.status_code == 200:
-                    data = response.json()
-                    if data.get('status') == 'ok':
-                        articles = data.get('articles', [])
-                        processed_articles = []
-                        for article in articles:
-                            try:
-                                processed = {
-                                    'title': article.get('title', 'Untitled Article'),
-                                    'description': article.get('description', 'No description available'),
-                                    'url': article.get('url', '#'),
-                                    'source': {
-                                        'name': article.get('source', {}).get('name', 'Unknown Source'),
-                                        'url': article.get('source', {}).get('url', None)
-                                    },
-                                    'publishedAt': article.get('publishedAt', datetime.now().isoformat()),
-                                    'content': article.get('content', 'Full content not available')
-                                }
-                                processed_articles.append(processed)
-                            except Exception as e:
-                                logger.error(f"Error processing article: {str(e)}")
-                                continue
-
-                        if processed_articles:
-                            return processed_articles[:page_size]
-
-                        return self._get_fallback_articles(query, page_size)
-
-                    logger.warning(f"NewsAPI returned non-ok status: {data.get('message', 'No message')}")
-                    return self._get_fallback_articles(query, page_size)
-
-                elif response.status_code == 404:
-                    logger.error("NewsAPI returned 404 - invalid URL or resource not found")
-                    return self._get_fallback_articles(query, page_size)
-
-                elif response.status_code in (500, 502, 503, 504):
-                    retry_count += 1
-                    wait_time = self.retry_delay * (2 ** (retry_count - 1))
-                    logger.warning(f"Server error. Retrying in {wait_time} seconds")
-                    time.sleep(wait_time)
-                    continue
-
-                else:
-                    logger.error(f"NewsAPI returned error {response.status_code}")
-                    return self._get_fallback_articles(query, page_size)
-
-            except requests.exceptions.RequestException as e:
-                retry_count += 1
-                wait_time = self.retry_delay * (2 ** (retry_count - 1))
-                logger.warning(f"Connection error. Retrying in {wait_time} seconds")
-                time.sleep(wait_time)
-                continue
-
-            except Exception as e:
-                logger.error(f"Unexpected error: {str(e)}")
-                return self._get_fallback_articles(query, page_size)
-
-        logger.error(f"All retries exhausted. Last error: {str(last_error)}")
-        return self._get_fallback_articles(query, page_size)
-
-    def _get_fallback_articles(self, query: str, count: int) -> List[Dict[str, Any]]:
-        """Returns fallback articles when API fails"""
-        mock_articles = [
-            {
-                "title": f"Article about {query} (fallback)",
-                "source": {"name": f"{query.capitalize()} News"},
-                "url": f"https://example.com/{query.replace(' ', '-')}-1",
-                "description": f"Fallback article about {query}",
-                "publishedAt": datetime.now().isoformat(),
-                "content": f"This is a fallback article about {query}. In a real system, this would contain actual news content."
-            },
-            {
-                "title": f"Analysis of {query} (fallback)",
-                "source": {"name": f"{query.capitalize()} Analysis"},
-                "url": f"https://example.com/{query.replace(' ', '-')}-2",
-                "description": f"Fallback analysis of {query}",
-                "publishedAt": datetime.now().isoformat(),
-                "content": f"This is a fallback analytical article about {query}. In a real system, this would contain professional analysis."
-            }
-        ]
-        return mock_articles[:count]
 
 class ClaudeAPI:
     """API client for interacting with Anthropic's Claude model"""
@@ -177,9 +49,7 @@ class ClaudeAPI:
             if not api_key:
                 logger.warning("ANTHROPIC_API_KEY is not set, mock mode will be used")
                 return None
-
             return anthropic.Anthropic(api_key=api_key)
-
         except Exception as e:
             logger.error(f"Error initializing client: {str(e)}")
             return None
@@ -199,7 +69,6 @@ class ClaudeAPI:
                     return response
                 else:
                     raise ValueError(f"Unknown API method: {method}")
-
             except anthropic.APIStatusError as e:
                 status_code = e.status_code
                 if status_code in (529, 429, 500, 502, 503, 504):
@@ -210,7 +79,6 @@ class ClaudeAPI:
                     retry_count += 1
                     continue
                 raise
-
             except Exception as e:
                 retry_count += 1
                 wait_time = self.retry_delay * (2 ** (retry_count - 1))
@@ -278,13 +146,7 @@ Please provide a detailed analysis in JSON format with the following structure:
         "contradictory_evidence": [
             "<any evidence that might contradict the assessment>",
             "<additional contradictory points>"
-        ],
-        "credibility_factors": {{
-            "source_reputation": <float between 0 and 1>,
-            "evidence_quality": <float between 0 and 1>,
-            "logical_consistency": <float between 0 and 1>,
-            "expert_consensus": <float between 0 and 1>
-        }}
+        ]
     }},
     "sentiment_analysis": {{
         "score": <float between -1 and 1>,
@@ -305,10 +167,6 @@ Please provide a detailed analysis in JSON format with the following structure:
                 "intensity": <float between 0 and 1>,
                 "evidence": "<text supporting this bias identification>"
             }}
-        ],
-        "potential_bias_sources": [
-            "<possible sources of bias>",
-            "<additional sources>"
         ]
     }},
     "content_analysis": {{
@@ -332,8 +190,7 @@ Please provide a detailed analysis in JSON format with the following structure:
                 "counter_arguments": [
                     "<potential counter arguments>",
                     "<additional counter arguments>"
-                ],
-                "logical_strength": <float between 0 and 1>
+                ]
             }}
         ],
         "unanswered_questions": [
@@ -343,9 +200,7 @@ Please provide a detailed analysis in JSON format with the following structure:
         "suggested_followup_questions": [
             "<questions readers should ask themselves>",
             "<additional follow-up questions>"
-        ],
-        "content_depth": <float between 0 and 1>,
-        "content_balance": <float between 0 and 1>
+        ]
     }},
     "perspective_analysis": {{
         "presented_perspectives": [
@@ -354,35 +209,16 @@ Please provide a detailed analysis in JSON format with the following structure:
                 "supporting_evidence": [
                     "<evidence supporting this perspective>",
                     "<additional evidence>"
-                ],
-                "credibility": "<credibility assessment of this perspective>",
-                "coverage": <float between 0 and 1>
+                ]
             }}
         ],
         "missing_perspectives": [
             {{
                 "perspective": "<important perspective missing from the article>",
-                "potential_impact": "<how this missing perspective might affect understanding>",
-                "relevance": <float between 0 and 1>
-            }}
-        ],
-        "perspective_balance": <float between 0 and 1>
-    }},
-    "credibility_index": {{
-        "score": <calculated credibility index between 0 and 1>,
-        "calculation_method": "<explanation of how this index was calculated>",
-        "factors": [
-            {{
-                "factor": "<factor considered>",
-                "weight": <weight of this factor in calculation>,
-                "impact": "<how this factor affected the score>"
+                "potential_impact": "<how this missing perspective might affect understanding>"
             }}
         ]
     }},
-    "suggested_improvements": [
-        "<suggestions for how the article could be improved>",
-        "<additional suggestions>"
-    ],
     "similar_articles_query": "<suggested search query for finding similar articles>"
 }}
 """
@@ -396,7 +232,6 @@ Please provide a detailed analysis in JSON format with the following structure:
             if not response_text:
                 return self._create_fallback_analysis("Empty response from API")
 
-            # Try to find JSON in the response
             json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
             if json_match:
                 try:
@@ -406,7 +241,6 @@ Please provide a detailed analysis in JSON format with the following structure:
                     logger.error(f"JSON decode error: {str(e)}")
                     return self._create_fallback_analysis_from_text(response_text)
 
-            # If no JSON found, try to extract information from text
             return self._create_fallback_analysis_from_text(response_text)
         except Exception as e:
             logger.error(f"Error parsing response: {str(e)}")
@@ -421,13 +255,7 @@ Please provide a detailed analysis in JSON format with the following structure:
                     "score": 0.6,
                     "explanation": "Automated credibility assessment based on text content",
                     "supporting_evidence": [],
-                    "contradictory_evidence": [],
-                    "credibility_factors": {
-                        "source_reputation": 0.7,
-                        "evidence_quality": 0.6,
-                        "logical_consistency": 0.6,
-                        "expert_consensus": 0.5
-                    }
+                    "contradictory_evidence": []
                 },
                 "sentiment_analysis": {
                     "score": 0.0,
@@ -436,31 +264,18 @@ Please provide a detailed analysis in JSON format with the following structure:
                 },
                 "bias_analysis": {
                     "level": 0.3,
-                    "types": [],
-                    "potential_bias_sources": []
+                    "types": []
                 },
                 "content_analysis": {
                     "main_topics": topics,
                     "key_arguments": [],
                     "unanswered_questions": [],
-                    "suggested_followup_questions": [],
-                    "content_depth": 0.5,
-                    "content_balance": 0.5
+                    "suggested_followup_questions": []
                 },
                 "perspective_analysis": {
                     "presented_perspectives": [],
-                    "missing_perspectives": [],
-                    "perspective_balance": 0.5
+                    "missing_perspectives": []
                 },
-                "credibility_index": {
-                    "score": 0.5,
-                    "calculation_method": "Fallback credibility index calculation",
-                    "factors": []
-                },
-                "suggested_improvements": [
-                    "Provide more evidence for key claims",
-                    "Include additional perspectives"
-                ],
                 "similar_articles_query": "technology news",
                 "fallback": True
             }
@@ -488,8 +303,7 @@ Please provide a detailed analysis in JSON format with the following structure:
                     detected_topics.append({
                         "name": topic,
                         "relevance": 0.8,
-                        "description": f"Content related to {topic}",
-                        "key_points": []
+                        "description": f"Content related to {topic}"
                     })
 
             if not detected_topics:
@@ -506,13 +320,7 @@ Please provide a detailed analysis in JSON format with the following structure:
                 "score": 0.6,
                 "explanation": f"Fallback analysis due to error: {error}",
                 "supporting_evidence": [],
-                "contradictory_evidence": [],
-                "credibility_factors": {
-                    "source_reputation": 0.7,
-                    "evidence_quality": 0.6,
-                    "logical_consistency": 0.6,
-                    "expert_consensus": 0.5
-                }
+                "contradictory_evidence": []
             },
             "sentiment_analysis": {
                 "score": 0.0,
@@ -521,136 +329,22 @@ Please provide a detailed analysis in JSON format with the following structure:
             },
             "bias_analysis": {
                 "level": 0.3,
-                "types": [],
-                "potential_bias_sources": []
+                "types": []
             },
             "content_analysis": {
                 "main_topics": self.fallback_topics[:2],
                 "key_arguments": [],
                 "unanswered_questions": [],
-                "suggested_followup_questions": [],
-                "content_depth": 0.5,
-                "content_balance": 0.5
+                "suggested_followup_questions": []
             },
             "perspective_analysis": {
                 "presented_perspectives": [],
-                "missing_perspectives": [],
-                "perspective_balance": 0.5
+                "missing_perspectives": []
             },
-            "credibility_index": {
-                "score": 0.5,
-                "calculation_method": "Fallback credibility index calculation",
-                "factors": []
-            },
-            "suggested_improvements": [
-                "Provide more evidence for key claims",
-                "Include additional perspectives"
-            ],
             "similar_articles_query": "technology news",
             "error": error,
             "fallback": True
         }
-
-    def _calculate_credibility_index(self, analysis: Dict[str, Any]) -> float:
-        """Calculates credibility index based on various factors"""
-        try:
-            # Get scores from different sections of the analysis
-            credibility_score = self._safe_get(analysis, 'credibility_assessment.score', 0.6)
-            source_reputation = self._safe_get(analysis, 'credibility_assessment.credibility_factors.source_reputation', 0.7)
-            evidence_quality = self._safe_get(analysis, 'credibility_assessment.credibility_factors.evidence_quality', 0.6)
-            logical_consistency = self._safe_get(analysis, 'credibility_assessment.credibility_factors.logical_consistency', 0.6)
-            expert_consensus = self._safe_get(analysis, 'credibility_assessment.credibility_factors.expert_consensus', 0.5)
-            content_depth = self._safe_get(analysis, 'content_analysis.content_depth', 0.5)
-            content_balance = self._safe_get(analysis, 'content_analysis.content_balance', 0.5)
-            perspective_balance = self._safe_get(analysis, 'perspective_analysis.perspective_balance', 0.5)
-
-            # Weights for each factor
-            weights = {
-                'credibility': 0.3,
-                'source_reputation': 0.15,
-                'evidence_quality': 0.2,
-                'logical_consistency': 0.15,
-                'expert_consensus': 0.1,
-                'content_depth': 0.05,
-                'content_balance': 0.03,
-                'perspective_balance': 0.02
-            }
-
-            # Calculate the index
-            credibility_index = (
-                weights['credibility'] * credibility_score +
-                weights['source_reputation'] * source_reputation +
-                weights['evidence_quality'] * evidence_quality +
-                weights['logical_consistency'] * logical_consistency +
-                weights['expert_consensus'] * expert_consensus +
-                weights['content_depth'] * content_depth +
-                weights['content_balance'] * content_balance +
-                weights['perspective_balance'] * perspective_balance
-            )
-
-            # Constrain value between 0 and 1
-            credibility_index = max(0.0, min(1.0, credibility_index))
-            return round(credibility_index, 2)
-        except Exception as e:
-            logger.error(f"Error calculating credibility index: {str(e)}")
-            return 0.5  # default medium value
-
-    def _normalize_analysis(self, analysis: Dict[str, Any]) -> Dict[str, Any]:
-        """Normalizes the structure of the improved analysis"""
-        try:
-            normalized = {
-                "credibility_assessment": {
-                    "score": self._safe_get(analysis, 'credibility_assessment.score', 0.6),
-                    "explanation": self._safe_get(analysis, 'credibility_assessment.explanation', ''),
-                    "supporting_evidence": self._safe_get(analysis, 'credibility_assessment.supporting_evidence', []),
-                    "contradictory_evidence": self._safe_get(analysis, 'credibility_assessment.contradictory_evidence', []),
-                    "credibility_factors": {
-                        "source_reputation": self._safe_get(analysis, 'credibility_assessment.credibility_factors.source_reputation', 0.7),
-                        "evidence_quality": self._safe_get(analysis, 'credibility_assessment.credibility_factors.evidence_quality', 0.6),
-                        "logical_consistency": self._safe_get(analysis, 'credibility_assessment.credibility_factors.logical_consistency', 0.6),
-                        "expert_consensus": self._safe_get(analysis, 'credibility_assessment.credibility_factors.expert_consensus', 0.5)
-                    }
-                },
-                "sentiment_analysis": {
-                    "score": self._safe_get(analysis, 'sentiment_analysis.score', 0.0),
-                    "explanation": self._safe_get(analysis, 'sentiment_analysis.explanation', ''),
-                    "emotional_tones": self._safe_get(analysis, 'sentiment_analysis.emotional_tones', [])
-                },
-                "bias_analysis": {
-                    "level": self._safe_get(analysis, 'bias_analysis.level', 0.3),
-                    "types": self._safe_get(analysis, 'bias_analysis.types', []),
-                    "potential_bias_sources": self._safe_get(analysis, 'bias_analysis.potential_bias_sources', [])
-                },
-                "content_analysis": {
-                    "main_topics": self._safe_get(analysis, 'content_analysis.main_topics', []),
-                    "key_arguments": self._safe_get(analysis, 'content_analysis.key_arguments', []),
-                    "unanswered_questions": self._safe_get(analysis, 'content_analysis.unanswered_questions', []),
-                    "suggested_followup_questions": self._safe_get(analysis, 'content_analysis.suggested_followup_questions', []),
-                    "content_depth": self._safe_get(analysis, 'content_analysis.content_depth', 0.5),
-                    "content_balance": self._safe_get(analysis, 'content_analysis.content_balance', 0.5)
-                },
-                "perspective_analysis": {
-                    "presented_perspectives": self._safe_get(analysis, 'perspective_analysis.presented_perspectives', []),
-                    "missing_perspectives": self._safe_get(analysis, 'perspective_analysis.missing_perspectives', []),
-                    "perspective_balance": self._safe_get(analysis, 'perspective_analysis.perspective_balance', 0.5)
-                },
-                "credibility_index": {
-                    "score": self._safe_get(analysis, 'credibility_index.score', 0.5),
-                    "calculation_method": self._safe_get(analysis, 'credibility_index.calculation_method', ''),
-                    "factors": self._safe_get(analysis, 'credibility_index.factors', [])
-                },
-                "suggested_improvements": self._safe_get(analysis, 'suggested_improvements', []),
-                "similar_articles_query": self._safe_get(analysis, 'similar_articles_query', '')
-            }
-
-            # Calculate credibility index
-            credibility_index = self._calculate_credibility_index(normalized)
-            normalized['credibility_index']['score'] = credibility_index
-
-            return normalized
-        except Exception as e:
-            logger.error(f"Error normalizing analysis: {str(e)}")
-            return self._create_fallback_analysis("Analysis normalization error")
 
     def analyze_article(self, content: str, source: str) -> Dict[str, Any]:
         """Analyzes article with retries"""
@@ -692,7 +386,6 @@ Please provide a detailed analysis in JSON format with the following structure:
                 "short_summary": content[:200] + '...' if len(content) > 200 else content,
                 "analysis": analysis,
                 "similar_articles": similar_articles,
-                "credibility_index": analysis.get('credibility_index', {'score': 0.5}),
                 "metadata": {
                     "timestamp": datetime.now().isoformat(),
                     "source_credibility": self.determine_credibility_level_from_source(source)
@@ -709,9 +402,9 @@ Please provide a detailed analysis in JSON format with the following structure:
     def _get_similar_articles(self, analysis: Dict[str, Any], content: str) -> List[Dict[str, Any]]:
         """Gets similar articles"""
         try:
-            query = self._safe_get(analysis, 'similar_articles_query', '')
+            query = analysis.get('similar_articles_query', '')
             if not query:
-                topics = self._safe_get(analysis, 'content_analysis.main_topics', [])
+                topics = analysis.get('content_analysis', {}).get('main_topics', [])
                 topic_names = [t.get('name', '') for t in topics[:3] if isinstance(t, dict)]
                 query = ' OR '.join(topic_names) if topic_names else "technology"
             return self.news_api.get_everything(query=query, page_size=3)
