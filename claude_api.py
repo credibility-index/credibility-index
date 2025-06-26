@@ -236,21 +236,27 @@ class ClaudeAPI:
             return {'score': 0.6, 'confidence': 0.7}
 
     def _parse_response(self, response_text: str) -> Dict[str, Any]:
-        """Парсит ответ от API с улучшенной обработкой ошибок"""
-        try:
-            if not response_text:
-                return self._create_fallback_analysis("Пустой ответ от API")
-            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
-            if json_match:
-                try:
-                    parsed = json.loads(json_match.group(0))
-                    return self._normalize_analysis(parsed)
-                except json.JSONDecodeError:
-                    pass
-            return self._create_fallback_analysis_from_text(response_text)
-        except Exception as e:
-            logger.error(f"Ошибка парсинга ответа: {str(e)}")
-            return self._create_fallback_analysis("Ошибка парсинга ответа")
+    """Парсит улучшенный ответ от API"""
+    try:
+        if not response_text:
+            return self._create_fallback_analysis("Empty response from API")
+
+        # Пытаемся найти JSON в ответе
+        json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+        if json_match:
+            try:
+                parsed = json.loads(json_match.group(0))
+                return self._normalize_analysis(parsed)
+            except json.JSONDecodeError as e:
+                logger.error(f"JSON decode error: {str(e)}")
+                return self._create_fallback_analysis_from_text(response_text)
+
+        # Если JSON не найден, пытаемся извлечь информацию из текста
+        return self._create_fallback_analysis_from_text(response_text)
+    except Exception as e:
+        logger.error(f"Error parsing response: {str(e)}")
+        return self._create_fallback_analysis("Response parsing error")
+
 
     def _create_fallback_analysis_from_text(self, text: str) -> Dict[str, Any]:
         """Создает структурированный анализ на основе текста"""
@@ -422,35 +428,49 @@ class ClaudeAPI:
             }
 
     def _normalize_analysis(self, analysis: Dict[str, Any]) -> Dict[str, Any]:
-        """Нормализует структуру анализа"""
-        try:
-            normalized = {
-                "credibility_score": self._normalize_score(analysis.get('credibility_score', {'score': 0.6})),
-                "sentiment": self._normalize_score(analysis.get('sentiment', {'score': 0.0})),
-                "bias": self._normalize_score(analysis.get('bias', {'level': 0.3})),
-                "topics": analysis.get('topics', []),
-                "perspectives": analysis.get('perspectives', {}),
-                "key_arguments": analysis.get('key_arguments', [])
-            }
+    """Нормализует структуру улучшенного анализа"""
+    try:
+        # Нормализация оценок
+        normalized = {
+            "credibility_assessment": {
+                "score": self._safe_get(analysis, 'credibility_assessment.score', 0.6),
+                "explanation": self._safe_get(analysis, 'credibility_assessment.explanation', ''),
+                "supporting_evidence": self._safe_get(analysis, 'credibility_assessment.supporting_evidence', []),
+                "contradictory_evidence": self._safe_get(analysis, 'credibility_assessment.contradictory_evidence', [])
+            },
+            "sentiment_analysis": {
+                "score": self._safe_get(analysis, 'sentiment_analysis.score', 0.0),
+                "explanation": self._safe_get(analysis, 'sentiment_analysis.explanation', ''),
+                "emotional_tones": self._safe_get(analysis, 'sentiment_analysis.emotional_tones', [])
+            },
+            "bias_analysis": {
+                "level": self._safe_get(analysis, 'bias_analysis.level', 0.3),
+                "types": self._safe_get(analysis, 'bias_analysis.types', []),
+                "potential_bias_sources": self._safe_get(analysis, 'bias_analysis.potential_bias_sources', [])
+            },
+            "content_analysis": {
+                "main_topics": self._safe_get(analysis, 'content_analysis.main_topics', []),
+                "key_arguments": self._safe_get(analysis, 'content_analysis.key_arguments', []),
+                "unanswered_questions": self._safe_get(analysis, 'content_analysis.unanswered_questions', []),
+                "suggested_followup_questions": self._safe_get(analysis, 'content_analysis.suggested_followup_questions', [])
+            },
+            "perspective_analysis": {
+                "presented_perspectives": self._safe_get(analysis, 'perspective_analysis.presented_perspectives', []),
+                "missing_perspectives": self._safe_get(analysis, 'perspective_analysis.missing_perspectives', [])
+            },
+            "credibility_index": self._safe_get(analysis, 'credibility_index', {'score': 0.6}),
+            "suggested_improvements": self._safe_get(analysis, 'suggested_improvements', []),
+            "similar_articles_query": self._safe_get(analysis, 'similar_articles_query', '')
+        }
 
-            # Добавляем индекс достоверности
-            credibility_index = self._calculate_credibility_index(normalized)
-            normalized['credibility_index'] = credibility_index
+        # Расчет индекса достоверности
+        credibility_index = self._calculate_credibility_index(normalized)
+        normalized['credibility_index']['score'] = credibility_index
 
-            # Добавляем объяснения
-            if isinstance(normalized['credibility_score'], dict):
-                score = normalized['credibility_score']['score']
-                explanation = (
-                    "Высокий уровень достоверности"
-                    if score >= 0.8 else
-                    "Средний уровень достоверности"
-                    if score >= 0.6 else
-                    "Низкий уровень достоверности"
-                )
-                normalized['credibility_score']['explanation'] = explanation
-            return normalized
-        except Exception:
-            return self._create_fallback_analysis("Ошибка нормализации анализа")
+        return normalized
+    except Exception as e:
+        logger.error(f"Error normalizing analysis: {str(e)}")
+        return self._create_fallback_analysis("Analysis normalization error")
 
     def _prepare_content_for_analysis(self, content: str) -> str:
         """Подготавливает контент для анализа"""
@@ -473,27 +493,132 @@ class ClaudeAPI:
         except Exception:
             return content[:1000] if content else "No content available"
 
-    def _build_analysis_prompt(self, content: str, source: str) -> str:
-        """Строит промпт для анализа статьи"""
-        try:
-            if not content:
-                content = "No content provided"
-            if not source:
-                source = "Unknown source"
-            return f"""Проанализируйте следующее содержимое статьи:
-Источник: {source}
-Содержимое: {content}
-Предоставьте анализ в формате JSON со следующей структурой:
+def _build_analysis_prompt(self, content: str, source: str) -> str:
+    """Строит улучшенный промпт для глубокого анализа статьи"""
+    try:
+        if not content:
+            content = "No content provided"
+        if not source:
+            source = "Unknown source"
+
+        return f"""Perform a comprehensive analysis of the following article content with a focus on critical thinking and credibility assessment.
+
+Article Source: {source}
+Article Content: {content[:10000]}  # Using first 10,000 characters
+
+Please provide a detailed analysis in JSON format with the following structure:
+
 {{
-    "credibility_score": {{"score": number}},
-    "sentiment": {{"score": number}},
-    "bias": {{"level": number}},
-    "topics": [{{"name": "string"}}],
-    "perspectives": {{}},
-    "key_arguments": ["string"]
-}}"""
-        except Exception:
-            return f"Анализ статьи из источника: {source}"
+    "credibility_assessment": {{
+        "score": <float between 0 and 1>,
+        "explanation": "<detailed explanation of the credibility assessment>",
+        "supporting_evidence": [
+            "<evidence supporting the credibility score>",
+            "<additional evidence>"
+        ],
+        "contradictory_evidence": [
+            "<any evidence that might contradict the assessment>",
+            "<additional contradictory points>"
+        ]
+    }},
+    "sentiment_analysis": {{
+        "score": <float between -1 and 1>,
+        "explanation": "<detailed explanation of the sentiment analysis>",
+        "emotional_tones": [
+            {{
+                "tone": "<emotional tone identified>",
+                "intensity": <float between 0 and 1>,
+                "evidence": "<text supporting this tone>"
+            }}
+        ]
+    }},
+    "bias_analysis": {{
+        "level": <float between 0 and 1>,
+        "types": [
+            {{
+                "type": "<type of bias identified>",
+                "intensity": <float between 0 and 1>,
+                "evidence": "<text supporting this bias identification>"
+            }}
+        ],
+        "potential_bias_sources": [
+            "<possible sources of bias>",
+            "<additional sources>"
+        ]
+    }},
+    "content_analysis": {{
+        "main_topics": [
+            {{
+                "topic": "<main topic identified>",
+                "relevance": <float between 0 and 1>,
+                "key_points": [
+                    "<key point about this topic>",
+                    "<additional key points>"
+                ]
+            }}
+        ],
+        "key_arguments": [
+            {{
+                "argument": "<key argument presented>",
+                "supporting_evidence": [
+                    "<evidence supporting this argument>",
+                    "<additional evidence>"
+                ],
+                "counter_arguments": [
+                    "<potential counter arguments>",
+                    "<additional counter arguments>"
+                ]
+            }}
+        ],
+        "unanswered_questions": [
+            "<important questions left unanswered>",
+            "<additional unanswered questions>"
+        ],
+        "suggested_followup_questions": [
+            "<questions readers should ask themselves>",
+            "<additional follow-up questions>"
+        ]
+    }},
+    "perspective_analysis": {{
+        "presented_perspectives": [
+            {{
+                "perspective": "<perspective presented in the article>",
+                "supporting_evidence": [
+                    "<evidence supporting this perspective>",
+                    "<additional evidence>"
+                ],
+                "credibility": "<credibility assessment of this perspective>"
+            }}
+        ],
+        "missing_perspectives": [
+            {{
+                "perspective": "<important perspective missing from the article>",
+                "potential_impact": "<how this missing perspective might affect understanding>"
+            }}
+        ]
+    }},
+    "credibility_index": {{
+        "score": <calculated credibility index between 0 and 1>,
+        "calculation_method": "<explanation of how this index was calculated>",
+        "factors": [
+            {{
+                "factor": "<factor considered>",
+                "weight": <weight of this factor in calculation>,
+                "impact": "<how this factor affected the score>"
+            }}
+        ]
+    }},
+    "suggested_improvements": [
+        "<suggestions for how the article could be improved>",
+        "<additional suggestions>"
+    ],
+    "similar_articles_query": "<suggested search query for finding similar articles>"
+}}
+"""
+    except Exception as e:
+        logger.error(f"Error building analysis prompt: {str(e)}")
+        return f"Analyze the following article content from {source}: {content[:1000]}"
+
 
     def analyze_article(self, content: str, source: str) -> Dict[str, Any]:
         """Анализирует статью с повторными попытками"""
