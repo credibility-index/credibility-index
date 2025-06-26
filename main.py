@@ -25,7 +25,7 @@ import threading
 from typing import Optional, List, Dict, Any, Tuple
 from cache import CacheManager
 from claude_api import ClaudeAPI
-from news_api import NewsAPI  # Удалено упоминание EnhancedNewsAPI
+from news_api import NewsAPI
 
 # Initialize Flask application
 app = Flask(__name__, static_folder='static', template_folder='templates')
@@ -126,9 +126,9 @@ configure_logging()
 try:
     cache_manager = CacheManager()
     claude_api = ClaudeAPI()
-    news_api = NewsAPI()  # Используем только NewsAPI
+    news_api = NewsAPI()
 except Exception as e:
-    logger.error(f"Failed to initialize components: {str(e)}")
+    logging.getLogger(__name__).error(f"Failed to initialize components: {str(e)}")
     raise
 
 # Test data
@@ -192,7 +192,7 @@ def get_source_credibility_chart():
     try:
         return jsonify(source_credibility_data)
     except Exception as e:
-        logger.error(f"Error getting source credibility chart: {str(e)}")
+        logging.getLogger(__name__).error(f"Error getting source credibility chart: {str(e)}")
         return jsonify({
             "sources": ["BBC", "Reuters", "CNN"],
             "credibility_scores": [0.9, 0.85, 0.75]
@@ -205,7 +205,7 @@ def get_analysis_history():
         with history_lock:
             return jsonify({"history": analysis_history})
     except Exception as e:
-        logger.error(f"Error getting analysis history: {str(e)}")
+        logging.getLogger(__name__).error(f"Error getting analysis history: {str(e)}")
         return jsonify({"history": []}), 500
 
 @celery.task(bind=True)
@@ -284,7 +284,7 @@ def analyze_article_async(self, url_or_text: str) -> Dict[str, Any]:
         return {"status": "success", "result": result}
 
     except Exception as e:
-        logger.error(f"Error in async article analysis: {str(e)}", exc_info=True)
+        logging.getLogger(__name__).error(f"Error in async article analysis: {str(e)}", exc_info=True)
         return {"status": "error", "message": str(e)}
 
 def build_newsapi_query(analysis: dict) -> str:
@@ -306,7 +306,7 @@ def build_newsapi_query(analysis: dict) -> str:
         return ' OR '.join(query_parts) if query_parts else "technology"
 
     except Exception as e:
-        logger.error(f"Error building NewsAPI query: {str(e)}")
+        logging.getLogger(__name__).error(f"Error building NewsAPI query: {str(e)}")
         return "technology"
 
 def extract_text_from_url(url: str) -> Tuple[Optional[str], Optional[str], Optional[str], Optional[str]]:
@@ -331,7 +331,6 @@ def extract_text_from_url(url: str) -> Tuple[Optional[str], Optional[str], Optio
             article = Article(clean_url, config=config)
             article.download()
             article.parse()
-
             if article.text and len(article.text.strip()) >= 100:
                 return (
                     article.text.strip(),
@@ -341,7 +340,7 @@ def extract_text_from_url(url: str) -> Tuple[Optional[str], Optional[str], Optio
                 )
 
         except Exception as e:
-            logger.warning(f"Newspaper failed to process {url}: {str(e)}")
+            logging.getLogger(__name__).warning(f"Newspaper failed to process {url}: {str(e)}")
 
         # Alternative content extraction method
         try:
@@ -396,11 +395,11 @@ def extract_text_from_url(url: str) -> Tuple[Optional[str], Optional[str], Optio
             return None, parsed.netloc.replace('www.', ''), "Failed to extract sufficient content", None
 
         except Exception as e:
-            logger.error(f"Alternative extraction failed for {url}: {str(e)}")
+            logging.getLogger(__name__).error(f"Alternative extraction failed for {url}: {str(e)}")
             return None, parsed.netloc.replace('www.', ''), "Error occurred during extraction", str(e)
 
     except Exception as e:
-        logger.error(f"Unexpected error extracting article from {url}: {str(e)}")
+        logging.getLogger(__name__).error(f"Unexpected error extracting article from {url}: {str(e)}")
         return None, None, "Unexpected error occurred", str(e)
 
 def determine_credibility_level(score: float) -> str:
@@ -422,7 +421,7 @@ def determine_credibility_level(score: float) -> str:
             return "Low"
 
     except Exception as e:
-        logger.error(f"Error determining credibility level: {str(e)}")
+        logging.getLogger(__name__).error(f"Error determining credibility level: {str(e)}")
         return "Medium"
 
 def determine_credibility_level_from_source(source_name: str) -> str:
@@ -461,10 +460,9 @@ def determine_credibility_level_from_source(source_name: str) -> str:
             return "Medium"
 
     except Exception as e:
-        logger.error(f"Error determining source credibility: {str(e)}")
+        logging.getLogger(__name__).error(f"Error determining source credibility: {str(e)}")
         return "Medium"
 
-# Routes for analysis
 @app.route('/start-analysis', methods=['POST', 'OPTIONS'])
 def start_analysis():
     """Starts asynchronous article analysis"""
@@ -496,7 +494,7 @@ def start_analysis():
         })
 
     except Exception as e:
-        logger.error(f"Error starting analysis: {str(e)}")
+        logging.getLogger(__name__).error(f"Error starting analysis: {str(e)}")
         return jsonify({
             'status': 'error',
             'message': 'Failed to start analysis',
@@ -536,7 +534,7 @@ def get_task_status(task_id):
         return jsonify(response)
 
     except Exception as e:
-        logger.error(f"Error getting task status: {str(e)}")
+        logging.getLogger(__name__).error(f"Error getting task status: {str(e)}")
         return jsonify({
             'status': 'error',
             'message': 'Failed to get task status',
@@ -553,7 +551,7 @@ def clear_cache():
             'message': 'Cache cleared successfully'
         })
     except Exception as e:
-        logger.error(f"Error clearing cache: {str(e)}")
+        logging.getLogger(__name__).error(f"Error clearing cache: {str(e)}")
         return jsonify({
             'status': 'error',
             'message': 'Failed to clear cache',
@@ -577,7 +575,7 @@ def health_check():
             if redis_client.ping():
                 api_status['redis'] = 'operational'
         except Exception as e:
-            logger.warning(f"Redis health check failed: {str(e)}")
+            logging.getLogger(__name__).warning(f"Redis health check failed: {str(e)}")
             api_status['redis'] = f'unavailable: {str(e)}'
 
         # Check NewsAPI
@@ -586,7 +584,7 @@ def health_check():
             if test_result:
                 api_status['news_api'] = 'operational'
         except Exception as e:
-            logger.warning(f"NewsAPI health check failed: {str(e)}")
+            logging.getLogger(__name__).warning(f"NewsAPI health check failed: {str(e)}")
             api_status['news_api'] = f'unavailable: {str(e)}'
 
         # Check ClaudeAPI
@@ -594,7 +592,7 @@ def health_check():
             if claude_api.client:
                 api_status['claude_api'] = 'operational'
         except Exception as e:
-            logger.warning(f"ClaudeAPI health check failed: {str(e)}")
+            logging.getLogger(__name__).warning(f"ClaudeAPI health check failed: {str(e)}")
             api_status['claude_api'] = f'unavailable: {str(e)}'
 
         return jsonify({
@@ -605,7 +603,7 @@ def health_check():
         })
 
     except Exception as e:
-        logger.error(f"Error during health check: {str(e)}")
+        logging.getLogger(__name__).error(f"Error during health check: {str(e)}")
         return jsonify({
             'status': 'unhealthy',
             'message': str(e),
@@ -632,19 +630,19 @@ def check_newsapi_connection():
         test_query = "technology"
         articles = news_api.get_everything(query=test_query, page_size=1)
         if articles:
-            logger.info("Successfully connected to NewsAPI during startup check")
+            logging.getLogger(__name__).info("Successfully connected to NewsAPI during startup check")
             return True
         else:
-            logger.warning("NewsAPI connection test returned empty results")
+            logging.getLogger(__name__).warning("NewsAPI connection test returned empty results")
             return False
     except Exception as e:
-        logger.error(f"NewsAPI connection check failed: {str(e)}")
+        logging.getLogger(__name__).error(f"NewsAPI connection check failed: {str(e)}")
         return False
 
 if __name__ == '__main__':
     # Check NewsAPI connection at startup
     if not check_newsapi_connection():
-        logger.warning("Could not connect to NewsAPI - will use fallback data")
+        logging.getLogger(__name__).warning("Could not connect to NewsAPI - will use fallback data")
 
     # Run application
     app.run(
