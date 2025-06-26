@@ -9,7 +9,6 @@ from urllib.parse import urlparse
 import anthropic
 from pydantic import BaseModel
 from cache import CacheManager
-from news_api import EnhancedNewsAPI
 
 # Configure logging
 logging.basicConfig(
