@@ -1,6 +1,6 @@
 import os
 import logging
-from typing import Dict, Optional, List, Union
+from typing import Dict, Optional, List, Union, Any  # Добавлен импорт Any
 from datetime import datetime
 import time
 import requests
@@ -111,7 +111,6 @@ class NewsAPI:
         try:
             parsed_url = urlparse(url)
             domain = parsed_url.netloc.replace('www.', '')
-
             params = {
                 'domains': domain,
                 'pageSize': 1,
