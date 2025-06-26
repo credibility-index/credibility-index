@@ -31,7 +31,10 @@ class NewsAPI:
 
         # Настройка сессии с повторными попытками
         self.session = requests.Session()
-        retries = requests.adapters.HTTPAdapter(max_retries=3)
+        # Используем requests.packages.urllib3.util.retry.Retry для более гибких повторных попыток
+        # Note: requests.adapters.HTTPAdapter's max_retries applies to connection errors, not HTTP status codes by default.
+        # For HTTP 429, we handle it explicitly.
+        retries = requests.adapters.HTTPAdapter(max_retries=3) 
         self.session.mount("http://", retries)
         self.session.mount("https://", retries)
 
@@ -59,19 +62,29 @@ class NewsAPI:
                 if data.get('status') == 'ok':
                     return data
                 else:
-                    logger.error(f"API error: {data.get('message', 'Unknown error')}")
+                    logger.error(f"NewsAPI error response: {data.get('code', 'N/A')} - {data.get('message', 'Unknown error')}")
                     return None
             elif response.status_code == 429:
-                retry_after = int(response.headers.get('Retry-After', 5))
-                logger.warning(f"Rate limited. Retrying after {retry_after} seconds")
+                # Безопасное преобразование Retry-After в int
+                retry_after_header = response.headers.get('Retry-After', '5')
+                try:
+                    retry_after = int(retry_after_header)
+                except ValueError:
+                    logger.warning(f"Invalid 'Retry-After' header received: '{retry_after_header}'. Defaulting to 5 seconds.")
+                    retry_after = 5
+                
+                logger.warning(f"Rate limited by NewsAPI (429). Retrying after {retry_after} seconds.")
                 time.sleep(retry_after)
                 return self._make_request(endpoint, params)  # Рекурсивный повтор
             else:
-                logger.error(f"HTTP error: {response.status_code}")
+                logger.error(f"HTTP error from NewsAPI: {response.status_code} - {response.text}")
                 return None
 
         except requests.exceptions.RequestException as e:
-            logger.error(f"Request failed: {str(e)}")
+            logger.error(f"NewsAPI request failed due to connection/timeout error: {str(e)}")
+            return None
+        except Exception as e:
+            logger.error(f"An unexpected error occurred in _make_request: {str(e)}")
             return None
 
     def get_everything(self, query: str, page_size: int = 5, **kwargs) -> List[Dict[str, Any]]:
@@ -92,6 +105,7 @@ class NewsAPI:
 
         data = self._make_request('/everything', params)
         if not data or 'articles' not in data:
+            logger.info(f"No articles found for query: '{query}' or failed to retrieve data.")
             return []
 
         return data['articles']
@@ -105,7 +119,7 @@ class NewsAPI:
             Словарь с данными статьи или None, если не найдено
         """
         if not url:
-            logger.error("Empty URL provided")
+            logger.error("Empty URL provided to get_article_by_url")
             return None
 
         try:
@@ -119,20 +133,22 @@ class NewsAPI:
 
             data = self._make_request('/everything', params)
             if not data or 'articles' not in data:
+                logger.info(f"No article found for URL: {url}")
                 return None
 
             for article in data['articles']:
                 if article.get('url') == url:
                     return article
 
+            logger.info(f"Article not found in search results for URL: {url}")
             return None
 
         except Exception as e:
-            logger.error(f"Error in get_article_by_url: {str(e)}")
+            logger.error(f"Error in get_article_by_url for {url}: {str(e)}")
             return None
 
     def get_top_headlines(self, country: str = 'us', category: str = None,
-                        sources: str = None, page_size: int = 20) -> Dict:
+                          sources: str = None, page_size: int = 20) -> Dict:
         """
         Получение топовых новостей.
         Args:
@@ -155,6 +171,7 @@ class NewsAPI:
 
         data = self._make_request('/top-headlines', params)
         if not data:
+            logger.error("Failed to fetch top headlines from NewsAPI.")
             return {'status': 'error', 'message': 'Failed to fetch top headlines'}
 
         return {
@@ -164,8 +181,8 @@ class NewsAPI:
         }
 
     def search_news(self, query: str, from_date: str = None, to_date: str = None,
-                 language: str = 'en', sort_by: str = 'publishedAt',
-                 page_size: int = 20, domains: List[str] = None) -> Dict:
+                    language: str = 'en', sort_by: str = 'publishedAt',
+                    page_size: int = 20, domains: List[str] = None) -> Dict:
         """
         Поиск новостей по ключевым словам.
         Args:
@@ -180,6 +197,7 @@ class NewsAPI:
             Словарь с результатами поиска
         """
         if not query:
+            logger.error("Query parameter is required for search_news.")
             return {'status': 'error', 'message': 'Query parameter is required'}
 
         params = {
@@ -198,6 +216,7 @@ class NewsAPI:
 
         data = self._make_request('/everything', params)
         if not data:
+            logger.error(f"Failed to search news for query: '{query}'.")
             return {'status': 'error', 'message': 'Failed to search news'}
 
         return {
@@ -207,7 +226,7 @@ class NewsAPI:
         }
 
     def get_sources(self, category: str = None, language: str = 'en',
-                 country: str = None) -> Dict:
+                    country: str = None) -> Dict:
         """
         Получение списка доступных источников.
         Args:
@@ -228,6 +247,7 @@ class NewsAPI:
 
         data = self._make_request('/sources', params)
         if not data:
+            logger.error("Failed to fetch sources from NewsAPI.")
             return {'status': 'error', 'message': 'Failed to fetch sources'}
 
         return {
