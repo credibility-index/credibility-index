@@ -341,6 +341,161 @@ class NewsAPI:
             'status': 'success',
             'article': article
         }
+    import os
+import logging
+from datetime import datetime
+from typing import List, Dict, Any, Optional
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+class EnhancedNewsAPI:
+    """Enhanced version of NewsAPI with robust error handling"""
+
+    def __init__(self):
+        self.api_key = os.getenv('NEWS_API_KEY')
+        self.base_url = "https://newsapi.org/v2"
+        self.fallback_articles = [
+            {
+                "title": "Technology News (Fallback)",
+                "source": {"name": "Tech Demo News", "url": None},
+                "url": None,
+                "description": "Fallback data about technology trends",
+                "publishedAt": datetime.now().isoformat(),
+                "content": "This is a fallback article shown when there are temporary issues with the API."
+            },
+            {
+                "title": "Economic Overview (Fallback)",
+                "source": {"name": "Econ Demo", "url": None},
+                "url": None,
+                "description": "Fallback data about economic indicators",
+                "publishedAt": datetime.now().isoformat(),
+                "content": "This is a fallback article shown when there are temporary issues with the API."
+            }
+        ]
+        self.max_retries = 3
+        self.retry_delay = 1
+
+    def get_everything(self, query: str, page_size: int = 5, **kwargs) -> List[Dict[str, Any]]:
+        """Gets articles with error handling and retries"""
+        retry_count = 0
+        last_error = None
+
+        if not self.api_key:
+            logger.error("NEWS_API_KEY is not set")
+            return self._get_fallback_articles(query, page_size)
+
+        while retry_count < self.max_retries:
+            try:
+                params = {
+                    'q': query,
+                    'pageSize': page_size,
+                    'apiKey': self.api_key,
+                    **kwargs
+                }
+                url = f"{self.base_url}/everything"
+
+                # Configure session with retries
+                session = requests.Session()
+                retries = Retry(
+                    total=3,
+                    backoff_factor=1,
+                    status_forcelist=[500, 502, 503, 504]
+                )
+                adapter = HTTPAdapter(max_retries=retries)
+                session.mount("http://", adapter)
+                session.mount("https://", adapter)
+
+                response = session.get(url, params=params, timeout=15)
+
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get('status') == 'ok':
+                        articles = data.get('articles', [])
+                        processed_articles = []
+                        for article in articles:
+                            try:
+                                processed = {
+                                    'title': article.get('title', 'Untitled Article'),
+                                    'description': article.get('description', 'No description available'),
+                                    'url': article.get('url', '#'),
+                                    'source': {
+                                        'name': article.get('source', {}).get('name', 'Unknown Source'),
+                                        'url': article.get('source', {}).get('url', None)
+                                    },
+                                    'publishedAt': article.get('publishedAt', datetime.now().isoformat()),
+                                    'content': article.get('content', 'Full content not available')
+                                }
+                                processed_articles.append(processed)
+                            except Exception as e:
+                                logger.error(f"Error processing article: {str(e)}")
+                                continue
+
+                        if processed_articles:
+                            return processed_articles[:page_size]
+
+                        return self._get_fallback_articles(query, page_size)
+
+                    logger.warning(f"NewsAPI returned non-ok status: {data.get('message', 'No message')}")
+                    return self._get_fallback_articles(query, page_size)
+
+                elif response.status_code == 404:
+                    logger.error("NewsAPI returned 404 - invalid URL or resource not found")
+                    return self._get_fallback_articles(query, page_size)
+
+                elif response.status_code in (500, 502, 503, 504):
+                    retry_count += 1
+                    wait_time = self.retry_delay * (2 ** (retry_count - 1))
+                    logger.warning(f"Server error. Retrying in {wait_time} seconds")
+                    time.sleep(wait_time)
+                    continue
+
+                else:
+                    logger.error(f"NewsAPI returned error {response.status_code}")
+                    return self._get_fallback_articles(query, page_size)
+
+            except requests.exceptions.RequestException as e:
+                retry_count += 1
+                wait_time = self.retry_delay * (2 ** (retry_count - 1))
+                logger.warning(f"Connection error. Retrying in {wait_time} seconds")
+                time.sleep(wait_time)
+                continue
+
+            except Exception as e:
+                logger.error(f"Unexpected error: {str(e)}")
+                return self._get_fallback_articles(query, page_size)
+
+        logger.error(f"All retries exhausted. Last error: {str(last_error)}")
+        return self._get_fallback_articles(query, page_size)
+
+    def _get_fallback_articles(self, query: str, count: int) -> List[Dict[str, Any]]:
+        """Returns fallback articles when API fails"""
+        mock_articles = [
+            {
+                "title": f"Article about {query} (fallback)",
+                "source": {"name": f"{query.capitalize()} News"},
+                "url": f"https://example.com/{query.replace(' ', '-')}-1",
+                "description": f"Fallback article about {query}",
+                "publishedAt": datetime.now().isoformat(),
+                "content": f"This is a fallback article about {query}. In a real system, this would contain actual news content."
+            },
+            {
+                "title": f"Analysis of {query} (fallback)",
+                "source": {"name": f"{query.capitalize()} Analysis"},
+                "url": f"https://example.com/{query.replace(' ', '-')}-2",
+                "description": f"Fallback analysis of {query}",
+                "publishedAt": datetime.now().isoformat(),
+                "content": f"This is a fallback analytical article about {query}. In a real system, this would contain professional analysis."
+            }
+        ]
+        return mock_articles[:count]
 
     def analyze_article(self, url: str) -> Dict:
         """
