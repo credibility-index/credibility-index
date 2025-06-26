@@ -25,7 +25,7 @@ import threading
 from typing import Optional, List, Dict, Any, Tuple
 from cache import CacheManager
 from claude_api import ClaudeAPI
-from news_api import EnhancedNewsAPI
+
 
 # Initialize Flask application
 app = Flask(__name__, static_folder='static', template_folder='templates')
