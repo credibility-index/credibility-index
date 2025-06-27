@@ -224,6 +224,44 @@ class NewsAPI:
             'articles': data.get('articles', []),
             'total_results': data.get('totalResults', 0)
         }
+    # В news_api.py
+def _make_request(self, endpoint: str, params: Dict) -> Optional[Dict]:
+    params['apiKey'] = self.api_key
+
+    try:
+        response = self.session.get(
+            f"{self.base_url}{endpoint}",
+            params=params,
+            timeout=15
+        )
+
+        # Проверяем, что ответ - это JSON
+        content_type = response.headers.get('Content-Type', '')
+        if 'application/json' not in content_type:
+            logger.error(f"Unexpected content type from NewsAPI: {content_type}")
+            logger.error(f"Response text: {response.text[:200]}")  # Логируем первые 200 символов ответа
+            return None
+
+        if response.status_code == 200:
+            try:
+                data = response.json()
+            except ValueError:
+                logger.error("Failed to parse JSON response from NewsAPI")
+                logger.error(f"Response text: {response.text[:200]}")
+                return None
+
+            if data.get('status') == 'ok':
+                return data
+            else:
+                logger.error(f"NewsAPI error response: {data.get('code', 'N/A')} - {data.get('message', 'Unknown error')}")
+                return None
+        else:
+            logger.error(f"HTTP error from NewsAPI: {response.status_code} - {response.text[:200]}")
+            return None
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"NewsAPI request failed: {str(e)}")
+        return None
 
     def get_sources(self, category: str = None, language: str = 'en',
                     country: str = None) -> Dict:
@@ -255,3 +293,4 @@ class NewsAPI:
             'sources': data.get('sources', []),
             'total': len(data.get('sources', []))
         }
+
