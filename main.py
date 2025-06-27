@@ -809,6 +809,41 @@ def get_task_status(task_id):
             'message': 'Failed to get task status',
             'details': str(e)
         }), 500
+# В main.py
+@app.route('/health')
+def health_check():
+    """Улучшенная проверка работоспособности"""
+    health_status = {
+        'status': 'healthy',
+        'services': {}
+    }
+
+    # Проверка NewsAPI
+    try:
+        test_query = "test"
+        start_time = time.time()
+        articles = news_api.get_everything(test_query, page_size=1)
+        response_time = time.time() - start_time
+
+        if articles:
+            health_status['services']['news_api'] = {
+                'status': 'operational',
+                'response_time': f"{response_time:.2f}s",
+                'articles_found': len(articles)
+            }
+        else:
+            health_status['services']['news_api'] = {
+                'status': 'degraded',
+                'response_time': f"{response_time:.2f}s",
+                'details': 'No articles returned'
+            }
+    except Exception as e:
+        health_status['services']['news_api'] = {
+            'status': 'unavailable',
+            'details': str(e)
+        }
+
+    return jsonify(health_status)
 
 @app.route('/clear-cache', methods=['POST'])
 @limiter.limit("5 per hour")
