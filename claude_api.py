@@ -9,9 +9,9 @@ from urllib.parse import urlparse
 import anthropic
 from pydantic import BaseModel
 from cache import CacheManager
-from news_api import NewsAPI  # Используем только NewsAPI вместо EnhancedNewsAPI
+from news_api import NewsAPI
 
-# Configure logging
+# Настройка логирования
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -19,7 +19,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class ArticleAnalysis(BaseModel):
-    """Model for article analysis results"""
+    """Модель для результатов анализа статьи"""
     credibility_score: Dict[str, Union[float, Dict[str, float]]]
     sentiment: Dict[str, Union[float, Dict[str, float]]]
     bias: Dict[str, Union[float, Dict[str, float]]]
@@ -27,13 +27,61 @@ class ArticleAnalysis(BaseModel):
     perspectives: Dict[str, Dict[str, Any]]
     key_arguments: List[str]
 
-class ClaudeAPI:
-    """API client for interacting with Anthropic's Claude model"""
+class CredibilityIndex:
+    """Класс для расчета индекса достоверности"""
+    def __init__(self):
+        self.source_weights = {
+            'high': 0.3,
+            'medium': 0.2,
+            'low': 0.1
+        }
+        self.content_weights = {
+            'evidence': 0.25,
+            'logical_consistency': 0.2,
+            'completeness': 0.15,
+            'bias': 0.1
+        }
 
+    def calculate_index(self, source_credibility: str, analysis: Dict[str, Any]) -> float:
+        """Рассчитывает индекс достоверности на основе анализа и источника"""
+        try:
+            # Базовый индекс на основе источника
+            base_index = self.source_weights.get(source_credibility.lower(), 0.15)
+
+            # Добавляем оценки из анализа контента
+            content_score = 0
+
+            # Оценка достоверности
+            credibility = analysis.get('credibility', {})
+            content_score += credibility.get('score', 0.5) * self.content_weights['evidence']
+
+            # Логическая согласованность
+            content_score += 0.7 * self.content_weights['logical_consistency']  # По умолчанию 0.7
+
+            # Полнота
+            content_score += 0.6 * self.content_weights['completeness']  # По умолчанию 0.6
+
+            # Смещение
+            bias_level = analysis.get('bias', {}).get('level', 0.3)
+            content_score += (1 - bias_level) * self.content_weights['bias']
+
+            # Общий индекс достоверности
+            credibility_index = base_index + content_score
+
+            # Нормализуем до диапазона 0-1
+            return min(1.0, max(0.0, credibility_index))
+
+        except Exception as e:
+            logger.error(f"Error calculating credibility index: {str(e)}")
+            return 0.5  # Значение по умолчанию при ошибке
+
+class ClaudeAPI:
+    """API клиент для работы с моделью Claude от Anthropic"""
     def __init__(self):
         self.cache = CacheManager()
-        self.news_api = NewsAPI()  # Используем NewsAPI вместо EnhancedNewsAPI
+        self.news_api = NewsAPI()
         self.client = self._initialize_anthropic_client()
+        self.credibility_index = CredibilityIndex()
         self.max_retries = 3
         self.retry_delay = 1
         self.fallback_topics = [
@@ -43,7 +91,7 @@ class ClaudeAPI:
         ]
 
     def _initialize_anthropic_client(self) -> Optional[anthropic.Anthropic]:
-        """Initializes Anthropic client with error handling"""
+        """Инициализация клиента Anthropic с обработкой ошибок"""
         try:
             api_key = os.getenv('ANTHROPIC_API_KEY')
             if not api_key:
@@ -55,11 +103,13 @@ class ClaudeAPI:
             return None
 
     def _make_api_request_with_retry(self, method: str, **kwargs) -> Any:
-        """Makes API request with retries"""
+        """Выполняет API запрос с повторными попытками"""
         retry_count = 0
         last_error = None
+
         if not self.client:
             raise Exception("Anthropic client is not initialized")
+
         while retry_count < self.max_retries:
             try:
                 if method == "messages.create":
@@ -82,148 +132,81 @@ class ClaudeAPI:
                 wait_time = self.retry_delay * (2 ** (retry_count - 1))
                 logger.warning(f"API error. Retrying in {wait_time} seconds")
                 time.sleep(wait_time)
+                last_error = e
                 continue
+
         logger.error(f"All retries exhausted. Last error: {str(last_error)}")
         raise Exception(f"All retries exhausted. Last error: {str(last_error)}")
 
-    def _safe_get(self, data: Dict[str, Any], key: str, default: Any = None) -> Any:
-        """Safely extracts value from dictionary"""
-        try:
-            if isinstance(data, dict) and key in data:
-                value = data[key]
-                if value is None or (isinstance(value, (list, dict)) and not value):
-                    return default
-                return value
-            return default
-        except Exception:
-            return default
-
-    def _normalize_score(self, score: Union[float, Dict[str, float]]) -> Dict[str, float]:
-        """Normalizes score to dictionary format"""
-        try:
-            if isinstance(score, dict):
-                score_value = self._safe_get(score, 'score', 0.6)
-                confidence = self._safe_get(score, 'confidence', 0.8)
-                return {
-                    'score': float(score_value),
-                    'confidence': float(confidence)
-                }
-            elif isinstance(score, (float, int)):
-                return {
-                    'score': float(score),
-                    'confidence': 0.8
-                }
-            return {'score': 0.6, 'confidence': 0.7}
-        except Exception:
-            return {'score': 0.6, 'confidence': 0.7}
-
     def _build_analysis_prompt(self, content: str, source: str) -> str:
-        """Builds an improved prompt for deep article analysis"""
+        """Создает упрощенный промпт для анализа статьи"""
         try:
             if not content:
                 content = "No content provided"
             if not source:
                 source = "Unknown source"
-            return f"""Perform a comprehensive analysis of the following article content with a focus on critical thinking and credibility assessment.
+
+            content_preview = self._prepare_content_for_analysis(content)
+
+            return f"""Analyze the following article content with focus on credibility assessment:
 
 Article Source: {source}
-Article Content: {content[:10000]}  # Using first 10,000 characters
+Article Content Preview: {content_preview}
 
-Please provide a detailed analysis in JSON format with the following structure:
-
+Provide analysis in JSON format with this structure:
 {{
-    "credibility_assessment": {{
-        "score": <float between 0 and 1>,
-        "explanation": "<detailed explanation of the credibility assessment>",
-        "supporting_evidence": [
-            "<evidence supporting the credibility score>",
-            "<additional evidence>"
-        ],
-        "contradictory_evidence": [
-            "<any evidence that might contradict the assessment>",
-            "<additional contradictory points>"
-        ]
+    "credibility": {{
+        "score": <number from 0 to 1>,
+        "explanation": "<brief explanation of credibility assessment>"
     }},
-    "sentiment_analysis": {{
-        "score": <float between -1 and 1>,
-        "explanation": "<detailed explanation of the sentiment analysis>",
-        "emotional_tones": [
-            {{
-                "tone": "<emotional tone identified>",
-                "intensity": <float between 0 and 1>,
-                "evidence": "<text supporting this tone>"
-            }}
-        ]
-    }},
-    "bias_analysis": {{
-        "level": <float between 0 and 1>,
-        "types": [
-            {{
-                "type": "<type of bias identified>",
-                "intensity": <float between 0 and 1>,
-                "evidence": "<text supporting this bias identification>"
-            }}
-        ]
-    }},
-    "content_analysis": {{
-        "main_topics": [
-            {{
-                "topic": "<main topic identified>",
-                "relevance": <float between 0 and 1>,
-                "key_points": [
-                    "<key point about this topic>",
-                    "<additional key points>"
-                ]
-            }}
-        ],
-        "key_arguments": [
-            {{
-                "argument": "<key argument presented>",
-                "supporting_evidence": [
-                    "<evidence supporting this argument>",
-                    "<additional evidence>"
-                ],
-                "counter_arguments": [
-                    "<potential counter arguments>",
-                    "<additional counter arguments>"
-                ]
-            }}
-        ],
-        "unanswered_questions": [
-            "<important questions left unanswered>",
-            "<additional unanswered questions>"
-        ],
-        "suggested_followup_questions": [
-            "<questions readers should ask themselves>",
-            "<additional follow-up questions>"
-        ]
-    }},
-    "perspective_analysis": {{
-        "presented_perspectives": [
-            {{
-                "perspective": "<perspective presented in the article>",
-                "supporting_evidence": [
-                    "<evidence supporting this perspective>",
-                    "<additional evidence>"
-                ]
-            }}
-        ],
-        "missing_perspectives": [
-            {{
-                "perspective": "<important perspective missing from the article>",
-                "potential_impact": "<how this missing perspective might affect understanding>"
-            }}
-        ]
-    }},
-    "similar_articles_query": "<suggested search query for finding similar articles>"
+    "topics": [
+        {{
+            "name": "<main topic>",
+            "relevance": <number from 0 to 1>
+        }}
+    ],
+    "key_points": ["<main points of the article>"],
+    "potential_biases": ["<potential biases identified>"],
+    "similar_articles_query": "<suggested search query for similar articles>"
 }}
-"""
+
+Consider these factors for credibility assessment:
+1. Source reputation and reliability
+2. Evidence quality and support for claims
+3. Logical consistency of arguments
+4. Completeness of coverage
+5. Potential conflicts of interest"""
         except Exception as e:
             logger.error(f"Error building analysis prompt: {str(e)}")
-            return f"Analyze the following article content from {source}: {content[:1000]}"
+            return f"Analyze this article from {source}: {content[:1000]}"
+
+    def _prepare_content_for_analysis(self, content: str) -> str:
+        """Подготавливает контент для анализа, создавая превью"""
+        try:
+            max_length = 5000
+            if not content:
+                return "No content available"
+
+            if len(content) <= max_length:
+                return content
+
+            preview_length = 200
+            middle_part = content[preview_length:-preview_length] if len(content) > 2*preview_length else ""
+
+            truncated = (
+                content[:preview_length] +
+                "\n\n[CONTENT TRIMMED FOR ANALYSIS]\n\n" +
+                middle_part[:max_length - 2*preview_length - 50] +
+                "\n\n..." +
+                content[-preview_length:]
+            )
+
+            return truncated[:max_length]
+        except Exception:
+            return content[:1000] if content else "No content available"
 
     def _parse_response(self, response_text: str) -> Dict[str, Any]:
-        """Parses the improved response from API"""
+        """Парсит ответ от API"""
         try:
             if not response_text:
                 return self._create_fallback_analysis("Empty response from API")
@@ -243,43 +226,24 @@ Please provide a detailed analysis in JSON format with the following structure:
             return self._create_fallback_analysis("Response parsing error")
 
     def _create_fallback_analysis_from_text(self, text: str) -> Dict[str, Any]:
-        """Creates structured analysis from text"""
+        """Создает структурированный анализ из текста"""
         try:
             topics = self._extract_topics_from_content(text)
             return {
-                "credibility_assessment": {
+                "credibility": {
                     "score": 0.6,
-                    "explanation": "Automated credibility assessment based on text content",
-                    "supporting_evidence": [],
-                    "contradictory_evidence": []
+                    "explanation": "Automated credibility assessment based on text content"
                 },
-                "sentiment_analysis": {
-                    "score": 0.0,
-                    "explanation": "Automated sentiment analysis",
-                    "emotional_tones": []
-                },
-                "bias_analysis": {
-                    "level": 0.3,
-                    "types": []
-                },
-                "content_analysis": {
-                    "main_topics": topics,
-                    "key_arguments": [],
-                    "unanswered_questions": [],
-                    "suggested_followup_questions": []
-                },
-                "perspective_analysis": {
-                    "presented_perspectives": [],
-                    "missing_perspectives": []
-                },
-                "similar_articles_query": "technology news",
-                "fallback": True
+                "topics": topics,
+                "key_points": ["Main points could not be determined"],
+                "potential_biases": ["No biases identified"],
+                "similar_articles_query": "general news"
             }
         except Exception:
             return self._create_fallback_analysis("Text analysis error")
 
     def _extract_topics_from_content(self, content: str) -> List[Dict[str, Any]]:
-        """Extracts topics from text"""
+        """Извлекает темы из текста"""
         try:
             if not content:
                 return self.fallback_topics[:2]
@@ -310,127 +274,37 @@ Please provide a detailed analysis in JSON format with the following structure:
             return self.fallback_topics[:2]
 
     def _create_fallback_analysis(self, error: str) -> Dict[str, Any]:
-        """Creates fallback analysis when errors occur"""
+        """Создает резервный анализ при возникновении ошибок"""
         return {
-            "credibility_assessment": {
+            "credibility": {
                 "score": 0.6,
-                "explanation": f"Fallback analysis due to error: {error}",
-                "supporting_evidence": [],
-                "contradictory_evidence": []
+                "explanation": f"Fallback analysis due to error: {error}"
             },
-            "sentiment_analysis": {
-                "score": 0.0,
-                "explanation": "Fallback sentiment analysis",
-                "emotional_tones": []
-            },
-            "bias_analysis": {
-                "level": 0.3,
-                "types": []
-            },
-            "content_analysis": {
-                "main_topics": self.fallback_topics[:2],
-                "key_arguments": [],
-                "unanswered_questions": [],
-                "suggested_followup_questions": []
-            },
-            "perspective_analysis": {
-                "presented_perspectives": [],
-                "missing_perspectives": []
-            },
-            "similar_articles_query": "technology news",
-            "error": error,
-            "fallback": True
+            "topics": self.fallback_topics[:2],
+            "key_points": [],
+            "potential_biases": [],
+            "similar_articles_query": "general news",
+            "error": error
         }
 
-    def analyze_article(self, content: str, source: str) -> Dict[str, Any]:
-        """Analyzes article with retries"""
+    def _normalize_analysis(self, analysis: Dict[str, Any]) -> Dict[str, Any]:
+        """Нормализует анализ"""
         try:
-            # Check cache
-            cache_key = f"{source[:50]}:{hash(content) % 10000}"
-            cached = self.cache.get_cached_article_analysis(cache_key)
-            if cached:
-                return cached
-
-            # Prepare content
-            prompt_content = self._prepare_content_for_analysis(content)
-            prompt = self._build_analysis_prompt(prompt_content, source)
-
-            # Make request with retries
-            try:
-                if self.client:
-                    response = self._make_api_request_with_retry(
-                        method="messages.create",
-                        model="claude-3-opus-20240229",
-                        max_tokens=4000,
-                        temperature=0.5,
-                        messages=[{"role": "user", "content": prompt}]
-                    )
-                    analysis = self._parse_response(response.content[0].text)
-                else:
-                    analysis = self._create_fallback_analysis("API not initialized")
-            except Exception as e:
-                logger.error(f"Error analyzing article: {str(e)}")
-                analysis = self._create_fallback_analysis(str(e))
-
-            # Get similar articles
-            similar_articles = self._get_similar_articles(analysis, content)
-
-            # Build result
-            result = {
-                "title": "Article Analysis",
-                "source": source,
-                "short_summary": content[:200] + '...' if len(content) > 200 else content,
-                "analysis": analysis,
-                "similar_articles": similar_articles,
-                "metadata": {
-                    "timestamp": datetime.now().isoformat(),
-                    "source_credibility": self.determine_credibility_level_from_source(source)
+            if 'credibility' not in analysis:
+                analysis['credibility'] = {
+                    'score': 0.6,
+                    'explanation': 'Normalized credibility score'
                 }
-            }
 
-            # Cache result
-            self.cache.cache_article_analysis(cache_key, result)
-            return result
-        except Exception as e:
-            logger.error(f"Error in analyze_article: {str(e)}")
-            return self._create_fallback_analysis(str(e))
+            if 'topics' not in analysis:
+                analysis['topics'] = self.fallback_topics[:2]
 
-    def _get_similar_articles(self, analysis: Dict[str, Any], content: str) -> List[Dict[str, Any]]:
-        """Gets similar articles"""
-        try:
-            query = analysis.get('similar_articles_query', '')
-            if not query:
-                topics = analysis.get('content_analysis', {}).get('main_topics', [])
-                topic_names = [t.get('name', '') for t in topics[:3] if isinstance(t, dict)]
-                query = ' OR '.join(topic_names) if topic_names else "technology"
-            return self.news_api.get_everything(query=query, page_size=3)
+            return analysis
         except Exception:
-            return []
-
-    def _prepare_content_for_analysis(self, content: str) -> str:
-        """Prepares content for analysis"""
-        try:
-            max_length = 10000
-            if not content:
-                return "No content available"
-            if len(content) <= max_length:
-                return content
-
-            preview_length = 200
-            middle_part = content[preview_length:-preview_length] if len(content) > 2*preview_length else ""
-            truncated = (
-                content[:preview_length] +
-                "\n\n[CONTENT TRIMMED FOR ANALYSIS]\n\n" +
-                middle_part[:max_length - 2*preview_length - 50] +
-                "\n\n..." +
-                content[-preview_length:]
-            )
-            return truncated[:max_length]
-        except Exception:
-            return content[:1000] if content else "No content available"
+            return self._create_fallback_analysis("Analysis normalization error")
 
     def determine_credibility_level_from_source(self, source_name: str) -> str:
-        """Determines credibility level from source"""
+        """Определяет уровень достоверности источника"""
         try:
             if not source_name:
                 return "Medium"
@@ -455,3 +329,81 @@ Please provide a detailed analysis in JSON format with the following structure:
             return "Medium"
         except Exception:
             return "Medium"
+
+    def analyze_article(self, content: str, source: str) -> Dict[str, Any]:
+        """Анализирует статью с повторными попытками"""
+        try:
+            # Проверяем кэш
+            cache_key = f"{source[:50]}:{hash(content) % 10000}"
+            cached = self.cache.get_cached_article_analysis(cache_key)
+            if cached:
+                return cached
+
+            # Подготавливаем контент
+            prompt = self._build_analysis_prompt(content, source)
+
+            # Делаем запрос с повторными попытками
+            try:
+                if self.client:
+                    response = self._make_api_request_with_retry(
+                        method="messages.create",
+                        model="claude-3-opus-20240229",
+                        max_tokens=2000,
+                        temperature=0.5,
+                        messages=[{"role": "user", "content": prompt}]
+                    )
+                    analysis = self._parse_response(response.content[0].text)
+                else:
+                    analysis = self._create_fallback_analysis("API not initialized")
+            except Exception as e:
+                logger.error(f"Error analyzing article: {str(e)}")
+                analysis = self._create_fallback_analysis(str(e))
+
+            # Рассчитываем индекс достоверности
+            source_credibility = self.determine_credibility_level_from_source(source)
+            credibility_index = self.credibility_index.calculate_index(source_credibility, analysis)
+
+            # Добавляем индекс достоверности в результат
+            analysis['credibility_index'] = {
+                'score': credibility_index,
+                'source_contribution': self.source_weights.get(source_credibility.lower(), 0.15),
+                'content_contribution': credibility_index - self.source_weights.get(source_credibility.lower(), 0.15)
+            }
+
+            # Получаем похожие статьи
+            similar_articles = self._get_similar_articles(analysis, content)
+
+            # Строим результат
+            result = {
+                "title": "Article Analysis",
+                "source": source,
+                "short_summary": content[:200] + '...' if len(content) > 200 else content,
+                "analysis": analysis,
+                "similar_articles": similar_articles,
+                "metadata": {
+                    "timestamp": datetime.now().isoformat(),
+                    "source_credibility": source_credibility,
+                    "credibility_index": credibility_index
+                }
+            }
+
+            # Кэшируем результат
+            self.cache.cache_article_analysis(cache_key, result)
+            return result
+
+        except Exception as e:
+            logger.error(f"Error in analyze_article: {str(e)}")
+            return self._create_fallback_analysis(str(e))
+
+    def _get_similar_articles(self, analysis: Dict[str, Any], content: str) -> List[Dict[str, Any]]:
+        """Получает похожие статьи"""
+        try:
+            query = analysis.get('similar_articles_query', '')
+            if not query:
+                topics = analysis.get('topics', [])
+                topic_names = [t.get('name', '') for t in topics[:3] if isinstance(t, dict)]
+                query = ' OR '.join(topic_names) if topic_names else "general news"
+
+            return self.news_api.get_everything(query=query, page_size=3)
+        except Exception:
+            return []
