@@ -12,9 +12,10 @@
             --border-color: #e2e8f0;
             --border-radius: 12px;
             --box-shadow: 0 10px 15px rgba(0, 0, 0, 0.05);
-            --glass-effect: rgba(255, 255, 255, 0.15);
-            --glass-border: rgba(255, 255, 255, 0.2);
-            --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            --glass-effect: rgba(255, 255, 255, 0.25); /* чуть более выраженный */
+            --glass-border: rgba(255, 255, 255, 0.4);  /* подчёркиваем края */
+            --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.08); /* чуть мягче */
+            --secondary-color: rgba(255, 255, 255, 0.55); /* фон карточек — тёплее и мягче */
             --high-credibility: #4cc9f0;
             --medium-credibility: #4361ee;
             --low-credibility: #f8961e;
@@ -190,14 +191,15 @@
             gap: 30px;
         }
 
-        .glass-panel {
+       .glass-panel  {
             background: var(--glass-effect);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
+            backdrop-filter: blur(18px); /* немного сильнее */
+           -webkit-backdrop-filter: blur(18px);
             border-radius: var(--border-radius);
             border: 1px solid var(--glass-border);
             box-shadow: var(--glass-shadow);
             padding: 20px;
+            background-color: rgba(255, 255, 255, 0.4); /* явное стекло */
         }
 
         .chart-section {
