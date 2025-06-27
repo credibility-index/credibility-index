@@ -17,8 +17,7 @@ import threading
 from typing import Optional, List, Dict, Any, Tuple
 from newspaper import Article, Config
 from bs4 import BeautifulSoup
-from claude_api import ClaudeAPI  # Импорт вашего существующего модуля
-
+from claude_api import ClaudeAPI  # Импорт вашего модуля
 
 # Инициализация Flask приложения
 app = Flask(__name__,
@@ -161,9 +160,17 @@ try:
     else:
         logger.info("Successfully connected to Redis")
 
-    # Инициализация Claude API из вашего модуля
-    claude_api = ClaudeAPI(api_key=os.getenv('ANTHROPIC_API_KEY'))
+    # Инициализация вашего модуля ClaudeAPI
+    claude_api = ClaudeAPI()
     logger.info("Initialized Claude API")
+
+    # Проверяем, есть ли метод health_check в вашем модуле
+    if hasattr(claude_api, 'health_check'):
+        health_status = claude_api.health_check()
+        if health_status.get('status') != 'operational':
+            logger.warning(f"Claude API health check failed: {health_status.get('details', 'No details')}")
+        else:
+            logger.info("Claude API is operational")
 
     # Инициализация NewsAPI
     news_api = MockNewsAPI()
@@ -318,21 +325,6 @@ def health_check():
             }
     except Exception as e:
         health_status['services']['claude_api'] = {
-            'status': 'unavailable',
-            'details': str(e),
-            'response_time': 'N/A'
-        }
-
-    # Проверка NewsAPI
-    try:
-        news_health = news_api.health_check()
-        health_status['services']['news_api'] = {
-            'status': news_health['status'],
-            'details': news_health['details'],
-            'response_time': news_health['response_time']
-        }
-    except Exception as e:
-        health_status['services']['news_api'] = {
             'status': 'unavailable',
             'details': str(e),
             'response_time': 'N/A'
