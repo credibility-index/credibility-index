@@ -32,7 +32,7 @@ from news_api import NewsAPI
 from redis import Redis
 from redis.exceptions import ConnectionError, TimeoutError
 
-# Initialize Flask application with improved configuration
+# Initialize Flask application
 app = Flask(__name__,
             static_folder='static',
             static_url_path='/static',
@@ -47,13 +47,12 @@ app.config.update(
 )
 
 # Configure cache with improved settings
-app.config['CACHE_TYPE'] = os.getenv('CACHE_TYPE', 'RedisCache')
-app.config['CACHE_REDIS_URL'] = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+app.config['CACHE_TYPE'] = os.getenv('CACHE_TYPE', 'SimpleCache')
 app.config['CACHE_DEFAULT_TIMEOUT'] = 3600
 app.config['CACHE_KEY_PREFIX'] = 'media_credibility_'
 cache = Cache(app)
 
-# Configure Talisman for security headers with improved CSP
+# Configure Talisman for security headers
 Talisman(app,
     content_security_policy={
         'default-src': "'self'",
@@ -74,19 +73,34 @@ Talisman(app,
     session_cookie_samesite='Lax'
 )
 
-# Configure rate limiting with improved settings
+# Configure rate limiting
 limiter = Limiter(
     app=app,
     key_func=get_remote_address,
     default_limits=["200 per day", "50 per hour"],
-    storage_uri=os.getenv('RATELIMIT_STORAGE_URL', 'redis://redis:6379/1'),
+    storage_uri="memory://",
     strategy="fixed-window",
     enabled=os.getenv('FLASK_ENV') == 'production'
 )
 
 def create_redis_connection():
     """Create Redis connection with improved retry logic"""
-    redis_url = f"redis://{os.getenv('REDISUSER', 'default')}:{os.getenv('REDISPASSWORD', '')}@{os.getenv('REDISHOST', 'redis')}:{os.getenv('REDISPORT', '6379')}"
+    redis_enabled = os.getenv('REDIS_ENABLED', 'false').lower() == 'true'
+    if not redis_enabled:
+        logging.info("Redis is not enabled in configuration")
+        return None
+
+    redis_user = os.getenv('REDISUSER', 'default')
+    redis_password = os.getenv('REDISPASSWORD', '')
+    redis_host = os.getenv('REDISHOST', 'redis')
+    redis_port = os.getenv('REDISPORT', '6379')
+
+    if not all([redis_host, redis_port]):
+        logging.error("Invalid Redis configuration - missing host or port")
+        return None
+
+    redis_url = f"redis://{redis_user}:{redis_password}@{redis_host}:{redis_port}"
+
     max_retries = 5
     retry_delay = 1
 
@@ -102,21 +116,30 @@ def create_redis_connection():
                 health_check_interval=30,
                 max_connections=50
             )
+
             if redis_client.ping():
                 logging.info("Successfully connected to Redis")
                 return redis_client
+
         except (ConnectionError, TimeoutError) as e:
             if attempt == max_retries - 1:
                 logging.error(f"Failed to connect to Redis after {max_retries} attempts: {str(e)}")
                 return None
+
             wait_time = retry_delay * (2 ** attempt)
             logging.warning(f"Redis connection failed, retrying in {wait_time} seconds...")
             time.sleep(wait_time)
+
     return None
 
 def make_celery(app):
     """Create and configure Celery instance with improved settings"""
-    redis_url = f"redis://{os.getenv('REDISUSER', 'default')}:{os.getenv('REDISPASSWORD', '')}@{os.getenv('REDISHOST', 'redis')}:{os.getenv('REDISPORT', '6379')}/2"
+    redis_enabled = os.getenv('REDIS_ENABLED', 'false').lower() == 'true'
+    if not redis_enabled:
+        logging.info("Celery is not enabled - Redis is not configured")
+        return None
+
+    redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
 
     celery = Celery(
         app.import_name,
@@ -125,7 +148,6 @@ def make_celery(app):
         include=['tasks']
     )
 
-    # Configure Celery with improved settings
     celery.conf.update(
         task_serializer='json',
         result_serializer='json',
@@ -175,7 +197,7 @@ celery = make_celery(app)
 analysis_history = []
 history_lock = threading.Lock()
 
-# Configure logging with improved settings
+# Configure logging
 def configure_logging():
     """Configure logging settings with improved format and handlers"""
     log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
@@ -206,27 +228,14 @@ def configure_logging():
             send_default_pii=True
         )
 
-# Configure logging
 configure_logging()
 
 def check_redis_connection():
     """Check Redis connection at startup with improved diagnostics"""
     try:
-        redis_url = f"redis://{os.getenv('REDISUSER', 'default')}:{os.getenv('REDISPASSWORD', '')}@{os.getenv('REDISHOST', 'redis')}:{os.getenv('REDISPORT', '6379')}"
-        redis_client = Redis.from_url(
-            redis_url,
-            socket_connect_timeout=5,
-            socket_timeout=10,
-            socket_keepalive=True,
-            retry_on_timeout=True,
-            decode_responses=True
-        )
-
-        if redis_client.ping():
-            logging.info("Redis connection test successful")
+        redis_client = create_redis_connection()
+        if redis_client:
             return True
-
-        logging.warning("Redis connection test failed - no response to PING")
         return False
     except Exception as e:
         logging.error(f"Redis connection check failed: {str(e)}")
@@ -256,7 +265,7 @@ except Exception as e:
     logging.error(f"Failed to initialize components: {str(e)}")
     raise
 
-# Test data with improved structure
+# Test data
 daily_buzz = {
     "article": {
         "title": "Today's featured analysis",
@@ -300,7 +309,7 @@ source_credibility_data = {
     "credibility_scores": [0.92, 0.88, 0.75, 0.89, 0.91, 0.85, 0.72, 0.90, 0.87, 0.91]
 }
 
-# Error handlers with improved responses
+# Error handlers
 @app.errorhandler(404)
 def page_not_found(e):
     return render_template('404.html'), 404
@@ -321,7 +330,7 @@ def ratelimit_handler(e):
         "details": "Please try again later"
     }), 429
 
-# Static files route with improved caching
+# Static files route
 @app.route('/static/<path:filename>')
 @cache.cached(timeout=86400)
 def static_files(filename):
@@ -339,7 +348,7 @@ def add_cache_headers(response):
         response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     return response
 
-# Context processor for global template variables
+# Context processor
 @app.context_processor
 def inject_global_variables():
     return dict(
@@ -349,11 +358,11 @@ def inject_global_variables():
         static_version=os.getenv('STATIC_VERSION', '1')
     )
 
-# Routes with improved implementations
+# Routes
 @app.route('/')
 @limiter.exempt
 def index():
-    """Main page of the application with improved context"""
+    """Main page of the application"""
     return render_template('index.html',
                          version=os.getenv('APP_VERSION', '1.0.0'),
                          debug=os.getenv('FLASK_ENV') == 'development')
@@ -380,7 +389,7 @@ def terms():
 @app.route('/source-credibility-chart')
 @cache.cached(timeout=300)
 def get_source_credibility_chart():
-    """Returns data for source credibility chart with improved response"""
+    """Returns data for source credibility chart"""
     try:
         return jsonify({
             "status": "success",
@@ -401,7 +410,7 @@ def get_source_credibility_chart():
 @app.route('/analysis-history')
 @cache.cached(timeout=60)
 def get_analysis_history():
-    """Returns analysis history with improved response format"""
+    """Returns analysis history"""
     try:
         with history_lock:
             return jsonify({
@@ -420,7 +429,7 @@ def get_analysis_history():
 
 @celery.task(bind=True, max_retries=3)
 def analyze_article_async(self, url_or_text: str) -> Dict[str, Any]:
-    """Asynchronous task for article analysis with improved implementation"""
+    """Asynchronous task for article analysis"""
     try:
         # Check cache first
         cached_result = cache_manager.get_cached_article_analysis(url_or_text)
@@ -429,28 +438,26 @@ def analyze_article_async(self, url_or_text: str) -> Dict[str, Any]:
 
         self.update_state(state='PROGRESS', meta={'progress': 10, 'message': 'Starting analysis'})
 
-        # Extract content with improved handling
+        # Extract content
         if url_or_text.startswith(('http://', 'https://')):
             content, source, title, error = extract_text_from_url(url_or_text)
             if error:
                 return {"status": "error", "message": error}
-
             self.update_state(state='PROGRESS', meta={'progress': 30, 'message': 'Article extracted'})
         else:
             content = url_or_text
             source = 'Direct Input'
             title = 'User-provided Text'
 
-        # Analyze with Claude API with progress updates
+        # Analyze with Claude API
         self.update_state(state='PROGRESS', meta={'progress': 40, 'message': 'Analyzing content'})
-
         analysis = claude_api.analyze_article(content, source)
         self.update_state(state='PROGRESS', meta={'progress': 60, 'message': 'Analysis completed'})
 
         # Build query for similar articles
         query = build_newsapi_query(analysis)
 
-        # Get similar articles with progress updates
+        # Get similar articles
         similar_articles = []
         if query:
             self.update_state(state='PROGRESS', meta={'progress': 70, 'message': 'Finding similar articles'})
@@ -460,7 +467,7 @@ def analyze_article_async(self, url_or_text: str) -> Dict[str, Any]:
         # Determine credibility level
         credibility_level = claude_api.determine_credibility_level(analysis.get('credibility_score', {}).get('score', 0.6))
 
-        # Build comprehensive result
+        # Build result
         result = {
             'title': title,
             'source': source,
@@ -477,11 +484,11 @@ def analyze_article_async(self, url_or_text: str) -> Dict[str, Any]:
             }
         }
 
-        # Cache result with improved cache key
+        # Cache result
         cache_key = f"analysis_{hash(url_or_text)}"
         cache_manager.cache_article_analysis(cache_key, result)
 
-        # Update analysis history with thread safety
+        # Update analysis history
         with history_lock:
             global analysis_history
             analysis_history.insert(0, {
@@ -503,25 +510,20 @@ def analyze_article_async(self, url_or_text: str) -> Dict[str, Any]:
         return {"status": "error", "message": str(e)}
 
 def build_newsapi_query(analysis: dict) -> str:
-    """Builds query for NewsAPI based on article analysis with improved logic"""
+    """Builds query for NewsAPI based on article analysis"""
     try:
         query_parts = []
 
-        # Add topics with improved handling
+        # Add topics
         topics = analysis.get('content_analysis', {}).get('main_topics', [])
         if isinstance(topics, list):
             query_parts.extend([t['name'] if isinstance(t, dict) else t for t in topics[:3]])
 
-        # Add important entities with improved handling
+        # Add important entities
         key_arguments = analysis.get('content_analysis', {}).get('key_arguments', [])
         if isinstance(key_arguments, list):
             important_arguments = [arg['argument'] for arg in key_arguments if isinstance(arg, dict)]
             query_parts.extend(important_arguments[:3])
-
-        # Add named entities if available
-        entities = analysis.get('content_analysis', {}).get('named_entities', [])
-        if isinstance(entities, list):
-            query_parts.extend([e['name'] for e in entities if isinstance(e, dict) and e.get('type') in ['PERSON', 'ORG', 'GPE']][:3])
 
         return ' OR '.join(query_parts) if query_parts else "technology"
 
@@ -568,7 +570,7 @@ def extract_text_from_url(url: str) -> Tuple[Optional[str], Optional[str], Optio
         except Exception as e:
             logging.warning(f"Newspaper failed to process {url}: {str(e)}")
 
-        # Alternative content extraction method with improved handling
+        # Alternative content extraction method
         try:
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -595,11 +597,11 @@ def extract_text_from_url(url: str) -> Tuple[Optional[str], Optional[str], Optio
 
             soup = BeautifulSoup(response.text, 'html.parser')
 
-            # Remove unwanted elements with improved handling
+            # Remove unwanted elements
             for element in soup(['script', 'style', 'noscript', 'iframe', 'svg', 'nav', 'footer', 'header', 'aside', 'form']):
                 element.decompose()
 
-            # Try to find main content with improved selectors
+            # Try to find main content
             main_content = soup.find('article') or \
                         soup.find('div', {'role': 'main'}) or \
                         soup.find('div', {'class': re.compile('article|content|main|post|entry|story')}) or \
@@ -618,7 +620,7 @@ def extract_text_from_url(url: str) -> Tuple[Optional[str], Optional[str], Optio
                             None
                         )
 
-            # If no main content found, get all paragraphs with improved handling
+            # If no main content found, get all paragraphs
             paragraphs = soup.find_all('p')
             if paragraphs:
                 text = ' '.join([p.get_text().strip() for p in paragraphs if p.get_text().strip()])
@@ -722,7 +724,7 @@ def determine_credibility_level_from_source(source_name: str) -> str:
 @app.route('/start-analysis', methods=['POST', 'OPTIONS'])
 @limiter.limit("10 per minute")
 def start_analysis():
-    """Starts asynchronous article analysis with improved implementation"""
+    """Starts asynchronous article analysis"""
     if request.method == 'OPTIONS':
         return jsonify({}), 200
 
@@ -735,7 +737,7 @@ def start_analysis():
         if not input_text:
             return jsonify({'status': 'error', 'message': 'Input text cannot be empty'}), 400
 
-        # Additional URL validation with improved checks
+        # Additional URL validation
         if input_text.startswith(('http://', 'https://')):
             valid, error = validate_url(input_text)
             if not valid:
@@ -743,7 +745,6 @@ def start_analysis():
         elif len(input_text) < 50:
             return jsonify({'status': 'error', 'message': 'Content is too short for analysis (minimum 50 characters)'}), 400
 
-        # Create analysis task with improved handling
         task = analyze_article_async.apply_async(
             args=[input_text],
             queue='high_priority',
@@ -766,9 +767,8 @@ def start_analysis():
         }), 500
 
 @app.route('/task-status/<task_id>')
-@cache.cached(timeout=10)
 def get_task_status(task_id):
-    """Checks status of asynchronous task with improved response"""
+    """Checks status of asynchronous task"""
     try:
         task = analyze_article_async.AsyncResult(task_id)
 
@@ -809,281 +809,40 @@ def get_task_status(task_id):
             'message': 'Failed to get task status',
             'details': str(e)
         }), 500
-# В main.py
+
 @app.route('/health')
 def health_check():
-    """Улучшенная проверка работоспособности"""
+    """Application health check"""
     health_status = {
         'status': 'healthy',
+        'timestamp': datetime.now().isoformat(),
         'services': {}
     }
 
-    # Проверка NewsAPI
+    # Check Redis
     try:
-        test_query = "test"
-        start_time = time.time()
-        articles = news_api.get_everything(test_query, page_size=1)
-        response_time = time.time() - start_time
-
-        if articles:
-            health_status['services']['news_api'] = {
+        redis_client = create_redis_connection()
+        if redis_client:
+            health_status['services']['redis'] = {
                 'status': 'operational',
-                'response_time': f"{response_time:.2f}s",
-                'articles_found': len(articles)
+                'details': 'Connection successful'
             }
         else:
-            health_status['services']['news_api'] = {
-                'status': 'degraded',
-                'response_time': f"{response_time:.2f}s",
-                'details': 'No articles returned'
+            health_status['services']['redis'] = {
+                'status': 'unavailable',
+                'details': 'Could not connect to Redis'
             }
     except Exception as e:
-        health_status['services']['news_api'] = {
+        health_status['services']['redis'] = {
             'status': 'unavailable',
             'details': str(e)
         }
 
     return jsonify(health_status)
 
-@app.route('/clear-cache', methods=['POST'])
-@limiter.limit("5 per hour")
-def clear_cache():
-    """Clears analysis cache with improved implementation"""
-    try:
-        cache_manager.clear_all_caches()
-        return jsonify({
-            'status': 'success',
-            'message': 'Cache cleared successfully',
-            'cleared_at': datetime.now().isoformat()
-        })
-    except Exception as e:
-        logging.error(f"Error clearing cache: {str(e)}")
-        return jsonify({
-            'status': 'error',
-            'message': 'Failed to clear cache',
-            'details': str(e)
-        }), 500
-
-@app.route('/health')
-@cache.cached(timeout=60)
-def health_check():
-    """Application health check with improved diagnostics"""
-    try:
-        api_status = {
-            'news_api': {'status': 'unavailable', 'details': 'Not checked'},
-            'claude_api': {'status': 'unavailable', 'details': 'Not checked'},
-            'redis': {'status': 'unavailable', 'details': 'Not checked'},
-            'database': {'status': 'unavailable', 'details': 'Not checked'}
-        }
-
-        # Check Redis connection with improved diagnostics
-        try:
-            redis_url = f"redis://{os.getenv('REDISUSER', 'default')}:{os.getenv('REDISPASSWORD', '')}@{os.getenv('REDISHOST', 'redis')}:{os.getenv('REDISPORT', '6379')}"
-            redis_client = Redis.from_url(
-                redis_url,
-                socket_connect_timeout=5,
-                socket_timeout=10,
-                socket_keepalive=True
-            )
-
-            if redis_client.ping():
-                api_status['redis'] = {
-                    'status': 'operational',
-                    'details': 'Connection successful',
-                    'response_time': 'fast'
-                }
-            else:
-                api_status['redis'] = {
-                    'status': 'degraded',
-                    'details': 'Connection established but no response to PING',
-                    'response_time': 'slow'
-                }
-
-        except Exception as e:
-            logging.warning(f"Redis health check failed: {str(e)}")
-            api_status['redis'] = {
-                'status': 'unavailable',
-                'details': str(e),
-                'response_time': 'none'
-            }
-
-        # Check NewsAPI with improved diagnostics
-        try:
-            start_time = time.time()
-            test_result = news_api.get_everything("test", page_size=1)
-            response_time = time.time() - start_time
-
-            if test_result:
-                api_status['news_api'] = {
-                    'status': 'operational',
-                    'details': 'API responded successfully',
-                    'response_time': f'{response_time:.2f}s'
-                }
-            else:
-                api_status['news_api'] = {
-                    'status': 'degraded',
-                    'details': 'API responded but returned empty results',
-                    'response_time': f'{response_time:.2f}s'
-                }
-
-        except Exception as e:
-            logging.warning(f"NewsAPI health check failed: {str(e)}")
-            api_status['news_api'] = {
-                'status': 'unavailable',
-                'details': str(e),
-                'response_time': 'none'
-            }
-
-        # Check ClaudeAPI with improved diagnostics
-        try:
-            start_time = time.time()
-            if hasattr(claude_api, 'health_check') and callable(claude_api.health_check):
-                health_status = claude_api.health_check()
-                response_time = time.time() - start_time
-
-                if health_status:
-                    api_status['claude_api'] = {
-                        'status': 'operational',
-                        'details': 'API responded successfully',
-                        'response_time': f'{response_time:.2f}s'
-                    }
-                else:
-                    api_status['claude_api'] = {
-                        'status': 'degraded',
-                        'details': 'API responded but health check failed',
-                        'response_time': f'{response_time:.2f}s'
-                    }
-            else:
-                api_status['claude_api'] = {
-                    'status': 'unknown',
-                    'details': 'Health check method not available',
-                    'response_time': 'none'
-                }
-
-        except Exception as e:
-            logging.warning(f"ClaudeAPI health check failed: {str(e)}")
-            api_status['claude_api'] = {
-                'status': 'unavailable',
-                'details': str(e),
-                'response_time': 'none'
-            }
-
-        # Check database connection if available
-        try:
-            if hasattr(app, 'db') and hasattr(app.db, 'engine'):
-                start_time = time.time()
-                with app.db.engine.connect() as conn:
-                    conn.execute("SELECT 1")
-                    response_time = time.time() - start_time
-
-                api_status['database'] = {
-                    'status': 'operational',
-                    'details': 'Connection successful',
-                    'response_time': f'{response_time:.2f}s'
-                }
-        except Exception as e:
-            logging.warning(f"Database health check failed: {str(e)}")
-            api_status['database'] = {
-                'status': 'unavailable',
-                'details': str(e),
-                'response_time': 'none'
-            }
-
-        return jsonify({
-            'status': 'healthy',
-            'timestamp': datetime.now().isoformat(),
-            'api_status': api_status,
-            'application': {
-                'version': os.getenv('APP_VERSION', '1.0.0'),
-                'environment': os.getenv('FLASK_ENV', 'development'),
-                'uptime': time.time() - app.start_time if hasattr(app, 'start_time') else 'unknown'
-            }
-        })
-
-    except Exception as e:
-        logging.error(f"Error during health check: {str(e)}", exc_info=True)
-        return jsonify({
-            'status': 'unhealthy',
-            'message': str(e),
-            'timestamp': datetime.now().isoformat()
-        }), 500
-
-def validate_url(url: str) -> Tuple[bool, Optional[str]]:
-    """Validates URL with improved checks"""
-    try:
-        parsed = urlparse(url)
-
-        if not all([parsed.scheme, parsed.netloc]):
-            return False, "Invalid URL format - missing scheme or netloc"
-
-        if parsed.scheme not in ('http', 'https'):
-            return False, "Invalid URL scheme - must be http or https"
-
-        if not parsed.netloc.replace('.', '').isalnum():
-            return False, "Invalid domain name in URL"
-
-        # Check for common invalid patterns
-        invalid_patterns = [
-            r'\.\./',  # Path traversal
-            r'%00',    # Null byte
-            r'<!--',    # HTML comment
-            r'<script', # Script tag
-            r'onerror=', # XSS attempt
-            r'javascript:', # JavaScript protocol
-            r'data:', # Data URI
-            r'file://' # File protocol
-        ]
-
-        for pattern in invalid_patterns:
-            if re.search(pattern, url, re.IGNORECASE):
-                return False, f"Invalid URL pattern detected: {pattern}"
-
-        # Check domain length
-        if len(parsed.netloc) > 253:
-            return False, "Domain name too long"
-
-        # Check path length
-        if len(parsed.path) > 2048:
-            return False, "URL path too long"
-
-        return True, None
-
-    except Exception as e:
-        return False, f"URL validation error: {str(e)}"
-
-def check_newsapi_connection():
-    """Check NewsAPI connection at startup with improved diagnostics"""
-    try:
-        test_query = "technology"
-        start_time = time.time()
-        articles = news_api.get_everything(query=test_query, page_size=1)
-        response_time = time.time() - start_time
-
-        if articles:
-            logging.info(f"Successfully connected to NewsAPI during startup check (response time: {response_time:.2f}s)")
-            return True
-        else:
-            logging.warning(f"NewsAPI connection test returned empty results (response time: {response_time:.2f}s)")
-            return False
-
-    except Exception as e:
-        logging.error(f"NewsAPI connection check failed: {str(e)}")
-        return False
-
 if __name__ == '__main__':
-    # Record application start time
-    app.start_time = time.time()
-
-    # Check NewsAPI connection at startup
-    if not check_newsapi_connection():
-        logging.warning("Could not connect to NewsAPI - will use fallback data")
-
-    # Run application with improved settings
     app.run(
         host='0.0.0.0',
         port=int(os.environ.get('PORT', 5000)),
-        threaded=True,
-        debug=os.getenv('FLASK_ENV') == 'development',
-        use_reloader=os.getenv('FLASK_ENV') == 'development',
-        ssl_context='adhoc' if os.getenv('FLASK_ENV') == 'production' else None
+        debug=os.getenv('FLASK_ENV') == 'development'
     )
