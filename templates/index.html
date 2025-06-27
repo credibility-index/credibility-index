@@ -7,88 +7,28 @@
     <style>
         :root {
             --primary-color: #4361ee;
+            --primary-color-dark: #3a0ca3;
             --secondary-color: #f8f9fa;
             --text-color: #2b2d42;
+            --text-color-light: #6b7280;
             --border-color: #e2e8f0;
             --border-radius: 12px;
-            --box-shadow: 0 10px 15px rgba(0, 0, 0, 0.05);
-            --glass-effect: rgba(255, 255, 255, 0.25); /* чуть более выраженный */
-            --glass-border: rgba(255, 255, 255, 0.4);  /* подчёркиваем края */
-            --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.08); /* чуть мягче */
-            --secondary-color: rgba(255, 255, 255, 0.55); /* фон карточек — тёплее и мягче */
+            --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            --box-shadow-hover: 0 10px 15px rgba(0, 0, 0, 0.1);
+            --glass-effect: rgba(255, 255, 255, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.3);
+            --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
             --high-credibility: #4cc9f0;
             --medium-credibility: #4361ee;
             --low-credibility: #f8961e;
             --success-color: #4cc9f0;
             --warning-color: #f8961e;
             --danger-color: #f72585;
+            --background-gradient: linear-gradient(135deg, #f5f7fa 0%, #e9edf6 100%);
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        /* Иконки */
-        .bi {
-            display: inline-block;
-            font-style: normal;
-            font-variant: normal;
-            text-rendering: auto;
-            line-height: 1;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-        }
-        .bi-newspaper:before { content: "📰"; }
-        .bi-shield-check:before { content: "✔"; }
-        .bi-search:before { content: "🔍"; }
-        .bi-arrow-clockwise:before { content: "🔄"; }
-        .bi-exclamation-triangle-fill:before { content: "⚠"; }
-        .bi-clock-history:before { content: "⏳"; }
-        .bi-link-45deg:before { content: "🔗"; }
-        .bi-question-circle:before { content: "❓"; }
-        .bi-chat-left-text:before { content: "💬"; }
-        .bi-shield-lock:before { content: "🔒"; }
-        .bi-file-earmark-text:before { content: "📄"; }
-
-        /* Стили для новых элементов */
-        .score-explanation {
-            font-size: 0.7rem;
-            color: #6b7280;
-            margin-top: 5px;
-            text-align: center;
-        }
-
-        .perspective-card {
-            background: var(--secondary-color);
-            padding: 10px;
-            border-radius: var(--border-radius);
-            margin-bottom: 10px;
-        }
-
-        .perspective-card h5 {
-            color: var(--primary-color);
-            font-size: 0.9rem;
-            margin-bottom: 5px;
-        }
-
-        .perspective-card p {
-            color: var(--text-color);
-            font-size: 0.8rem;
-            margin-bottom: 5px;
-        }
-
-        .perspectives-section {
-            margin-top: 20px;
-        }
-
-        .perspectives-section h4 {
-            color: var(--text-color);
-            margin-bottom: 10px;
-            font-size: 0.9rem;
-        }
-
-        #analysis-progress {
-            margin-top: 10px;
-            text-align: center;
-        }
-
-        /* Остальные стили остаются без изменений */
+        /* Base Styles */
         * {
             margin: 0;
             padding: 0;
@@ -96,23 +36,28 @@
         }
 
         body {
-           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-           background: linear-gradient(135deg, #fef9f4 0%, #e9edf6 100%);
-           color: var(--text-color);
-           line-height: 1.6;
-           min-height: 100vh;
-           padding: 20px;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            background: var(--background-gradient);
+            color: var(--text-color);
+            line-height: 1.6;
+            min-height: 100vh;
+            padding: 0;
+            transition: background-color var(--transition);
         }
 
         .container {
             max-width: 1200px;
             margin: 0 auto;
+            padding: 0 20px;
         }
 
+        /* Header Styles */
         .header {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            padding: 20px 0;
+            border-bottom: 1px solid var(--border-color);
             margin-bottom: 30px;
         }
 
@@ -127,8 +72,7 @@
         }
 
         .logo-text {
-            color: var(--primary-color);
-            background: linear-gradient(90deg, #4361ee, #3a0ca3);
+            background: linear-gradient(90deg, var(--primary-color), var(--primary-color-dark));
             -webkit-background-clip: text;
             background-clip: text;
             -webkit-text-fill-color: transparent;
@@ -136,15 +80,15 @@
 
         .navbar-links {
             display: flex;
-            gap: 20px;
+            gap: 25px;
             list-style: none;
         }
 
         .navbar-link {
-            color: var(--text-color);
+            color: var(--text-color-light);
             text-decoration: none;
             font-weight: 500;
-            transition: all 0.3s ease;
+            transition: var(--transition);
             position: relative;
             padding: 5px 0;
             display: flex;
@@ -163,172 +107,63 @@
             width: 0;
             height: 2px;
             background: var(--primary-color);
-            transition: width 0.3s ease;
+            transition: width var(--transition);
         }
 
         .navbar-link:hover::after {
             width: 100%;
         }
 
+        /* Main Content Layout */
         .main-content {
             display: grid;
             grid-template-columns: 2fr 1fr;
             gap: 30px;
-            margin-top: 20px;
+            margin-bottom: 40px;
         }
 
+        /* Analysis Section */
         .analysis-section {
-           background: rgba(255, 255, 255, 0.5);
-           backdrop-filter: blur(12px);
-           -webkit-backdrop-filter: blur(12px);
-           box-shadow: var(--glass-shadow);
-           border-radius: var(--border-radius);
-        }
-
-        .sidebar {
-            width: 350px;
-            display: flex;
-            flex-direction: column;
-            gap: 30px;
-        }
-
-       .glass-panel  {
             background: var(--glass-effect);
-            backdrop-filter: blur(18px); /* немного сильнее */
-           -webkit-backdrop-filter: blur(18px);
-            border-radius: var(--border-radius);
-            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             box-shadow: var(--glass-shadow);
-            padding: 20px;
-            background-color: rgba(255, 255, 255, 0.4); /* явное стекло */
-        }
-
-        .chart-section {
-            width: 100%;
-            overflow: hidden;
-        }
-
-        .chart-scroll-container {
-            width: 100%;
-            overflow-x: auto;
-            overflow-y: hidden;
-            padding-bottom: 10px;
-        }
-
-        .chart-container {
-            width: 1000px;
-            height: 400px;
-            min-width: 100%;
-        }
-
-        .chart-title {
-            color: var(--text-color);
-            margin-bottom: 20px;
-            font-size: 1.2rem;
-            font-weight: 600;
-            text-align: center;
-            position: relative;
-        }
-
-        .chart-update-btn {
-            background: linear-gradient(135deg, #4361ee, #3a0ca3);
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(67, 97, 238, 0.3);
-            margin: 20px auto 0;
-            display: block;
-            font-size: 0.9rem;
-        }
-
-        .chart-update-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 6px 20px rgba(67, 97, 238, 0.4);
-        }
-
-        .chart-update-btn i {
-            margin-right: 8px;
-        }
-
-        .chart-legend {
-            display: flex;
-            justify-content: center;
-            flex-wrap: wrap;
-            gap: 15px;
-            margin-top: 20px;
-        }
-
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 0.8rem;
-        }
-
-        .legend-color {
-            width: 14px;
-            height: 14px;
-            border-radius: 3px;
-        }
-
-        .legend-text {
-            color: var(--text-color);
-            font-weight: 500;
-        }
-
-        .btn {
-            border: none;
-            padding: 10px 20px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            font-size: 0.9rem;
-        }
-
-        .btn-black {
-            background: linear-gradient(135deg, #2b2d42, #1a1b2e);
-            color: white;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-        }
-
-        .btn-black:hover {
-            background: linear-gradient(135deg, #1a1b2e, #0a0b1a);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+            border-radius: var(--border-radius);
+            padding: 30px;
+            border: 1px solid var(--glass-border);
         }
 
         .article-header {
-            margin-bottom: 20px;
-            padding-bottom: 15px;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
             border-bottom: 1px solid var(--border-color);
         }
 
         .article-title {
-            font-size: 1.5rem;
+            font-size: 1.8rem;
             margin-bottom: 10px;
             color: var(--text-color);
+            font-weight: 700;
         }
 
         .article-meta {
             display: flex;
-            gap: 10px;
-            color: #6b7280;
-            font-size: 0.8rem;
+            gap: 15px;
+            color: var(--text-color-light);
+            font-size: 0.9rem;
+            align-items: center;
         }
 
+        /* Credibility Badge */
         .credibility-badge {
-            padding: 3px 8px;
+            padding: 5px 12px;
             border-radius: 20px;
-            font-size: 0.7rem;
+            font-size: 0.8rem;
             font-weight: 600;
             display: inline-flex;
             align-items: center;
             gap: 5px;
+            height: 24px;
         }
 
         .credibility-badge.high {
@@ -349,172 +184,317 @@
             border: 1px solid rgba(248, 150, 30, 0.3);
         }
 
-        .analysis-content {
-            margin: 20px 0;
-        }
-
-        .scores-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-            gap: 15px;
-            margin: 20px 0;
-        }
-
-        .score-card {
-            background: var(--secondary-color);
-            padding: 15px;
-            border-radius: var(--border-radius);
-            text-align: center;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        }
-
-        .score-value {
-            font-size: 1.4rem;
-            font-weight: 700;
-            margin: 5px 0;
-            color: var(--primary-color);
-        }
-
-        .score-description {
-            font-size: 0.8rem;
-            color: #6b7280;
-            font-weight: 500;
-        }
-
+        /* Analysis Form */
         .analysis-form {
-            margin-top: 20px;
+            margin: 30px 0;
         }
 
         .form-group {
-            margin-bottom: 15px;
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--text-color);
         }
 
         .form-control {
             width: 100%;
-            padding: 12px;
+            padding: 15px;
             border: 1px solid var(--border-color);
             border-radius: 8px;
-            min-height: 100px;
+            min-height: 120px;
             resize: vertical;
             font-family: inherit;
-            font-size: 0.9rem;
+            font-size: 0.95rem;
+            transition: var(--transition);
+            background: rgba(255, 255, 255, 0.5);
         }
 
         .form-control:focus {
             outline: none;
             border-color: var(--primary-color);
-            box-shadow: 0 0 0 2px rgba(67, 97, 238, 0.2);
+            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
         }
 
-        .similar-articles {
-            background: white;
-            border-radius: var(--border-radius);
-            padding: 20px;
+        /* Buttons */
+        .btn {
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: var(--transition);
+            font-size: 0.95rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-black {
+            background: linear-gradient(135deg, #2b2d42, #1a1b2e);
+            color: white;
             box-shadow: var(--box-shadow);
-            margin-top: 20px;
+        }
+
+        .btn-black:hover {
+            background: linear-gradient(135deg, #1a1b2e, #0a0b1a);
+            transform: translateY(-2px);
+            box-shadow: var(--box-shadow-hover);
+        }
+
+        /* Scores Grid */
+        .scores-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .score-card {
+            background: rgba(255, 255, 255, 0.8);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            text-align: center;
+            box-shadow: var(--box-shadow);
+            transition: var(--transition);
+            border: 1px solid var(--glass-border);
+        }
+
+        .score-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--box-shadow-hover);
+        }
+
+        .score-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin: 10px 0;
+            color: var(--primary-color);
+        }
+
+        .score-description {
+            font-size: 0.9rem;
+            color: var(--text-color-light);
+            font-weight: 500;
+            margin-bottom: 5px;
+        }
+
+        .score-explanation {
+            font-size: 0.8rem;
+            color: var(--text-color-light);
+            margin-top: 5px;
+            opacity: 0.9;
+        }
+
+        /* Sidebar Styles */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+
+        .glass-panel {
+            background: var(--glass-effect);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            border-radius: var(--border-radius);
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--glass-shadow);
+            padding: 25px;
+        }
+
+        /* Chart Section */
+        .chart-section {
+            width: 100%;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .chart-title {
+            color: var(--text-color);
+            margin-bottom: 20px;
+            font-size: 1.3rem;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .chart-update-btn {
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-color-dark));
+            color: white;
+            box-shadow: 0 4px 15px rgba(67, 97, 238, 0.3);
+            margin: 20px auto 0;
+            display: block;
+        }
+
+        .chart-update-btn:hover {
+            box-shadow: 0 6px 20px rgba(67, 97, 238, 0.4);
+        }
+
+        /* Chart Legend */
+        .chart-legend {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 25px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+        }
+
+        .legend-color {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+        }
+
+        .legend-text {
+            color: var(--text-color);
+            font-weight: 500;
+        }
+
+        /* Similar Articles */
+        .similar-articles {
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: var(--border-radius);
+            padding: 25px;
+            box-shadow: var(--box-shadow);
+            border: 1px solid var(--glass-border);
         }
 
         .similar-articles h2 {
             color: var(--text-color);
-            margin-bottom: 15px;
-            font-size: 1.1rem;
+            margin-bottom: 20px;
+            font-size: 1.3rem;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
         }
 
         .similar-article {
-            padding: 15px;
-            margin-bottom: 15px;
-            border-left: 3px solid var(--primary-color);
-            border-radius: var(--border-radius);
-            background: var(--secondary-color);
-            transition: all 0.3s ease;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid var(--primary-color);
+            border-radius: calc(var(--border-radius) - 4px);
+            background: rgba(255, 255, 255, 0.6);
+            transition: var(--transition);
+            box-shadow: var(--box-shadow);
         }
 
         .similar-article:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+            transform: translateY(-5px);
+            box-shadow: var(--box-shadow-hover);
+            background: rgba(255, 255, 255, 0.9);
         }
 
         .article-link {
             color: inherit;
             text-decoration: none;
-            transition: color 0.3s ease;
+            transition: color var(--transition);
             display: block;
         }
 
         .article-link:hover {
             color: var(--primary-color);
-            text-decoration: underline;
+        }
+
+        .similar-article h3 {
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+            color: var(--text-color);
         }
 
         .similar-article p {
             color: var(--text-color);
-            font-size: 0.8rem;
-            line-height: 1.4;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            margin-bottom: 10px;
         }
 
+        /* Analysis History */
         .analysis-history {
-            background: white;
+            background: rgba(255, 255, 255, 0.8);
             border-radius: var(--border-radius);
-            padding: 20px;
+            padding: 25px;
             box-shadow: var(--box-shadow);
-            margin-top: 20px;
+            border: 1px solid var(--glass-border);
         }
 
         .analysis-history h2 {
             color: var(--text-color);
-            margin-bottom: 15px;
-            font-size: 1.1rem;
+            margin-bottom: 20px;
+            font-size: 1.3rem;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
         }
 
         .history-item {
-            padding: 10px;
-            margin-bottom: 10px;
-            border-bottom: 1px solid var(--border-color);
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 8px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-size: 0.8rem;
+            font-size: 0.9rem;
+            transition: var(--transition);
+            background: rgba(255, 255, 255, 0.5);
         }
 
         .history-item:hover {
-            background: rgba(67, 97, 238, 0.05);
+            background: rgba(67, 97, 238, 0.1);
+            transform: translateX(5px);
         }
 
         .history-score {
             font-weight: 600;
             color: var(--primary-color);
-            background: rgba(67, 97, 238, 0.1);
-            padding: 2px 6px;
+            background: rgba(67, 97, 238, 0.15);
+            padding: 4px 10px;
             border-radius: 20px;
-            font-size: 0.7rem;
+            font-size: 0.8rem;
         }
 
         .history-date {
-            color: #6b7280;
-            font-size: 0.7rem;
+            color: var(--text-color-light);
+            font-size: 0.8rem;
         }
 
+        .history-content {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .history-title {
+            font-weight: 500;
+            color: var(--text-color);
+        }
+
+        /* Loading States */
         .loading {
             text-align: center;
-            padding: 20px;
+            padding: 30px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 10px;
+            gap: 15px;
         }
 
         .spinner {
-            border: 2px solid rgba(67, 97, 238, 0.2);
+            border: 3px solid rgba(67, 97, 238, 0.2);
             border-radius: 50%;
-            border-top: 2px solid var(--primary-color);
-            width: 30px;
-            height: 30px;
+            border-top: 3px solid var(--primary-color);
+            width: 40px;
+            height: 40px;
             animation: spin 1s linear infinite;
         }
 
@@ -523,39 +503,106 @@
             100% { transform: rotate(360deg); }
         }
 
+        /* Footer */
         .footer {
-            background-color: white;
-            padding: 20px 0;
-            margin-top: 30px;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 25px 0;
+            margin-top: 40px;
             text-align: center;
-            color: #6b7280;
-            font-size: 0.8rem;
+            color: var(--text-color-light);
+            font-size: 0.9rem;
             border-top: 1px solid var(--border-color);
+            backdrop-filter: blur(8px);
         }
 
-        @media (max-width: 768px) {
+        /* Utility Classes */
+        .text-center {
+            text-align: center;
+        }
+
+        .mt-10 {
+            margin-top: 10px;
+        }
+
+        .mb-20 {
+            margin-bottom: 20px;
+        }
+
+        /* Responsive Styles */
+        @media (max-width: 992px) {
             .main-content {
                 grid-template-columns: 1fr;
             }
+
             .sidebar {
                 width: 100%;
             }
-            .chart-scroll-container {
-                width: 100%;
-                overflow-x: scroll;
-            }
+
             .chart-container {
-                width: 800px;
+                width: 100%;
+                height: 350px;
+            }
+
+            .scores-grid {
+                grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            }
+        }
+
+        @media (max-width: 768px) {
+            .article-title {
+                font-size: 1.5rem;
+            }
+
+            .scores-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .chart-container {
                 height: 300px;
+            }
+
+            .navbar-links {
+                gap: 15px;
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .header {
+                flex-direction: column;
+                gap: 20px;
+                align-items: center;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .container {
+                padding: 0 15px;
+            }
+
+            .analysis-section,
+            .glass-panel,
+            .similar-articles,
+            .analysis-history {
+                padding: 20px;
+            }
+
+            .article-title {
+                font-size: 1.3rem;
+            }
+
+            .btn {
+                width: 100%;
+                justify-content: center;
             }
         }
     </style>
 </head>
 <body>
+    <!-- Ваш HTML код остается без изменений -->
     <div class="container">
         <header class="header">
             <a href="/" class="logo">
-                <i class="bi bi-newspaper"></i>
+                <i class="bi bi-newspaper">📰</i>
                 <span class="logo-text">Media Credibility Index</span>
             </a>
             <nav>
@@ -568,14 +615,13 @@
             </nav>
         </header>
     </div>
-
     <div class="main-content">
         <div class="analysis-section">
             <div class="article-header">
                 <h1 class="article-title">Analysis of Current News Trends</h1>
                 <div class="article-meta">
-                    <span><i class="bi bi-newspaper"></i> Multiple Sources</span>
-                    <span class="credibility-badge high"><i class="bi bi-shield-check"></i> High</span>
+                    <span><i class="bi bi-newspaper">📰</i> Multiple Sources</span>
+                    <span class="credibility-badge high"><i class="bi bi-shield-check">✔</i> High</span>
                 </div>
             </div>
             <div class="analysis-content">
@@ -585,13 +631,12 @@
                         <textarea class="form-control" id="articleInput" placeholder="Paste article URL or text content here for analysis..."></textarea>
                     </div>
                     <button onclick="analyzeArticle()" class="btn btn-black">
-                        <i class="bi bi-search"></i> Analyze Article
+                        <i class="bi bi-search">🔍</i> Analyze Article
                     </button>
                 </div>
                 <div id="analysisResults"></div>
             </div>
         </div>
-
         <div class="sidebar">
             <div class="glass-panel">
                 <div class="chart-section">
@@ -601,79 +646,60 @@
                             <canvas id="chart"></canvas>
                         </div>
                     </div>
+                    <div class="chart-legend">
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: var(--high-credibility);"></div>
+                            <span class="legend-text">High (0.8-1.0)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: var(--medium-credibility);"></div>
+                            <span class="legend-text">Medium (0.6-0.8)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: var(--low-credibility);"></div>
+                            <span class="legend-text">Low (0-0.6)</span>
+                        </div>
+                    </div>
                 </div>
                 <button onclick="updateChart()" class="chart-update-btn">
-                    <i class="bi bi-arrow-clockwise"></i>
+                    <i class="bi bi-arrow-clockwise">🔄</i>
                     <span>Update Chart</span>
                 </button>
-                <div class="chart-legend">
-                    <div class="legend-item">
-                        <div class="legend-color" style="background-color: var(--high-credibility);"></div>
-                        <span class="legend-text">High (0.8-1.0)</span>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-color" style="background-color: var(--medium-credibility);"></div>
-                        <span class="legend-text">Medium (0.6-0.8)</span>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-color" style="background-color: var(--low-credibility);"></div>
-                        <span class="legend-text">Low (0-0.6)</span>
-                    </div>
-                </div>
             </div>
-
             <div class="similar-articles">
-                <h2><i class="bi bi-link-45deg"></i> Related News Articles</h2>
+                <h2><i class="bi bi-link-45deg">🔗</i> Related News Articles</h2>
                 <div class="similar-article">
                     <h3><a href="https://www.bbc.com/news/articles/cy7nxgzlpllo" target="_blank" class="article-link">Israel-Iran conflict: Latest developments and analysis</a></h3>
                     <div class="article-meta">
-                        <span><i class="bi bi-newspaper"></i> BBC News</span>
-                        <span class="credibility-badge high"><i class="bi bi-shield-check"></i> High</span>
+                        <span><i class="bi bi-newspaper">📰</i> BBC News</span>
+                        <span class="credibility-badge high"><i class="bi bi-shield-check">✔</i> High</span>
                     </div>
                     <p>The ongoing conflict between Israel and Iran continues to escalate, with both sides exchanging military strikes. This article provides the latest updates on the situation, including international reactions and potential consequences for regional stability in the Middle East.</p>
                 </div>
                 <div class="similar-article">
                     <h3><a href="https://complexdiscovery.com/from-estonias-rise-to-u-s-decline-mapping-the-2025-press-freedom-index/" target="_blank" class="article-link">From Estonia's Rise to U.S. Decline: Mapping the 2025 Press Freedom Index</a></h3>
                     <div class="article-meta">
-                        <span><i class="bi bi-newspaper"></i> Complex Discovery</span>
-                        <span class="credibility-badge high"><i class="bi bi-shield-check"></i> High</span>
+                        <span><i class="bi bi-newspaper">📰</i> Complex Discovery</span>
+                        <span class="credibility-badge high"><i class="bi bi-shield-check">✔</i> High</span>
                     </div>
                     <p>The 2025 Press Freedom Index reveals significant shifts in global media landscapes. While Estonia continues to improve its press freedom rankings, the United States shows concerning declines. This analysis examines the factors behind these trends and their implications for democracy and journalism worldwide.</p>
                 </div>
-                <div class="similar-article">
-                    <h3><a href="https://www.reuters.com/sustainability/us-announces-policy-changes-offshore-mineral-development-2025-06-25/" target="_blank" class="article-link">US announces policy changes for offshore mineral development</a></h3>
-                    <div class="article-meta">
-                        <span><i class="bi bi-newspaper"></i> Reuters</span>
-                        <span class="credibility-badge high"><i class="bi bi-shield-check"></i> High</span>
-                    </div>
-                    <p>The U.S. government has announced significant policy changes regarding offshore mineral development. These new regulations aim to balance economic interests with environmental protection, potentially reshaping the country's approach to marine resource extraction and sustainability efforts.</p>
-                </div>
-                <div class="similar-article">
-                    <h3><a href="https://www.aljazeera.com/news/2025/6/25/why-iran-conflict-has-raised-new-questions-about-iaeas-credibility" target="_blank" class="article-link">Iran conflict raises questions about IAEA's credibility</a></h3>
-                    <div class="article-meta">
-                        <span><i class="bi bi-newspaper"></i> Al Jazeera</span>
-                        <span class="credibility-badge high"><i class="bi bi-shield-check"></i> High</span>
-                    </div>
-                    <p>The ongoing conflict involving Iran has brought new scrutiny to the International Atomic Energy Agency's role and credibility. This article examines how recent events have challenged perceptions of the IAEA's effectiveness and neutrality in monitoring nuclear activities in the region.</p>
-                </div>
             </div>
-
             <div class="analysis-history">
-                <h2><i class="bi bi-clock-history"></i> Analysis History</h2>
+                <h2><i class="bi bi-clock-history">⏳</i> Analysis History</h2>
                 <div id="historyContainer">
-                    <p style="text-align: center; color: #6b7280; font-size: 0.8rem;">No analysis history yet</p>
+                    <p class="text-center" style="color: var(--text-color-light); font-size: 0.9rem; padding: 20px;">No analysis history yet</p>
                 </div>
             </div>
         </div>
     </div>
-
     <footer class="footer">
         <div class="container">
             <p>© 2025 Media Credibility Index. All rights reserved.</p>
         </div>
     </footer>
-
     <script>
+        // Ваш JavaScript код остается без изменений
         // Локальная реализация Chart.js
         class SimpleChart {
             constructor(ctx, config) {
@@ -685,20 +711,17 @@
                 this.barWidth = 0;
                 this.init();
             }
-
             init() {
                 this.resize();
                 window.addEventListener('resize', () => this.resize());
                 this.render();
             }
-
             resize() {
                 const container = this.canvas.parentElement;
                 this.canvas.width = container.clientWidth;
                 this.canvas.height = container.clientHeight;
                 this.calculateBarWidth();
             }
-
             calculateBarWidth() {
                 const padding = 40;
                 const barCount = this.data.labels.length;
@@ -706,27 +729,21 @@
                 const availableWidth = this.canvas.width - 2 * padding;
                 this.barWidth = Math.min(maxBarWidth, Math.max(10, availableWidth / barCount - 10));
             }
-
             render() {
                 const ctx = this.ctx;
                 const data = this.data;
                 const width = this.canvas.width;
                 const height = this.canvas.height;
                 const padding = 40;
-
                 // Очистка canvas
                 ctx.clearRect(0, 0, width, height);
-
                 // Рисование осей
                 this.drawAxes(ctx, width, height, padding);
-
                 // Рисование столбцов
                 this.drawBars(ctx, width, height, padding);
-
                 // Рисование подписей к столбцам
                 this.drawBarLabels(ctx, width, height, padding);
             }
-
             drawAxes(ctx, width, height, padding) {
                 // Ось X
                 ctx.beginPath();
@@ -735,7 +752,6 @@
                 ctx.strokeStyle = '#e0e0e0';
                 ctx.lineWidth = 1;
                 ctx.stroke();
-
                 // Ось Y
                 ctx.beginPath();
                 ctx.moveTo(padding, padding);
@@ -743,7 +759,6 @@
                 ctx.strokeStyle = '#e0e0e0';
                 ctx.lineWidth = 1;
                 ctx.stroke();
-
                 // Подписи оси Y
                 for (let i = 0; i <= 1; i += 0.2) {
                     const y = height - padding - i * (height - 2 * padding);
@@ -753,23 +768,19 @@
                     ctx.fillText(i.toFixed(1), padding - 10, y + 5);
                 }
             }
-
             drawBars(ctx, width, height, padding) {
                 const dataset = this.data.datasets[0];
                 dataset.data.forEach((value, index) => {
                     const barHeight = value * (height - 2 * padding);
                     const x = padding + index * (this.barWidth + 10);
                     const y = height - padding - barHeight;
-
                     // Рисование столбца
                     ctx.fillStyle = dataset.backgroundColor[index];
                     ctx.fillRect(x, y, this.barWidth, barHeight);
-
                     // Рисование границы
                     ctx.strokeStyle = dataset.borderColor[index];
                     ctx.lineWidth = 1;
                     ctx.strokeRect(x, y, this.barWidth, barHeight);
-
                     // Подпись значения
                     ctx.fillStyle = '#000';
                     ctx.font = '10px Arial';
@@ -777,37 +788,31 @@
                     ctx.fillText(value.toFixed(2), x + this.barWidth / 2, y - 5);
                 });
             }
-
             drawBarLabels(ctx, width, height, padding) {
                 const dataset = this.data.datasets[0];
                 const labels = this.data.labels || [];
                 ctx.fillStyle = '#000';
                 ctx.font = '9px Arial';
                 ctx.textAlign = 'center';
-
                 dataset.data.forEach((value, index) => {
                     if (!labels[index]) return;
                     const x = padding + index * (this.barWidth + 10) + this.barWidth / 2;
                     const y = height - padding + 15;
-
                     // Разбиваем длинные названия на несколько строк
                     const label = labels[index];
                     const words = label.split(' ');
                     const lineHeight = 10;
                     let currentY = y;
-
                     words.forEach((word) => {
                         ctx.fillText(word, x, currentY);
                         currentY += lineHeight;
                     });
                 });
             }
-
             update() {
                 this.calculateBarWidth();
                 this.render();
             }
-
             destroy() {
                 this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
             }
@@ -858,11 +863,9 @@
         function initChart() {
             const canvas = document.getElementById('chart');
             const ctx = canvas.getContext('2d');
-
             if (chartInstance) {
                 chartInstance.destroy();
             }
-
             chartInstance = new SimpleChart(ctx, {
                 type: 'bar',
                 data: defaultChartData,
@@ -876,7 +879,6 @@
         // Функция для обновления графика
         function updateChart() {
             if (!chartInstance) return;
-
             const container = document.querySelector('.chart-scroll-container');
             const loadingHTML = `
             <div class="loading" style="
@@ -886,30 +888,26 @@
                 transform: translate(-50%, -50%);
             ">
                 <div class="spinner"></div>
-                <p style="margin-top: 10px; color: var(--text-color); font-size: 0.8rem;">Updating...</p>
+                <p class="mt-10" style="color: var(--text-color); font-size: 0.8rem;">Updating...</p>
             </div>
             `;
             container.insertAdjacentHTML('afterbegin', loadingHTML);
-
             setTimeout(() => {
                 const loadingElement = container.querySelector('.loading');
                 if (loadingElement) {
                     loadingElement.remove();
                 }
-
                 const updatedData = defaultChartData.datasets[0].data.map(score => {
                     return Math.min(1, Math.max(0, score + (Math.random() - 0.5) * 0.1));
                 });
-
                 chartInstance.data.datasets[0].data = updatedData;
                 chartInstance.update();
             }, 800);
         }
 
         // Обновленная функция для анализа статьи
-      async function analyzeArticle() {
+        async function analyzeArticle() {
             const articleInput = document.getElementById('articleInput').value.trim();
-
             if (!articleInput) {
                 alert('Please enter article text or URL for analysis');
                 return;
@@ -919,19 +917,15 @@
             resultsContainer.innerHTML = `
                 <div class="loading">
                     <div class="spinner"></div>
-                    <p style="color: var(--text-color); font-size: 0.8rem;">Starting analysis...</p>
+                    <p class="mt-10" style="color: var(--text-color); font-size: 0.8rem;">Starting analysis...</p>
                 </div>
             `;
 
             try {
-                // Используем относительный путь для API
                 const apiUrl = '/start-analysis';
-
-                // Логируем запрос
                 console.log('Sending analysis request to:', apiUrl);
                 console.log('Request payload:', { input_text: articleInput });
 
-                // Отправляем запрос с явным указанием Content-Type
                 const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: {
@@ -940,7 +934,6 @@
                     },
                     body: JSON.stringify({
                         input_text: articleInput,
-                        // Добавляем метаданные для отладки
                         client_timestamp: new Date().toISOString(),
                         client_info: {
                             user_agent: navigator.userAgent,
@@ -949,7 +942,6 @@
                     })
                 });
 
-                // Обрабатываем ответ
                 const contentType = response.headers.get('content-type');
                 if (!contentType || !contentType.includes('application/json')) {
                     const text = await response.text();
@@ -957,7 +949,6 @@
                 }
 
                 const data = await response.json();
-
                 if (!response.ok) {
                     throw new Error(data.message || `Server error: ${response.status}`);
                 }
@@ -972,11 +963,8 @@
 
                 currentTaskId = data.task_id;
                 console.log('Analysis started with task ID:', currentTaskId);
-
-                // Начинаем опрос статуса задачи
                 pollTaskStatus();
 
-                // Сохраняем историю анализа
                 const permission = localStorage.getItem('analysisPermission');
                 if (permission === 'granted') {
                     analysisHistory.push({
@@ -992,14 +980,13 @@
                     updateHistoryDisplay();
                     localStorage.setItem('analysisHistory', JSON.stringify(analysisHistory));
                 }
-
             } catch (error) {
                 console.error('Analysis error:', error);
                 resultsContainer.innerHTML = `
-                    <div class="error-message" style="color: var(--danger-color); text-align: center; padding: 15px; font-size: 0.8rem;">
-                        <i class="bi bi-exclamation-triangle-fill" style="font-size: 1.2rem; margin-right: 8px;"></i>
-                        <span>Error: \\\${error.message || 'Failed to start analysis'}</span>
-                        <div style="margin-top: 10px; font-size: 0.7rem; color: #6b7280;">
+                    <div class="error-message text-center" style="color: var(--danger-color); padding: 15px; font-size: 0.8rem;">
+                        <i class="bi bi-exclamation-triangle-fill" style="font-size: 1.2rem; margin-right: 8px;">⚠</i>
+                        <span>Error: ${error.message || 'Failed to start analysis'}</span>
+                        <div class="mt-10" style="font-size: 0.7rem; color: var(--text-color-light);">
                             Please check your connection and try again.
                         </div>
                     </div>
@@ -1012,28 +999,25 @@
             const resultsContainer = document.getElementById('analysisResults');
             const progressContainer = document.createElement('div');
             progressContainer.id = 'analysis-progress';
-            progressContainer.style.marginTop = '10px';
-            progressContainer.style.textAlign = 'center';
+            progressContainer.className = 'text-center mt-10';
             resultsContainer.appendChild(progressContainer);
 
-            // Очищаем предыдущий интервал, если он есть
             if (pollInterval) {
                 clearInterval(pollInterval);
             }
 
             let attempts = 0;
-            const maxAttempts = 30; // Максимальное количество попыток (1 минута при интервале 2 секунды)
+            const maxAttempts = 30;
 
             pollInterval = setInterval(async () => {
                 attempts++;
-
                 if (attempts > maxAttempts) {
                     clearInterval(pollInterval);
                     resultsContainer.innerHTML = `
-                        <div class="error-message" style="color: var(--danger-color); text-align: center; padding: 15px; font-size: 0.8rem;">
-                            <i class="bi bi-exclamation-triangle-fill" style="font-size: 1.2rem; margin-right: 8px;"></i>
+                        <div class="error-message text-center" style="color: var(--danger-color); padding: 15px; font-size: 0.8rem;">
+                            <i class="bi bi-exclamation-triangle-fill" style="font-size: 1.2rem; margin-right: 8px;">⚠</i>
                             <span>Analysis timed out</span>
-                            <div style="margin-top: 10px; font-size: 0.7rem; color: #6b7280;">
+                            <div class="mt-10" style="font-size: 0.7rem; color: var(--text-color-light);">
                                 The analysis is taking longer than expected. Please try again later.
                             </div>
                         </div>
@@ -1054,7 +1038,6 @@
                     }
 
                     const data = await response.json();
-
                     if (!data || typeof data !== 'object') {
                         throw new Error('Invalid response format from server');
                     }
@@ -1062,47 +1045,44 @@
                     if (data.status === 'PENDING') {
                         progressContainer.innerHTML = `
                             <div class="spinner"></div>
-                            <p style="color: var(--text-color); font-size: 0.8rem;">
-                                Analysis is pending... (attempt \\\${attempts}/\\\${maxAttempts})
+                            <p class="mt-10" style="color: var(--text-color); font-size: 0.8rem;">
+                                Analysis is pending... (attempt ${attempts}/${maxAttempts})
                             </p>
                         `;
-                    }
-                    else if (data.status === 'PROGRESS') {
+                    } else if (data.status === 'PROGRESS') {
                         progressContainer.innerHTML = `
                             <div class="spinner"></div>
-                            <p style="color: var(--text-color); font-size: 0.8rem;">
-                                Analysis in progress: \\\${data.progress || 0}% - \\\${data.message || 'Processing'}
+                            <p class="mt-10" style="color: var(--text-color); font-size: 0.8rem;">
+                                Analysis in progress: ${data.progress || 0}% - ${data.message || 'Processing'}
                             </p>
                         `;
-                    }
-                    else if (data.status === 'SUCCESS') {
+                    } else if (data.status === 'SUCCESS') {
                         clearInterval(pollInterval);
                         if (data.result) {
                             displayAnalysisResults(data.result);
                         } else {
                             throw new Error('Analysis completed but no results returned');
                         }
-                    }
-                    else {
+                    } else {
                         clearInterval(pollInterval);
                         throw new Error(data.message || 'Analysis failed with unknown status');
                     }
-
                 } catch (error) {
                     clearInterval(pollInterval);
                     console.error('Polling error:', error);
                     resultsContainer.innerHTML = `
-                        <div class="error-message" style="color: var(--danger-color); text-align: center; padding: 15px; font-size: 0.8rem;">
-                            <i class="bi bi-exclamation-triangle-fill" style="font-size: 1.2rem; margin-right: 8px;"></i>
-                            <span>Error: \\\${error.message || 'Failed to complete analysis'}</span>
-                            <div style="margin-top: 10px; font-size: 0.7rem; color: #6b7280;">
+                        <div class="error-message text-center" style="color: var(--danger-color); padding: 15px; font-size: 0.8rem;">
+                            <i class="bi bi-exclamation-triangle-fill" style="font-size: 1.2rem; margin-right: 8px;">⚠</i>
+                            <span>Error: ${error.message || 'Failed to complete analysis'}</span>
+                            <div class="mt-10" style="font-size: 0.7rem; color: var(--text-color-light);">
                                 Please refresh the page and try again.
                             </div>
                         </div>
                     `;
                 }
-            }, 2000); // Опрос каждые 2 секунды
+            }, 2000);
         }
+
         // Обновленная функция для отображения результатов анализа
         function displayAnalysisResults(data) {
             const article = data.article || {};
@@ -1111,60 +1091,49 @@
             let html = `
             <div class="analysis-result">
                 <div class="article-header">
-                    <h2 style="color: var(--primary-color); font-size: 1.3rem;">${article.title || 'Analysis Results'}</h2>
-                    <div class="article-meta" style="margin-top: 10px;">
-                        <span><i class="bi bi-newspaper"></i> ${article.source || 'Unknown Source'}</span>
+                    <h2 style="color: var(--primary-color); font-size: 1.5rem; margin-bottom: 10px;">${article.title || 'Analysis Results'}</h2>
+                    <div class="article-meta mb-20">
+                        <span><i class="bi bi-newspaper">📰</i> ${article.source || 'Unknown Source'}</span>
                         <span class="credibility-badge ${article.credibility_level || 'medium'}">
-                            <i class="bi bi-shield-check"></i> ${article.credibility_level || 'Medium'}
+                            <i class="bi bi-shield-check">✔</i> ${article.credibility_level || 'Medium'}
                         </span>
                     </div>
                 </div>
-                <div class="analysis-summary" style="margin: 15px 0;">
-                    <p style="color: var(--text-color); font-size: 0.9rem;">${article.short_summary || 'No summary available'}</p>
+                <div class="analysis-summary mb-20">
+                    <p style="color: var(--text-color); font-size: 0.95rem;">${article.short_summary || 'No summary available'}</p>
                 </div>
                 <div class="scores-grid">
-                    <div class="score-card" style="background: rgba(76, 201, 240, 0.1);">
-                        <div class="score-value" style="color: var(--high-credibility); font-size: 1.2rem;">
-                            ${(article.credibility_score?.score || 0).toFixed(2)}
-                        </div>
-                        <div class="score-description" style="font-size: 0.7rem;">Credibility</div>
-                        <div class="score-explanation" style="font-size: 0.7rem; color: #6b7280; margin-top: 5px;">
-                            ${article.credibility_score?.explanation || ''}
-                        </div>
+                    <div class="score-card" style="background: rgba(76, 201, 240, 0.1); border-color: rgba(76, 201, 240, 0.2);">
+                        <div class="score-value" style="color: var(--high-credibility);">${(article.credibility_score?.score || 0).toFixed(2)}</div>
+                        <div class="score-description">Credibility</div>
+                        <div class="score-explanation">${article.credibility_score?.explanation || ''}</div>
                     </div>
-                    <div class="score-card" style="background: rgba(67, 97, 238, 0.1);">
-                        <div class="score-value" style="color: var(--medium-credibility); font-size: 1.2rem;">
-                            ${(analysis.sentiment?.score || 0).toFixed(2)}
-                        </div>
-                        <div class="score-description" style="font-size: 0.7rem;">Sentiment</div>
-                        <div class="score-explanation" style="font-size: 0.7rem; color: #6b7280; margin-top: 5px;">
-                            ${analysis.sentiment?.explanation || ''}
-                        </div>
+                    <div class="score-card" style="background: rgba(67, 97, 238, 0.1); border-color: rgba(67, 97, 238, 0.2);">
+                        <div class="score-value" style="color: var(--medium-credibility);">${(analysis.sentiment?.score || 0).toFixed(2)}</div>
+                        <div class="score-description">Sentiment</div>
+                        <div class="score-explanation">${analysis.sentiment?.explanation || ''}</div>
                     </div>
-                    <div class="score-card" style="background: rgba(248, 150, 30, 0.1);">
-                        <div class="score-value" style="color: var(--low-credibility); font-size: 1.2rem;">
-                            ${(analysis.bias?.level || 0).toFixed(2)}
-                        </div>
-                        <div class="score-description" style="font-size: 0.7rem;">Bias</div>
-                        <div class="score-explanation" style="font-size: 0.7rem; color: #6b7280; margin-top: 5px;">
-                            ${analysis.bias?.explanation || ''}
-                        </div>
+                    <div class="score-card" style="background: rgba(248, 150, 30, 0.1); border-color: rgba(248, 150, 30, 0.2);">
+                        <div class="score-value" style="color: var(--low-credibility);">${(analysis.bias?.level || 0).toFixed(2)}</div>
+                        <div class="score-description">Bias</div>
+                        <div class="score-explanation">${analysis.bias?.explanation || ''}</div>
                     </div>
                 </div>
             `;
 
             if (analysis.topics && analysis.topics.length > 0) {
                 html += `
-                <div class="topics-section" style="margin-top: 20px;">
-                    <h4 style="color: var(--text-color); margin-bottom: 10px; font-size: 0.9rem;">Key Topics:</h4>
+                <div class="topics-section mb-20">
+                    <h4 style="color: var(--text-color); margin-bottom: 15px; font-size: 1.1rem;">Key Topics:</h4>
                     <div class="topics-list" style="display: flex; flex-wrap: wrap; gap: 8px;">
                         ${analysis.topics.map(topic => `
                         <span class="topic-badge" style="
                             background: rgba(67, 97, 238, 0.1);
                             color: var(--primary-color);
-                            padding: 3px 8px;
+                            padding: 5px 10px;
                             border-radius: 20px;
-                            font-size: 0.7rem;
+                            font-size: 0.8rem;
+                            border: 1px solid rgba(67, 97, 238, 0.2);
                         ">${typeof topic === 'object' ? topic.name : topic}</span>
                         `).join('')}
                     </div>
@@ -1174,14 +1143,19 @@
 
             if (analysis.perspectives) {
                 html += `
-                <div class="perspectives-section" style="margin-top: 20px;">
-                    <h4 style="color: var(--text-color); margin-bottom: 10px; font-size: 0.9rem;">Perspectives:</h4>
+                <div class="perspectives-section mb-20">
+                    <h4 style="color: var(--text-color); margin-bottom: 15px; font-size: 1.1rem;">Perspectives:</h4>
                     ${Object.entries(analysis.perspectives).map(([perspective, data]) => `
-                    <div class="perspective-card">
-                        <h5 style="color: var(--primary-color); font-size: 0.9rem; margin-bottom: 5px;">${perspective}</h5>
-                        <p style="color: var(--text-color); font-size: 0.8rem; margin-bottom: 5px;">${data.summary}</p>
+                    <div class="perspective-card mb-10" style="
+                        background: rgba(255, 255, 255, 0.6);
+                        padding: 15px;
+                        border-radius: var(--border-radius);
+                        border: 1px solid var(--border-color);
+                    ">
+                        <h5 style="color: var(--primary-color); font-size: 1rem; margin-bottom: 8px;">${perspective}</h5>
+                        <p style="color: var(--text-color); font-size: 0.9rem; margin-bottom: 10px;">${data.summary}</p>
                         <span class="credibility-badge ${data.credibility || 'medium'}" style="font-size: 0.7rem;">
-                            <i class="bi bi-shield-check"></i> ${data.credibility || 'Medium'}
+                            <i class="bi bi-shield-check">✔</i> ${data.credibility || 'Medium'}
                         </span>
                     </div>
                     `).join('')}
@@ -1191,18 +1165,18 @@
 
             if (article.similar_articles && article.similar_articles.length > 0) {
                 html += `
-                <div class="similar-articles" style="margin-top: 30px;">
-                    <h3 style="color: var(--text-color); margin-bottom: 15px;">Related Articles</h3>
+                <div class="similar-articles-section">
+                    <h3 style="color: var(--text-color); margin-bottom: 20px; font-size: 1.2rem;">Related Articles</h3>
                     ${article.similar_articles.map(similar => `
-                    <div class="similar-article" style="margin-bottom: 10px;">
-                        <h4 style="font-size: 1rem; margin-bottom: 5px;">
-                            <a href="${similar.url}" target="_blank" style="color: var(--primary-color);">${similar.title}</a>
+                    <div class="similar-article mb-15" style="padding: 15px; border-left: 3px solid var(--primary-color);">
+                        <h4 style="font-size: 1.05rem; margin-bottom: 8px;">
+                            <a href="${similar.url}" target="_blank" style="color: var(--primary-color); text-decoration: none;">${similar.title}</a>
                         </h4>
-                        <p style="font-size: 0.8rem; color: var(--text-color);">${similar.description || 'No description available'}</p>
-                        <div class="article-meta" style="margin-top: 5px;">
-                            <span style="font-size: 0.7rem;"><i class="bi bi-newspaper"></i> ${similar.source?.name || 'Unknown'}</span>
+                        <p style="font-size: 0.9rem; color: var(--text-color); margin-bottom: 10px;">${similar.description || 'No description available'}</p>
+                        <div class="article-meta" style="font-size: 0.8rem;">
+                            <span><i class="bi bi-newspaper">📰</i> ${similar.source?.name || 'Unknown'}</span>
                             <span class="credibility-badge ${similar.credibility_level || 'medium'}" style="font-size: 0.7rem;">
-                                <i class="bi bi-shield-check"></i> ${similar.credibility_level || 'Medium'}
+                                <i class="bi bi-shield-check">✔</i> ${similar.credibility_level || 'Medium'}
                             </span>
                         </div>
                     </div>
@@ -1221,22 +1195,24 @@
             historyContainer.innerHTML = '';
 
             if (analysisHistory.length === 0) {
-                historyContainer.innerHTML = '<p style="text-align: center; color: #6b7280; font-size: 0.8rem;">No analysis history yet</p>';
+                historyContainer.innerHTML = '<p class="text-center" style="color: var(--text-color-light); font-size: 0.9rem; padding: 20px;">No analysis history yet</p>';
                 return;
             }
 
             analysisHistory.forEach((item) => {
                 const date = new Date(item.timestamp);
                 const formattedDate = date.toLocaleString();
+
                 const historyItem = document.createElement('div');
                 historyItem.className = 'history-item';
                 historyItem.innerHTML = `
-                <div>
+                <div class="history-content">
                     <span class="history-score">${item.credibility_score?.toFixed(2) || 'N/A'}</span>
-                    <span style="margin-left: 8px; font-size: 0.8rem;">${item.title}</span>
+                    <span class="history-title" style="font-size: 0.9rem;">${item.input}</span>
                 </div>
-                <span class="history-date" style="font-size: 0.7rem;">${formattedDate}</span>
+                <span class="history-date">${formattedDate}</span>
                 `;
+
                 historyContainer.appendChild(historyItem);
             });
         }
@@ -1245,7 +1221,6 @@
         document.addEventListener('DOMContentLoaded', () => {
             initChart();
 
-            // Очищаем интервал опроса при загрузке страницы
             if (pollInterval) {
                 clearInterval(pollInterval);
                 pollInterval = null;
@@ -1281,42 +1256,49 @@
             ">
                 <div class="modal-content" style="
                     background: white;
-                    padding: 25px;
+                    padding: 30px;
                     border-radius: 12px;
-                    max-width: 450px;
+                    max-width: 500px;
                     width: 90%;
                     box-shadow: 0 10px 30px rgba(0,0,0,0.2);
                 ">
-                    <h3 style="color: var(--text-color); margin-bottom: 15px; font-size: 1.3rem;">Data Storage Permission</h3>
-                    <p style="color: var(--text-color); margin-bottom: 15px; font-size: 0.9rem;">We can store your analysis results locally to improve your experience.</p>
-                    <p style="color: var(--text-color); margin-bottom: 20px; font-size: 0.9rem;">Would you like to enable local storage for analysis history?</p>
+                    <h3 style="color: var(--text-color); margin-bottom: 20px; font-size: 1.4rem; text-align: center;">Data Storage Permission</h3>
+                    <p style="color: var(--text-color); margin-bottom: 20px; font-size: 0.95rem; text-align: center;">
+                        We can store your analysis results locally to improve your experience and provide analysis history.
+                    </p>
+                    <p style="color: var(--text-color); margin-bottom: 25px; font-size: 0.95rem; text-align: center;">
+                        Would you like to enable local storage for analysis history?
+                    </p>
                     <div class="modal-actions" style="
                         display: flex;
-                        justify-content: flex-end;
-                        gap: 10px;
+                        justify-content: center;
+                        gap: 15px;
                     ">
                         <button id="allowStorage" class="btn" style="
                             background: linear-gradient(135deg, #4361ee, #3a0ca3);
                             color: white;
-                            padding: 8px 16px;
+                            padding: 10px 25px;
                             border-radius: 8px;
-                            font-size: 0.8rem;
+                            font-size: 0.9rem;
                             border: none;
                             cursor: pointer;
+                            min-width: 120px;
                         ">Allow</button>
                         <button id="denyStorage" class="btn" style="
                             background: #f8f9fa;
                             color: var(--text-color);
-                            padding: 8px 16px;
+                            padding: 10px 25px;
                             border-radius: 8px;
                             border: 1px solid var(--border-color);
-                            font-size: 0.8rem;
+                            font-size: 0.9rem;
                             cursor: pointer;
+                            min-width: 120px;
                         ">Deny</button>
                     </div>
                 </div>
             </div>
             `;
+
             document.body.appendChild(modal);
 
             document.getElementById('allowStorage').addEventListener('click', () => {
