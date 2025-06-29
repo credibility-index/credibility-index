@@ -1,0 +1,15 @@
+{
+  "name": "Index of Credibility",
+  "short_name": "IndexMedia",
+  "icons": [
+    {
+      "src": "/static/icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ],
+  "start_url": "https://indexing.news",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff"
+}
