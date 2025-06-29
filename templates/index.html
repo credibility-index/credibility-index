@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Media Credibility Index</title>
+    <!-- Favicon links -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='icon.png') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon.png') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='site.webmanifest') }}">
     <style>
         :root {
             --primary-color: #4361ee;
@@ -514,9 +518,7 @@
             border-top: 1px solid var(--border-color);
             backdrop-filter: blur(8px);
         }
-        <link rel="icon" type="image/png" href="/static/icon.png">
-        <link rel="apple-touch-icon" href="/static/icon.png">
-        <link rel="manifest" href="/static/site.webmanifest">
+
         /* Utility Classes */
         .text-center {
             text-align: center;
@@ -600,7 +602,6 @@
     </style>
 </head>
 <body>
-    <!-- Ваш HTML код остается без изменений -->
     <div class="container">
         <header class="header">
             <a href="/" class="logo">
@@ -617,6 +618,7 @@
             </nav>
         </header>
     </div>
+
     <div class="main-content">
         <div class="analysis-section">
             <div class="article-header">
@@ -639,6 +641,7 @@
                 <div id="analysisResults"></div>
             </div>
         </div>
+
         <div class="sidebar">
             <div class="glass-panel">
                 <div class="chart-section">
@@ -668,6 +671,7 @@
                     <span>Update Chart</span>
                 </button>
             </div>
+
             <div class="similar-articles">
                 <h2><i class="bi bi-link-45deg">🔗</i> Related News Articles</h2>
                 <div class="similar-article">
@@ -687,6 +691,7 @@
                     <p>The 2025 Press Freedom Index reveals significant shifts in global media landscapes. While Estonia continues to improve its press freedom rankings, the United States shows concerning declines. This analysis examines the factors behind these trends and their implications for democracy and journalism worldwide.</p>
                 </div>
             </div>
+
             <div class="analysis-history">
                 <h2><i class="bi bi-clock-history">⏳</i> Analysis History</h2>
                 <div id="historyContainer">
@@ -695,13 +700,14 @@
             </div>
         </div>
     </div>
+
     <footer class="footer">
         <div class="container">
             <p>© 2025 Media Credibility Index. All rights reserved.</p>
         </div>
     </footer>
+
     <script>
-        // Ваш JavaScript код остается без изменений
         // Локальная реализация Chart.js
         class SimpleChart {
             constructor(ctx, config) {
@@ -713,17 +719,20 @@
                 this.barWidth = 0;
                 this.init();
             }
+
             init() {
                 this.resize();
                 window.addEventListener('resize', () => this.resize());
                 this.render();
             }
+
             resize() {
                 const container = this.canvas.parentElement;
                 this.canvas.width = container.clientWidth;
                 this.canvas.height = container.clientHeight;
                 this.calculateBarWidth();
             }
+
             calculateBarWidth() {
                 const padding = 40;
                 const barCount = this.data.labels.length;
@@ -731,21 +740,27 @@
                 const availableWidth = this.canvas.width - 2 * padding;
                 this.barWidth = Math.min(maxBarWidth, Math.max(10, availableWidth / barCount - 10));
             }
+
             render() {
                 const ctx = this.ctx;
                 const data = this.data;
                 const width = this.canvas.width;
                 const height = this.canvas.height;
                 const padding = 40;
+
                 // Очистка canvas
                 ctx.clearRect(0, 0, width, height);
+
                 // Рисование осей
                 this.drawAxes(ctx, width, height, padding);
+
                 // Рисование столбцов
                 this.drawBars(ctx, width, height, padding);
+
                 // Рисование подписей к столбцам
                 this.drawBarLabels(ctx, width, height, padding);
             }
+
             drawAxes(ctx, width, height, padding) {
                 // Ось X
                 ctx.beginPath();
@@ -754,6 +769,7 @@
                 ctx.strokeStyle = '#e0e0e0';
                 ctx.lineWidth = 1;
                 ctx.stroke();
+
                 // Ось Y
                 ctx.beginPath();
                 ctx.moveTo(padding, padding);
@@ -761,6 +777,7 @@
                 ctx.strokeStyle = '#e0e0e0';
                 ctx.lineWidth = 1;
                 ctx.stroke();
+
                 // Подписи оси Y
                 for (let i = 0; i <= 1; i += 0.2) {
                     const y = height - padding - i * (height - 2 * padding);
@@ -770,19 +787,23 @@
                     ctx.fillText(i.toFixed(1), padding - 10, y + 5);
                 }
             }
+
             drawBars(ctx, width, height, padding) {
                 const dataset = this.data.datasets[0];
                 dataset.data.forEach((value, index) => {
                     const barHeight = value * (height - 2 * padding);
                     const x = padding + index * (this.barWidth + 10);
                     const y = height - padding - barHeight;
+
                     // Рисование столбца
                     ctx.fillStyle = dataset.backgroundColor[index];
                     ctx.fillRect(x, y, this.barWidth, barHeight);
+
                     // Рисование границы
                     ctx.strokeStyle = dataset.borderColor[index];
                     ctx.lineWidth = 1;
                     ctx.strokeRect(x, y, this.barWidth, barHeight);
+
                     // Подпись значения
                     ctx.fillStyle = '#000';
                     ctx.font = '10px Arial';
@@ -790,31 +811,39 @@
                     ctx.fillText(value.toFixed(2), x + this.barWidth / 2, y - 5);
                 });
             }
+
             drawBarLabels(ctx, width, height, padding) {
                 const dataset = this.data.datasets[0];
                 const labels = this.data.labels || [];
+
                 ctx.fillStyle = '#000';
                 ctx.font = '9px Arial';
                 ctx.textAlign = 'center';
+
                 dataset.data.forEach((value, index) => {
                     if (!labels[index]) return;
+
                     const x = padding + index * (this.barWidth + 10) + this.barWidth / 2;
                     const y = height - padding + 15;
+
                     // Разбиваем длинные названия на несколько строк
                     const label = labels[index];
                     const words = label.split(' ');
                     const lineHeight = 10;
                     let currentY = y;
+
                     words.forEach((word) => {
                         ctx.fillText(word, x, currentY);
                         currentY += lineHeight;
                     });
                 });
             }
+
             update() {
                 this.calculateBarWidth();
                 this.render();
             }
+
             destroy() {
                 this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
             }
@@ -865,9 +894,11 @@
         function initChart() {
             const canvas = document.getElementById('chart');
             const ctx = canvas.getContext('2d');
+
             if (chartInstance) {
                 chartInstance.destroy();
             }
+
             chartInstance = new SimpleChart(ctx, {
                 type: 'bar',
                 data: defaultChartData,
@@ -881,6 +912,7 @@
         // Функция для обновления графика
         function updateChart() {
             if (!chartInstance) return;
+
             const container = document.querySelector('.chart-scroll-container');
             const loadingHTML = `
             <div class="loading" style="
@@ -893,15 +925,19 @@
                 <p class="mt-10" style="color: var(--text-color); font-size: 0.8rem;">Updating...</p>
             </div>
             `;
+
             container.insertAdjacentHTML('afterbegin', loadingHTML);
+
             setTimeout(() => {
                 const loadingElement = container.querySelector('.loading');
                 if (loadingElement) {
                     loadingElement.remove();
                 }
+
                 const updatedData = defaultChartData.datasets[0].data.map(score => {
                     return Math.min(1, Math.max(0, score + (Math.random() - 0.5) * 0.1));
                 });
+
                 chartInstance.data.datasets[0].data = updatedData;
                 chartInstance.update();
             }, 800);
@@ -910,6 +946,7 @@
         // Обновленная функция для анализа статьи
         async function analyzeArticle() {
             const articleInput = document.getElementById('articleInput').value.trim();
+
             if (!articleInput) {
                 alert('Please enter article text or URL for analysis');
                 return;
@@ -951,6 +988,7 @@
                 }
 
                 const data = await response.json();
+
                 if (!response.ok) {
                     throw new Error(data.message || `Server error: ${response.status}`);
                 }
@@ -965,6 +1003,7 @@
 
                 currentTaskId = data.task_id;
                 console.log('Analysis started with task ID:', currentTaskId);
+
                 pollTaskStatus();
 
                 const permission = localStorage.getItem('analysisPermission');
@@ -1013,6 +1052,7 @@
 
             pollInterval = setInterval(async () => {
                 attempts++;
+
                 if (attempts > maxAttempts) {
                     clearInterval(pollInterval);
                     resultsContainer.innerHTML = `
@@ -1040,6 +1080,7 @@
                     }
 
                     const data = await response.json();
+
                     if (!data || typeof data !== 'object') {
                         throw new Error('Invalid response format from server');
                     }
@@ -1204,7 +1245,6 @@
             analysisHistory.forEach((item) => {
                 const date = new Date(item.timestamp);
                 const formattedDate = date.toLocaleString();
-
                 const historyItem = document.createElement('div');
                 historyItem.className = 'history-item';
                 historyItem.innerHTML = `
@@ -1214,7 +1254,6 @@
                 </div>
                 <span class="history-date">${formattedDate}</span>
                 `;
-
                 historyContainer.appendChild(historyItem);
             });
         }
